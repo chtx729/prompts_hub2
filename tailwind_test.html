@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TailwindCSS测试页面 - AI提示词宝库</title>
+    <meta name="description" content="使用TailwindCSS重构的AI提示词宝库首页">
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    
+    <script>
+        // TailwindCSS 配置
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#8b5cf6',
+                            600: '#7c3aed',
+                            700: '#6d28d9',
+                            800: '#5b21b6',
+                            900: '#4c1d95',
+                        },
+                        gray: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827',
+                        }
+                    },
+                    backdropBlur: {
+                        xs: '2px',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* 自定义动画 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        /* 渐变背景动画 */
+        .gradient-bg {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 8s ease infinite;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* 点状纹理 */
+        .dot-pattern {
+            background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        /* 毛玻璃效果 */
+        .glass-effect {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        
+        /* 悬停效果 */
+        .hover-lift {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter">
+    <!-- 导航栏 -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/80 glass-effect border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-magic text-white text-sm"></i>
+                    </div>
+                    <span class="text-xl font-bold text-gray-900">AI提示词宝库</span>
+                </div>
+                
+                <!-- 导航菜单 -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#" class="flex items-center space-x-2 text-primary-600 font-medium relative">
+                        <i class="fas fa-home text-sm"></i>
+                        <span>首页</span>
+                        <div class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-5 h-0.5 bg-primary-600 rounded-full"></div>
+                    </a>
+                    <a href="#" class="flex items-center space-x-2 text-gray-600 hover:text-primary-600 transition-colors">
+                        <i class="fas fa-user-circle text-sm"></i>
+                        <span>我的空间</span>
+                    </a>
+                </div>
+                
+                <!-- 认证按钮 -->
+                <div class="flex items-center space-x-3">
+                    <button class="px-4 py-2 text-gray-600 hover:text-primary-600 font-medium transition-colors">
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        登录
+                    </button>
+                    <button class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-colors">
+                        <i class="fas fa-user-plus mr-2"></i>
+                        注册
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="pt-16">
+        <!-- Hero搜索区域 -->
+        <section class="relative gradient-bg dot-pattern py-20 lg:py-32">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center animate-fade-in-up">
+                    <h1 class="text-4xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+                        发现最佳
+                        <span class="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
+                            AI提示词
+                        </span>
+                    </h1>
+                    <p class="text-xl text-purple-100 mb-12 max-w-2xl mx-auto">
+                        让您的AI更智能、更高效，探索无限可能
+                    </p>
+                    
+                    <!-- 搜索框 -->
+                    <div class="max-w-2xl mx-auto mb-8">
+                        <div class="relative bg-white/10 glass-effect rounded-2xl p-2">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 pl-4">
+                                    <i class="fas fa-search text-white/70"></i>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="搜索提示词..." 
+                                    class="flex-1 bg-transparent text-white placeholder-white/70 px-4 py-3 focus:outline-none text-lg"
+                                    id="search-input"
+                                >
+                                <button class="bg-white text-primary-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors">
+                                    搜索
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 筛选器 -->
+                    <div class="flex flex-wrap justify-center items-center gap-4 text-sm">
+                        <div class="flex items-center space-x-2 bg-white/10 glass-effect rounded-lg px-4 py-2">
+                            <label class="text-white/90 font-medium">分类：</label>
+                            <select class="bg-transparent text-white focus:outline-none">
+                                <option value="">全部分类</option>
+                                <option value="writing">写作</option>
+                                <option value="coding">编程</option>
+                                <option value="design">设计</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2 bg-white/10 glass-effect rounded-lg px-4 py-2">
+                            <label class="text-white/90 font-medium">排序：</label>
+                            <select class="bg-transparent text-white focus:outline-none">
+                                <option value="created_at">最新发布</option>
+                                <option value="view_count">浏览量</option>
+                                <option value="like_count">点赞量</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex items-center space-x-1 bg-white/10 glass-effect rounded-lg p-1">
+                            <button class="p-2 bg-white/20 text-white rounded-md">
+                                <i class="fas fa-th"></i>
+                            </button>
+                            <button class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 提示词列表区域 -->
+        <section class="py-16 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <!-- 提示词网格 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" id="prompts-container">
+                    <!-- 示例提示词卡片 -->
+                    <div class="bg-white rounded-2xl shadow-sm hover-lift border border-gray-200 overflow-hidden">
+                        <div class="p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center space-x-2">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-800">
+                                        <i class="fas fa-pen mr-1"></i>
+                                        写作
+                                    </span>
+                                </div>
+                                <div class="text-xs text-gray-500">2024-01-15</div>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                                创意写作助手
+                            </h3>
+                            <p class="text-gray-600 text-sm mb-4 line-clamp-3">
+                                帮助您创作引人入胜的故事和文章，提供创意灵感和写作技巧指导。
+                            </p>
+                            
+                            <!-- 统计信息 -->
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-4">
+                                <div class="flex items-center space-x-4">
+                                    <span class="flex items-center">
+                                        <i class="fas fa-eye mr-1"></i>
+                                        1.2k
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-copy mr-1"></i>
+                                        856
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-heart mr-1"></i>
+                                        234
+                                    </span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                    <span>4.8</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 操作按钮 -->
+                            <div class="flex space-x-2">
+                                <button class="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                                    <i class="fas fa-play mr-1"></i>
+                                    使用
+                                </button>
+                                <button class="px-3 py-2 text-gray-600 hover:text-primary-600 border border-gray-300 hover:border-primary-300 rounded-lg transition-colors">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="px-3 py-2 text-gray-600 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded-lg transition-colors">
+                                    <i class="fas fa-heart"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 更多示例卡片 -->
+                    <div class="bg-white rounded-2xl shadow-sm hover-lift border border-gray-200 overflow-hidden">
+                        <div class="p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                    <i class="fas fa-code mr-1"></i>
+                                    编程
+                                </span>
+                                <div class="text-xs text-gray-500">2024-01-14</div>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                代码优化专家
+                            </h3>
+                            <p class="text-gray-600 text-sm mb-4">
+                                分析和优化您的代码，提供性能改进建议和最佳实践指导。
+                            </p>
+                            
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-4">
+                                <div class="flex items-center space-x-4">
+                                    <span class="flex items-center">
+                                        <i class="fas fa-eye mr-1"></i>
+                                        2.1k
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-copy mr-1"></i>
+                                        1.5k
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-heart mr-1"></i>
+                                        567
+                                    </span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                    <span>4.9</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                                    <i class="fas fa-play mr-1"></i>
+                                    使用
+                                </button>
+                                <button class="px-3 py-2 text-gray-600 hover:text-primary-600 border border-gray-300 hover:border-primary-300 rounded-lg transition-colors">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="px-3 py-2 text-gray-600 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded-lg transition-colors">
+                                    <i class="fas fa-heart"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm hover-lift border border-gray-200 overflow-hidden">
+                        <div class="p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                                    <i class="fas fa-palette mr-1"></i>
+                                    设计
+                                </span>
+                                <div class="text-xs text-gray-500">2024-01-13</div>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                                UI设计顾问
+                            </h3>
+                            <p class="text-gray-600 text-sm mb-4">
+                                提供专业的UI/UX设计建议，帮助创建美观且用户友好的界面。
+                            </p>
+                            
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-4">
+                                <div class="flex items-center space-x-4">
+                                    <span class="flex items-center">
+                                        <i class="fas fa-eye mr-1"></i>
+                                        1.8k
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-copy mr-1"></i>
+                                        1.2k
+                                    </span>
+                                    <span class="flex items-center">
+                                        <i class="fas fa-heart mr-1"></i>
+                                        445
+                                    </span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-400 mr-1"></i>
+                                    <span>4.7</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 bg-primary-600 hover:bg-primary-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                                    <i class="fas fa-play mr-1"></i>
+                                    使用
+                                </button>
+                                <button class="px-3 py-2 text-gray-600 hover:text-primary-600 border border-gray-300 hover:border-primary-300 rounded-lg transition-colors">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="px-3 py-2 text-gray-600 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded-lg transition-colors">
+                                    <i class="fas fa-heart"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分页 -->
+                <div class="flex justify-center items-center space-x-2 mt-12">
+                    <button class="px-3 py-2 text-gray-500 hover:text-primary-600 disabled:opacity-50" disabled>
+                        <i class="fas fa-chevron-left mr-1"></i>
+                        上一页
+                    </button>
+                    
+                    <div class="flex space-x-1">
+                        <button class="w-10 h-10 bg-primary-600 text-white rounded-lg font-medium">1</button>
+                        <button class="w-10 h-10 text-gray-600 hover:bg-gray-100 rounded-lg">2</button>
+                        <button class="w-10 h-10 text-gray-600 hover:bg-gray-100 rounded-lg">3</button>
+                        <span class="w-10 h-10 flex items-center justify-center text-gray-400">...</span>
+                        <button class="w-10 h-10 text-gray-600 hover:bg-gray-100 rounded-lg">10</button>
+                    </div>
+                    
+                    <button class="px-3 py-2 text-gray-600 hover:text-primary-600">
+                        下一页
+                        <i class="fas fa-chevron-right ml-1"></i>
+                    </button>
+                </div>
+                
+                <div class="text-center text-sm text-gray-500 mt-4">
+                    显示第 1-9 条，共 89 条提示词
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 加载状态 -->
+    <div id="loading" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-white rounded-2xl p-8 flex items-center space-x-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            <span class="text-gray-700 font-medium">加载中...</span>
+        </div>
+    </div>
+
+    <script>
+        // 简单的交互效果
+        document.addEventListener('DOMContentLoaded', function() {
+            // 搜索功能
+            const searchInput = document.getElementById('search-input');
+            const searchBtn = document.querySelector('button[type="button"]');
+            
+            searchBtn.addEventListener('click', function() {
+                const query = searchInput.value.trim();
+                if (query) {
+                    console.log('搜索:', query);
+                    // 这里可以调用实际的搜索API
+                }
+            });
+            
+            // 回车搜索
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchBtn.click();
+                }
+            });
+            
+            // 卡片悬停效果增强
+            const cards = document.querySelectorAll('.hover-lift');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-8px)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                });
+            });
+            
+            console.log('TailwindCSS测试页面已加载');
+        });
+    </script>
+</body>
+</html>

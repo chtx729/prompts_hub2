@@ -1,0 +1,562 @@
+// API 接口管理
+class APIManager {
+    constructor() {
+        this.cache = new Map();
+        this.cacheTimeout = 5 * 60 * 1000; // 5分钟缓存
+    }
+
+    // 获取缓存键
+    getCacheKey(table, params) {
+        return `${table}_${JSON.stringify(params)}`;
+    }
+
+    // 检查缓存
+    getFromCache(key) {
+        const cached = this.cache.get(key);
+        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+            return cached.data;
+        }
+        this.cache.delete(key);
+        return null;
+    }
+
+    // 设置缓存
+    setCache(key, data) {
+        this.cache.set(key, {
+            data,
+            timestamp: Date.now()
+        });
+    }
+
+    // 清除缓存
+    clearCache(pattern = null) {
+        if (pattern) {
+            for (const key of this.cache.keys()) {
+                if (key.includes(pattern)) {
+                    this.cache.delete(key);
+                }
+            }
+        } else {
+            this.cache.clear();
+        }
+    }
+
+    // 获取分类列表
+    async getCategories() {
+        const cacheKey = this.getCacheKey('categories', {});
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            const { data, error } = await supabase
+                .from('categories')
+                .select('*')
+                .eq('is_active', true)
+                .order('sort_order');
+
+            if (error) throw error;
+
+            this.setCache(cacheKey, { success: true, data });
+            return { success: true, data };
+        } catch (error) {
+            console.error('获取分类失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 获取提示词列表
+    async getPrompts(params = {}) {
+        const {
+            page = 1,
+            pageSize = APP_CONFIG.pagination.defaultPageSize,
+            search = '',
+            category = '',
+            sortBy = 'created_at',
+            sortOrder = 'desc',
+            tags = [],
+            userId = null
+        } = params;
+
+        const cacheKey = this.getCacheKey('prompts', params);
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            let query = supabase
+                .from('prompts')
+                .select('*', { count: 'exact' });
+
+            // 基础过滤条件
+            if (!userId) {
+                // 首页：显示所有公开的已发布提示词
+                query = query.eq('status', 'published').eq('is_public', true);
+            } else {
+                // 用户空间：显示指定用户的提示词
+                query = query.eq('user_id', userId);
+            }
+
+            // 搜索条件
+            if (search) {
+                query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,content.ilike.%${search}%`);
+            }
+
+            // 分类过滤
+            if (category) {
+                query = query.eq('category_id', category);
+            }
+
+            // 标签过滤
+            if (tags.length > 0) {
+                query = query.overlaps('tags', tags);
+            }
+
+            // 排序
+            query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+            // 分页
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            query = query.range(from, to);
+
+            const { data, error, count } = await query;
+            console.log("data", data);
+
+            if (error) throw error;
+
+            // 手动关联分类信息
+            if (data && data.length > 0) {
+                const categoryIds = [...new Set(data.map(p => p.category_id).filter(id => id))];
+                if (categoryIds.length > 0) {
+                    const { data: categories } = await supabase
+                        .from('categories')
+                        .select('category_id, name, slug, icon, color')
+                        .in('category_id', categoryIds);
+
+                    if (categories) {
+                        const categoryMap = {};
+                        categories.forEach(cat => {
+                            categoryMap[cat.category_id] = cat;
+                        });
+
+                        // 为每个提示词添加分类信息
+                        data.forEach(prompt => {
+                            if (prompt.category_id && categoryMap[prompt.category_id]) {
+                                prompt.categories = categoryMap[prompt.category_id];
+                            }
+                        });
+                    }
+                }
+            }
+
+            const result = {
+                success: true,
+                data,
+                pagination: {
+                    page,
+                    pageSize,
+                    total: count,
+                    totalPages: Math.ceil(count / pageSize)
+                }
+            };
+
+            this.setCache(cacheKey, result);
+            return result;
+        } catch (error) {
+            console.error('获取提示词失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 获取单个提示词详情
+    async getPrompt(id) {
+        const cacheKey = this.getCacheKey('prompt', { id });
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            const { data, error } = await supabase
+                .from('prompts')
+                .select(`
+                    *,
+                    categories(name, slug, icon, color),
+                    users(username, avatar_url)
+                `)
+                .eq('prompt_id', id)
+                .single();
+
+            if (error) throw error;
+
+            // 处理数据格式
+            if (data) {
+                // 处理作者信息
+                if (data.users) {
+                    data.author_name = data.users.username;
+                    data.author_avatar = data.users.avatar_url;
+                }
+
+                // 处理分类信息
+                if (data.categories) {
+                    data.category_name = data.categories.name;
+                }
+            }
+
+            this.setCache(cacheKey, { success: true, data });
+            return { success: true, data };
+        } catch (error) {
+            console.error('获取提示词详情失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 获取我的提示词列表
+    async getMyPrompts(params = {}) {
+        const userId = authManager.getCurrentUser()?.id;
+        if (!userId) {
+            return { success: false, error: '请先登录' };
+        }
+
+        const {
+            page = 1,
+            pageSize = APP_CONFIG.pagination.defaultPageSize,
+            search = '',
+            category = '',
+            sortBy = 'created_at',
+            sortOrder = 'desc'
+        } = params;
+
+        const cacheKey = this.getCacheKey('my-prompts', params);
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            let query = supabase
+                .from('prompts')
+                .select(`
+                    *,
+                    categories(name, slug, icon, color),
+                    users(username, avatar_url)
+                `, { count: 'exact' })
+                .eq('user_id', userId);
+
+            // 搜索过滤
+            if (search) {
+                query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,content.ilike.%${search}%`);
+            }
+
+            // 分类过滤
+            if (category) {
+                query = query.eq('category_id', category);
+            }
+
+            // 排序
+            query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+            // 分页
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            query = query.range(from, to);
+
+            const { data, error, count } = await query;
+
+            if (error) throw error;
+
+            // 处理数据格式
+            const processedData = data.map(item => {
+                // 处理作者信息
+                if (item.users) {
+                    item.author_name = item.users.username;
+                    item.author_avatar = item.users.avatar_url;
+                }
+
+                // 处理分类信息
+                if (item.categories) {
+                    item.category_name = item.categories.name;
+                }
+
+                return item;
+            });
+
+            const result = {
+                success: true,
+                data: processedData,
+                pagination: {
+                    page,
+                    pageSize,
+                    total: count,
+                    totalPages: Math.ceil(count / pageSize)
+                }
+            };
+
+            this.setCache(cacheKey, result);
+            return result;
+        } catch (error) {
+            console.error('获取我的提示词失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 创建提示词
+    async createPrompt(promptData) {
+        try {
+            const { data, error } = await supabase
+                .from('prompts')
+                .insert([{
+                    ...promptData,
+                    user_id: authManager.getCurrentUser()?.id,
+                    slug: this.generateSlug(promptData.title),
+                    status: 'published',
+                    published_at: new Date().toISOString()
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            this.clearCache('prompts');
+            return { success: true, data };
+        } catch (error) {
+            console.error('创建提示词失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 更新提示词
+    async updatePrompt(id, promptData) {
+        try {
+            const { data, error } = await supabase
+                .from('prompts')
+                .update({
+                    ...promptData,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('prompt_id', id)
+                .eq('user_id', authManager.getCurrentUser()?.id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            this.clearCache('prompts');
+            this.clearCache('prompt');
+            return { success: true, data };
+        } catch (error) {
+            console.error('更新提示词失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 删除提示词
+    async deletePrompt(id) {
+        try {
+            const { error } = await supabase
+                .from('prompts')
+                .delete()
+                .eq('prompt_id', id)
+                .eq('user_id', authManager.getCurrentUser()?.id);
+
+            if (error) throw error;
+
+            this.clearCache('prompts');
+            this.clearCache('prompt');
+            return { success: true };
+        } catch (error) {
+            console.error('删除提示词失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 点赞/取消点赞
+    async toggleLike(promptId) {
+        const userId = authManager.getCurrentUser()?.id;
+        if (!userId) return { success: false, error: '请先登录' };
+
+        // 验证userId是否为有效的UUID格式
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(userId)) {
+            console.error('用户ID不是有效的UUID格式:', userId);
+            return { success: false, error: '用户身份验证失败' };
+        }
+
+        try {
+            // 检查是否已点赞
+            const { data: existingLike } = await supabase
+                .from('user_likes')
+                .select('like_id')
+                .eq('user_id', userId)
+                .eq('prompt_id', promptId)
+                .single();
+
+            if (existingLike) {
+                // 取消点赞
+                const { error } = await supabase
+                    .from('user_likes')
+                    .delete()
+                    .eq('like_id', existingLike.like_id);
+
+                if (error) throw error;
+                return { success: true, liked: false };
+            } else {
+                // 添加点赞
+                const { error } = await supabase
+                    .from('user_likes')
+                    .insert([{ user_id: userId, prompt_id: promptId }]);
+
+                if (error) throw error;
+                return { success: true, liked: true };
+            }
+        } catch (error) {
+            console.error('点赞操作失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 收藏/取消收藏
+    async toggleFavorite(promptId) {
+        const userId = authManager.getCurrentUser()?.id;
+        if (!userId) return { success: false, error: '请先登录' };
+
+        // 验证userId是否为有效的UUID格式
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(userId)) {
+            console.error('用户ID不是有效的UUID格式:', userId);
+            return { success: false, error: '用户身份验证失败' };
+        }
+
+        try {
+            // 检查是否已收藏
+            const { data: existingFavorite } = await supabase
+                .from('user_favorites')
+                .select('favorite_id')
+                .eq('user_id', userId)
+                .eq('prompt_id', promptId)
+                .single();
+
+            if (existingFavorite) {
+                // 取消收藏
+                const { error } = await supabase
+                    .from('user_favorites')
+                    .delete()
+                    .eq('favorite_id', existingFavorite.favorite_id);
+
+                if (error) throw error;
+                return { success: true, favorited: false };
+            } else {
+                // 添加收藏
+                const { error } = await supabase
+                    .from('user_favorites')
+                    .insert([{ user_id: userId, prompt_id: promptId }]);
+
+                if (error) throw error;
+                return { success: true, favorited: true };
+            }
+        } catch (error) {
+            console.error('收藏操作失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 记录使用日志
+    async logUsage(promptId, actionType = 'use') {
+        try {
+            const userId = authManager.getCurrentUser()?.id;
+
+            // 如果用户未登录或userId无效，仍然记录日志但user_id为null
+            let validUserId = null;
+            if (userId) {
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                if (uuidRegex.test(userId)) {
+                    validUserId = userId;
+                } else {
+                    console.warn('用户ID不是有效的UUID格式，记录匿名使用日志:', userId);
+                }
+            }
+
+            const { error } = await supabase
+                .from('usage_logs')
+                .insert([{
+                    user_id: validUserId,
+                    prompt_id: promptId,
+                    action_type: actionType
+                }]);
+
+            if (error) throw error;
+
+            // 更新使用计数
+            if (actionType === 'use' || actionType === 'copy') {
+                await supabase.rpc('increment_use_count', { prompt_id: promptId });
+            } else if (actionType === 'view') {
+                await supabase.rpc('increment_view_count', { prompt_id: promptId });
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('记录使用日志失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 生成 slug
+    generateSlug(title) {
+        return title
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/[\s_-]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            + '-' + Date.now();
+    }
+
+    // 获取用户的点赞和收藏状态
+    async getUserInteractions(promptIds) {
+        const userId = authManager.getCurrentUser()?.id;
+        if (!userId || !promptIds.length) {
+            return { success: true, data: { likes: [], favorites: [] } };
+        }
+
+        // 验证userId是否为有效的UUID格式
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(userId)) {
+            console.warn('用户ID不是有效的UUID格式:', userId);
+            return { success: true, data: { likes: [], favorites: [] } };
+        }
+
+        try {
+            const [likesResult, favoritesResult] = await Promise.all([
+                supabase
+                    .from('user_likes')
+                    .select('prompt_id')
+                    .eq('user_id', userId)
+                    .in('prompt_id', promptIds),
+                supabase
+                    .from('user_favorites')
+                    .select('prompt_id')
+                    .eq('user_id', userId)
+                    .in('prompt_id', promptIds)
+            ]);
+
+            if (likesResult.error) {
+                console.error('查询点赞状态失败:', likesResult.error);
+                return { success: true, data: { likes: [], favorites: [] } };
+            }
+
+            if (favoritesResult.error) {
+                console.error('查询收藏状态失败:', favoritesResult.error);
+                return { success: true, data: { likes: [], favorites: [] } };
+            }
+
+            return {
+                success: true,
+                data: {
+                    likes: likesResult.data?.map(item => item.prompt_id) || [],
+                    favorites: favoritesResult.data?.map(item => item.prompt_id) || []
+                }
+            };
+        } catch (error) {
+            console.error('获取用户交互状态失败:', error);
+            // 即使获取交互状态失败，也不应该影响主要功能
+            return { success: true, data: { likes: [], favorites: [] } };
+        }
+    }
+}
+
+// 创建全局 API 管理器实例
+const apiManager = new APIManager();

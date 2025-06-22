@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>媒体上传功能测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .demo-form {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .storage-info {
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-3) 0;
+        }
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-3);
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2);
+            margin: var(--space-1) 0;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .file-preview {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>📸 媒体上传功能测试</h1>
+    <p>此工具用于测试提示词参考图片上传功能。</p>
+
+    <div class="test-section">
+        <h3>📊 当前状态</h3>
+        <div>
+            <strong>登录状态：</strong>
+            <span id="login-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>Storage连接：</strong>
+            <span id="storage-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>Media存储桶：</strong>
+            <span id="bucket-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 上传功能测试</h3>
+        <div class="demo-form">
+            <div class="form-group">
+                <label for="test-media">测试图片上传</label>
+                <div class="media-upload-container">
+                    <div class="media-upload-area" id="test-upload-area">
+                        <div class="upload-placeholder">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>点击或拖拽图片到此处上传</p>
+                            <p class="upload-hint">支持 JPG、PNG、GIF 格式，最大 5MB</p>
+                        </div>
+                        <input type="file" id="test-media" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="media-preview-container" id="test-preview-container" style="display: none;">
+                        <div class="media-preview">
+                            <img id="test-preview-img" src="" alt="预览图片">
+                            <div class="media-actions">
+                                <button type="button" class="btn btn-sm btn-outline" onclick="changeTestMedia()">
+                                    <i class="fas fa-edit"></i>
+                                    更换
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline btn-danger" onclick="removeTestMedia()">
+                                    <i class="fas fa-trash"></i>
+                                    删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="testUpload()">测试上传</button>
+            <button onclick="clearTestResults()">清空结果</button>
+        </div>
+        <div id="upload-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📁 Storage管理</h3>
+        <button onclick="listStorageFiles()">查看存储文件</button>
+        <button onclick="checkStorageQuota()">检查存储配额</button>
+        <button onclick="cleanupTestFiles()">清理测试文件</button>
+        <div id="storage-results"></div>
+        <div id="file-list" class="file-list" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔗 URL测试</h3>
+        <button onclick="testPublicUrls()">测试公共URL</button>
+        <div id="url-test-results"></div>
+    </div>
+
+    <script>
+        let currentTestFile = null;
+        let uploadedTestUrl = null;
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function clearTestResults() {
+            clearResults('upload-test-results');
+        }
+
+        function updateStatus() {
+            const loginStatus = document.getElementById('login-status');
+            const storageStatus = document.getElementById('storage-status');
+            const bucketStatus = document.getElementById('bucket-status');
+            
+            // 检查登录状态
+            if (window.authManager && authManager.isAuthenticated()) {
+                loginStatus.textContent = '已登录';
+                loginStatus.style.color = 'var(--success-color)';
+            } else {
+                loginStatus.textContent = '未登录';
+                loginStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查Storage连接
+            if (window.supabase) {
+                storageStatus.textContent = '已连接';
+                storageStatus.style.color = 'var(--success-color)';
+            } else {
+                storageStatus.textContent = '未连接';
+                storageStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查Media存储桶
+            checkBucketStatus();
+        }
+
+        async function checkBucketStatus() {
+            const bucketStatus = document.getElementById('bucket-status');
+            
+            try {
+                const { data, error } = await supabase.storage.getBucket('media');
+                
+                if (error) {
+                    bucketStatus.textContent = '不存在或无权限';
+                    bucketStatus.style.color = 'var(--error-color)';
+                } else {
+                    bucketStatus.textContent = '可访问';
+                    bucketStatus.style.color = 'var(--success-color)';
+                }
+            } catch (error) {
+                bucketStatus.textContent = '检查失败';
+                bucketStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        // 绑定测试上传事件
+        function bindTestUploadEvents() {
+            const uploadArea = document.getElementById('test-upload-area');
+            const fileInput = document.getElementById('test-media');
+
+            if (!uploadArea || !fileInput) return;
+
+            uploadArea.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleTestFile(file);
+                }
+            });
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleTestFile(files[0]);
+                }
+            });
+        }
+
+        function handleTestFile(file) {
+            if (!file.type.startsWith('image/')) {
+                addResult('upload-test-results', 'warning', '文件类型错误', '请选择图片文件');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                addResult('upload-test-results', 'warning', '文件过大', '图片大小不能超过 5MB');
+                return;
+            }
+
+            currentTestFile = file;
+            showTestPreview(file);
+            addResult('upload-test-results', 'success', '文件选择成功', `文件名: ${file.name}\n大小: ${(file.size / 1024 / 1024).toFixed(2)} MB\n类型: ${file.type}`);
+        }
+
+        function showTestPreview(file) {
+            const uploadArea = document.getElementById('test-upload-area');
+            const previewContainer = document.getElementById('test-preview-container');
+            const previewImg = document.getElementById('test-preview-img');
+
+            const previewUrl = URL.createObjectURL(file);
+            previewImg.src = previewUrl;
+
+            uploadArea.style.display = 'none';
+            previewContainer.style.display = 'block';
+        }
+
+        function changeTestMedia() {
+            const fileInput = document.getElementById('test-media');
+            if (fileInput) {
+                fileInput.click();
+            }
+        }
+
+        function removeTestMedia() {
+            const uploadArea = document.getElementById('test-upload-area');
+            const previewContainer = document.getElementById('test-preview-container');
+            const previewImg = document.getElementById('test-preview-img');
+            const fileInput = document.getElementById('test-media');
+
+            if (uploadArea) uploadArea.style.display = 'block';
+            if (previewContainer) previewContainer.style.display = 'none';
+            if (previewImg) {
+                URL.revokeObjectURL(previewImg.src);
+                previewImg.src = '';
+            }
+            if (fileInput) fileInput.value = '';
+
+            currentTestFile = null;
+            addResult('upload-test-results', 'info', '文件已移除', '已清空选择的文件');
+        }
+
+        async function testUpload() {
+            if (!currentTestFile) {
+                addResult('upload-test-results', 'warning', '没有文件', '请先选择要上传的图片');
+                return;
+            }
+
+            if (!authManager.isAuthenticated()) {
+                addResult('upload-test-results', 'error', '未登录', '请先登录后再测试上传');
+                return;
+            }
+
+            try {
+                addResult('upload-test-results', 'info', '开始上传', '正在上传文件到Supabase Storage...');
+
+                const fileExt = currentTestFile.name.split('.').pop();
+                const fileName = `test_${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+                const filePath = `prompts/${fileName}`;
+
+                const { data, error } = await supabase.storage
+                    .from('media')
+                    .upload(filePath, currentTestFile);
+
+                if (error) {
+                    throw error;
+                }
+
+                const { data: urlData } = supabase.storage
+                    .from('media')
+                    .getPublicUrl(filePath);
+
+                uploadedTestUrl = urlData.publicUrl;
+
+                addResult('upload-test-results', 'success', '上传成功', `文件路径: ${filePath}\n公共URL: ${uploadedTestUrl}`);
+
+                // 测试URL可访问性
+                testImageUrl(uploadedTestUrl);
+
+            } catch (error) {
+                addResult('upload-test-results', 'error', '上传失败', error.message);
+            }
+        }
+
+        function testImageUrl(url) {
+            const img = new Image();
+            img.onload = () => {
+                addResult('upload-test-results', 'success', 'URL测试成功', `图片可以正常访问\n尺寸: ${img.width} x ${img.height}`);
+            };
+            img.onerror = () => {
+                addResult('upload-test-results', 'error', 'URL测试失败', '图片无法访问，可能是权限问题');
+            };
+            img.src = url;
+        }
+
+        async function listStorageFiles() {
+            clearResults('storage-results');
+            
+            try {
+                addResult('storage-results', 'info', '查询文件', '正在获取存储文件列表...');
+
+                const { data, error } = await supabase.storage
+                    .from('media')
+                    .list('prompts', {
+                        limit: 50,
+                        sortBy: { column: 'created_at', order: 'desc' }
+                    });
+
+                if (error) {
+                    throw error;
+                }
+
+                addResult('storage-results', 'success', '查询成功', `找到 ${data.length} 个文件`);
+
+                const fileList = document.getElementById('file-list');
+                fileList.innerHTML = '';
+                fileList.style.display = 'block';
+
+                data.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    const { data: urlData } = supabase.storage
+                        .from('media')
+                        .getPublicUrl(`prompts/${file.name}`);
+
+                    fileItem.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: var(--space-2);">
+                            <img src="${urlData.publicUrl}" alt="${file.name}" class="file-preview" onerror="this.style.display='none'">
+                            <div>
+                                <div><strong>${file.name}</strong></div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">
+                                    大小: ${(file.metadata?.size / 1024 / 1024).toFixed(2)} MB
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="deleteFile('prompts/${file.name}')" class="btn btn-sm btn-danger">删除</button>
+                    `;
+                    fileList.appendChild(fileItem);
+                });
+
+            } catch (error) {
+                addResult('storage-results', 'error', '查询失败', error.message);
+            }
+        }
+
+        async function deleteFile(filePath) {
+            if (!confirm('确定要删除这个文件吗？')) return;
+
+            try {
+                const { error } = await supabase.storage
+                    .from('media')
+                    .remove([filePath]);
+
+                if (error) {
+                    throw error;
+                }
+
+                addResult('storage-results', 'success', '删除成功', `已删除文件: ${filePath}`);
+                listStorageFiles(); // 刷新列表
+
+            } catch (error) {
+                addResult('storage-results', 'error', '删除失败', error.message);
+            }
+        }
+
+        async function checkStorageQuota() {
+            clearResults('storage-results');
+            
+            try {
+                addResult('storage-results', 'info', '检查配额', '正在检查存储配额...');
+
+                // 获取所有文件
+                const { data, error } = await supabase.storage
+                    .from('media')
+                    .list('', { limit: 1000 });
+
+                if (error) {
+                    throw error;
+                }
+
+                let totalSize = 0;
+                let fileCount = 0;
+
+                const calculateSize = async (prefix = '') => {
+                    const { data: files } = await supabase.storage
+                        .from('media')
+                        .list(prefix);
+
+                    for (const file of files) {
+                        if (file.metadata?.size) {
+                            totalSize += file.metadata.size;
+                            fileCount++;
+                        }
+                    }
+                };
+
+                await calculateSize('prompts');
+
+                addResult('storage-results', 'success', '配额检查完成', `
+文件数量: ${fileCount}
+总大小: ${(totalSize / 1024 / 1024).toFixed(2)} MB
+平均大小: ${fileCount > 0 ? (totalSize / fileCount / 1024).toFixed(2) : 0} KB
+                `);
+
+            } catch (error) {
+                addResult('storage-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function cleanupTestFiles() {
+            if (!confirm('确定要清理所有测试文件吗？这将删除所有以"test_"开头的文件。')) return;
+
+            try {
+                addResult('storage-results', 'info', '清理文件', '正在清理测试文件...');
+
+                const { data, error } = await supabase.storage
+                    .from('media')
+                    .list('prompts');
+
+                if (error) {
+                    throw error;
+                }
+
+                const testFiles = data.filter(file => file.name.startsWith('test_'));
+                const filePaths = testFiles.map(file => `prompts/${file.name}`);
+
+                if (filePaths.length === 0) {
+                    addResult('storage-results', 'info', '没有测试文件', '没有找到需要清理的测试文件');
+                    return;
+                }
+
+                const { error: deleteError } = await supabase.storage
+                    .from('media')
+                    .remove(filePaths);
+
+                if (deleteError) {
+                    throw deleteError;
+                }
+
+                addResult('storage-results', 'success', '清理完成', `已删除 ${filePaths.length} 个测试文件`);
+
+            } catch (error) {
+                addResult('storage-results', 'error', '清理失败', error.message);
+            }
+        }
+
+        async function testPublicUrls() {
+            clearResults('url-test-results');
+            
+            if (!uploadedTestUrl) {
+                addResult('url-test-results', 'warning', '没有测试URL', '请先上传一个测试文件');
+                return;
+            }
+
+            addResult('url-test-results', 'info', '测试URL', `正在测试: ${uploadedTestUrl}`);
+
+            // 测试直接访问
+            try {
+                const response = await fetch(uploadedTestUrl);
+                if (response.ok) {
+                    addResult('url-test-results', 'success', 'HTTP访问成功', `状态码: ${response.status}\n内容类型: ${response.headers.get('content-type')}`);
+                } else {
+                    addResult('url-test-results', 'error', 'HTTP访问失败', `状态码: ${response.status}`);
+                }
+            } catch (error) {
+                addResult('url-test-results', 'error', 'HTTP访问异常', error.message);
+            }
+
+            // 测试图片加载
+            testImageUrl(uploadedTestUrl);
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                bindTestUploadEvents();
+                
+                // 定期更新状态
+                setInterval(updateStatus, 10000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

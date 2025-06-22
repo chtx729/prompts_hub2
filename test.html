@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI提示词宝库 - 配置测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-item {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .success {
+            background: #f0fdf4;
+            border-color: #22c55e;
+            color: #166534;
+        }
+        .error {
+            background: #fef2f2;
+            border-color: #ef4444;
+            color: #dc2626;
+        }
+        .warning {
+            background: #fffbeb;
+            border-color: #f59e0b;
+            color: #d97706;
+        }
+        .info {
+            background: #f0f9ff;
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover {
+            background: #4338ca;
+        }
+        pre {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+        .status {
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>🧪 AI提示词宝库 - 配置测试</h1>
+    <p>此页面帮助您验证应用配置是否正确。请按顺序进行测试。</p>
+
+    <div id="test-results">
+        <div class="test-item info">
+            <div class="status">📋</div>
+            <strong>测试说明</strong><br>
+            点击下方按钮依次测试各项配置。确保所有测试都通过后再使用主应用。
+        </div>
+    </div>
+
+    <div style="margin: 2rem 0;">
+        <button onclick="testSupabaseConnection()">1. 测试 Supabase 连接</button>
+        <button onclick="testDatabaseTables()">2. 测试数据库表</button>
+        <button onclick="testAuthentication()">3. 测试用户认证</button>
+        <button onclick="testAPI()">4. 测试 API 功能</button>
+        <button onclick="runAllTests()">🚀 运行所有测试</button>
+    </div>
+
+    <div class="test-item info">
+        <h3>📝 配置检查清单</h3>
+        <ul>
+            <li>✅ 已创建 Supabase 项目</li>
+            <li>✅ 已执行 <code>tables_sql.txt</code> 中的 SQL 语句</li>
+            <li>✅ 已复制 <code>config.example.js</code> 为 <code>js/config.js</code></li>
+            <li>✅ 已在 <code>js/config.js</code> 中填入正确的 Supabase URL 和 API Key</li>
+            <li>✅ 已通过 HTTP 服务器运行应用（不是直接打开文件）</li>
+        </ul>
+    </div>
+
+    <script>
+        let testResults = [];
+
+        function addTestResult(name, status, message, details = '') {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-item ${status}`;
+            
+            const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⚠️';
+            
+            div.innerHTML = `
+                <div class="status">${statusIcon}</div>
+                <strong>${name}</strong><br>
+                ${message}
+                ${details ? `<pre>${details}</pre>` : ''}
+            `;
+            
+            container.appendChild(div);
+            testResults.push({ name, status, message });
+        }
+
+        async function testSupabaseConnection() {
+            try {
+                // 尝试加载配置
+                const response = await fetch('js/config.js');
+                const configText = await response.text();
+                
+                if (configText.includes('YOUR_SUPABASE_URL') || configText.includes('your-project')) {
+                    addTestResult(
+                        'Supabase 连接测试',
+                        'error',
+                        '配置文件未正确设置',
+                        '请在 js/config.js 中填入正确的 Supabase URL 和 API Key'
+                    );
+                    return;
+                }
+
+                // 检查 supabase 对象是否存在
+                if (typeof window.supabase === 'undefined') {
+                    addTestResult(
+                        'Supabase 连接测试',
+                        'error',
+                        'Supabase 库未加载',
+                        '请确保网络连接正常，Supabase CDN 可以访问'
+                    );
+                    return;
+                }
+
+                addTestResult(
+                    'Supabase 连接测试',
+                    'success',
+                    'Supabase 库加载成功，配置文件已更新'
+                );
+
+            } catch (error) {
+                addTestResult(
+                    'Supabase 连接测试',
+                    'error',
+                    '连接测试失败',
+                    error.message
+                );
+            }
+        }
+
+        async function testDatabaseTables() {
+            try {
+                // 这里需要实际的 supabase 客户端
+                // 由于配置在另一个文件中，我们只能做基本检查
+                addTestResult(
+                    '数据库表测试',
+                    'warning',
+                    '请手动验证数据库表',
+                    '在 Supabase 控制台中检查以下表是否存在：\n- users\n- categories\n- prompts\n- user_likes\n- user_favorites\n- user_ratings\n- comments\n- usage_logs\n- system_configs'
+                );
+            } catch (error) {
+                addTestResult(
+                    '数据库表测试',
+                    'error',
+                    '数据库测试失败',
+                    error.message
+                );
+            }
+        }
+
+        async function testAuthentication() {
+            addTestResult(
+                '用户认证测试',
+                'info',
+                '认证功能需要在主应用中测试',
+                '请在主应用中尝试注册和登录功能'
+            );
+        }
+
+        async function testAPI() {
+            addTestResult(
+                'API 功能测试',
+                'info',
+                'API 功能需要在主应用中测试',
+                '请在主应用中尝试浏览提示词、搜索等功能'
+            );
+        }
+
+        async function runAllTests() {
+            // 清空之前的结果
+            const container = document.getElementById('test-results');
+            container.innerHTML = `
+                <div class="test-item info">
+                    <div class="status">🧪</div>
+                    <strong>正在运行所有测试...</strong><br>
+                    请稍候，测试结果将显示在下方。
+                </div>
+            `;
+
+            await testSupabaseConnection();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testDatabaseTables();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testAuthentication();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testAPI();
+
+            // 显示总结
+            const successCount = testResults.filter(r => r.status === 'success').length;
+            const errorCount = testResults.filter(r => r.status === 'error').length;
+            const warningCount = testResults.filter(r => r.status === 'warning').length;
+
+            let summaryStatus = 'success';
+            let summaryMessage = '所有测试完成！';
+
+            if (errorCount > 0) {
+                summaryStatus = 'error';
+                summaryMessage = `发现 ${errorCount} 个错误，请修复后重试`;
+            } else if (warningCount > 0) {
+                summaryStatus = 'warning';
+                summaryMessage = `有 ${warningCount} 个警告，请检查相关配置`;
+            }
+
+            addTestResult(
+                '测试总结',
+                summaryStatus,
+                summaryMessage,
+                `成功: ${successCount}, 警告: ${warningCount}, 错误: ${errorCount}`
+            );
+
+            if (errorCount === 0) {
+                addTestResult(
+                    '下一步',
+                    'success',
+                    '配置验证完成，可以开始使用主应用',
+                    '访问 index.html 开始使用 AI提示词宝库'
+                );
+            }
+        }
+
+        // 页面加载时显示欢迎信息
+        window.addEventListener('load', () => {
+            addTestResult(
+                '欢迎使用配置测试工具',
+                'info',
+                '此工具将帮助您验证 AI提示词宝库 的配置是否正确'
+            );
+        });
+    </script>
+</body>
+</html>

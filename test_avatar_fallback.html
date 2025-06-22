@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>头像回退机制测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .avatar-test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .avatar-test-item {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            text-align: center;
+        }
+        .avatar-test-item img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+            margin-bottom: var(--space-2);
+        }
+        .avatar-status {
+            font-size: 12px;
+            margin-top: var(--space-2);
+            padding: var(--space-1);
+            border-radius: var(--radius-sm);
+        }
+        .status-loading { background: #fef3c7; color: #92400e; }
+        .status-success { background: #dcfce7; color: #166534; }
+        .status-error { background: #fecaca; color: #dc2626; }
+        .config-display {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: var(--space-3) 0;
+        }
+        .url-list {
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-3);
+            margin: var(--space-3) 0;
+        }
+        .url-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2);
+            margin: var(--space-1) 0;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .url-status {
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 600;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>🔄 头像回退机制测试</h1>
+    <p>此工具用于测试新的默认头像和多重回退机制。</p>
+
+    <div class="test-section">
+        <h3>📊 当前配置</h3>
+        <div>
+            <strong>主要默认头像：</strong>
+            <span id="primary-avatar-url"></span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>备用头像数量：</strong>
+            <span id="fallback-count"></span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>回退机制：</strong>
+            <span id="fallback-enabled"></span>
+        </div>
+        
+        <div class="config-display" id="config-display">
+            加载配置中...
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 头像服务可用性测试</h3>
+        <button onclick="testAvatarServices()">测试所有头像服务</button>
+        <button onclick="clearServiceTests()">清空测试结果</button>
+        <div id="service-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 回退机制演示</h3>
+        <button onclick="testFallbackMechanism()">测试回退机制</button>
+        <button onclick="testWithDifferentUsers()">测试不同用户名</button>
+        <div id="fallback-test-results"></div>
+        <div id="fallback-demo" class="avatar-test-grid"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>⚡ 实时头像加载测试</h3>
+        <button onclick="testRealTimeLoading()">实时加载测试</button>
+        <div id="realtime-results"></div>
+        <div id="realtime-demo" class="avatar-test-grid"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function updateConfigDisplay() {
+            document.getElementById('primary-avatar-url').textContent = APP_CONFIG.defaultAvatar;
+            document.getElementById('fallback-count').textContent = APP_CONFIG.fallbackAvatars.length;
+            document.getElementById('fallback-enabled').textContent = typeof APP_CONFIG.loadAvatarWithFallback === 'function' ? '已启用' : '未启用';
+            
+            const configDisplay = document.getElementById('config-display');
+            configDisplay.innerHTML = `
+// 当前头像配置
+defaultAvatar: "${APP_CONFIG.defaultAvatar}"
+
+fallbackAvatars: [
+${APP_CONFIG.fallbackAvatars.map(url => `    "${url}"`).join(',\n')}
+]
+
+loadAvatarWithFallback: ${typeof APP_CONFIG.loadAvatarWithFallback === 'function' ? '已定义' : '未定义'}
+            `;
+        }
+
+        async function testAvatarServices() {
+            clearResults('service-test-results');
+            
+            const allUrls = [
+                { name: '主要默认头像', url: APP_CONFIG.defaultAvatar },
+                ...APP_CONFIG.fallbackAvatars.map((url, index) => ({ 
+                    name: `备用头像 ${index + 1}`, 
+                    url: url 
+                }))
+            ];
+
+            addResult('service-test-results', 'info', '开始测试', `正在测试 ${allUrls.length} 个头像服务...`);
+
+            const urlList = document.createElement('div');
+            urlList.className = 'url-list';
+            
+            for (const item of allUrls) {
+                const urlItem = document.createElement('div');
+                urlItem.className = 'url-item';
+                urlItem.innerHTML = `
+                    <div>
+                        <strong>${item.name}</strong><br>
+                        <small>${item.url.substring(0, 60)}${item.url.length > 60 ? '...' : ''}</small>
+                    </div>
+                    <div class="url-status status-loading" id="status-${allUrls.indexOf(item)}">测试中...</div>
+                `;
+                urlList.appendChild(urlItem);
+
+                // 测试URL可用性
+                const img = new Image();
+                const index = allUrls.indexOf(item);
+                
+                img.onload = () => {
+                    const statusEl = document.getElementById(`status-${index}`);
+                    statusEl.textContent = '可用';
+                    statusEl.className = 'url-status status-success';
+                };
+                
+                img.onerror = () => {
+                    const statusEl = document.getElementById(`status-${index}`);
+                    statusEl.textContent = '不可用';
+                    statusEl.className = 'url-status status-error';
+                };
+                
+                img.src = item.url;
+            }
+            
+            document.getElementById('service-test-results').appendChild(urlList);
+        }
+
+        function clearServiceTests() {
+            clearResults('service-test-results');
+        }
+
+        function testFallbackMechanism() {
+            clearResults('fallback-test-results');
+            clearResults('fallback-demo');
+            
+            addResult('fallback-test-results', 'info', '测试回退机制', '正在测试头像加载回退...');
+
+            const testCases = [
+                { name: '正常头像', url: 'https://i.pravatar.cc/150?img=1', username: 'TestUser1' },
+                { name: '失效头像', url: 'https://invalid-domain-12345.com/avatar.jpg', username: 'TestUser2' },
+                { name: '空头像', url: null, username: 'TestUser3' },
+                { name: '错误格式', url: 'not-a-valid-url', username: 'TestUser4' }
+            ];
+
+            const demoContainer = document.getElementById('fallback-demo');
+            
+            testCases.forEach((testCase, index) => {
+                const testItem = document.createElement('div');
+                testItem.className = 'avatar-test-item';
+                testItem.innerHTML = `
+                    <img id="test-img-${index}" alt="${testCase.name}">
+                    <div><strong>${testCase.name}</strong></div>
+                    <div>用户: ${testCase.username}</div>
+                    <div class="avatar-status status-loading" id="test-status-${index}">加载中...</div>
+                `;
+                demoContainer.appendChild(testItem);
+
+                const img = document.getElementById(`test-img-${index}`);
+                const status = document.getElementById(`test-status-${index}`);
+                
+                // 使用新的回退机制
+                if (typeof APP_CONFIG.loadAvatarWithFallback === 'function') {
+                    APP_CONFIG.loadAvatarWithFallback(img, testCase.url, testCase.username);
+                    
+                    // 监控加载状态
+                    img.onload = () => {
+                        status.textContent = '加载成功';
+                        status.className = 'avatar-status status-success';
+                    };
+                    
+                    img.onerror = () => {
+                        status.textContent = '加载失败';
+                        status.className = 'avatar-status status-error';
+                    };
+                } else {
+                    status.textContent = '回退机制未启用';
+                    status.className = 'avatar-status status-error';
+                }
+            });
+
+            addResult('fallback-test-results', 'success', '回退测试启动', '已创建4个测试用例，观察加载结果');
+        }
+
+        function testWithDifferentUsers() {
+            clearResults('fallback-demo');
+            
+            const usernames = ['张三', 'John', 'Alice', '李四', 'Bob', 'Carol'];
+            const demoContainer = document.getElementById('fallback-demo');
+            
+            usernames.forEach((username, index) => {
+                const testItem = document.createElement('div');
+                testItem.className = 'avatar-test-item';
+                testItem.innerHTML = `
+                    <img id="user-img-${index}" alt="${username}的头像">
+                    <div><strong>${username}</strong></div>
+                    <div class="avatar-status status-loading" id="user-status-${index}">加载中...</div>
+                `;
+                demoContainer.appendChild(testItem);
+
+                const img = document.getElementById(`user-img-${index}`);
+                const status = document.getElementById(`user-status-${index}`);
+                
+                // 使用回退机制，不提供主要URL，测试默认头像生成
+                if (typeof APP_CONFIG.loadAvatarWithFallback === 'function') {
+                    APP_CONFIG.loadAvatarWithFallback(img, null, username);
+                    
+                    img.onload = () => {
+                        status.textContent = '生成成功';
+                        status.className = 'avatar-status status-success';
+                    };
+                } else {
+                    status.textContent = '功能未启用';
+                    status.className = 'avatar-status status-error';
+                }
+            });
+
+            addResult('fallback-test-results', 'success', '用户名测试', '已为6个不同用户名生成头像');
+        }
+
+        function testRealTimeLoading() {
+            clearResults('realtime-results');
+            clearResults('realtime-demo');
+            
+            addResult('realtime-results', 'info', '实时加载测试', '正在模拟实际使用场景...');
+
+            const scenarios = [
+                { name: '新用户注册', avatar: null, username: '新用户123' },
+                { name: '头像服务故障', avatar: 'https://broken-service.com/avatar.jpg', username: '用户456' },
+                { name: '网络较慢', avatar: 'https://httpstat.us/200?sleep=3000', username: '用户789' },
+                { name: '正常用户', avatar: 'https://i.pravatar.cc/150?img=20', username: '正常用户' }
+            ];
+
+            const demoContainer = document.getElementById('realtime-demo');
+            
+            scenarios.forEach((scenario, index) => {
+                const testItem = document.createElement('div');
+                testItem.className = 'avatar-test-item';
+                testItem.innerHTML = `
+                    <img id="real-img-${index}" alt="${scenario.name}">
+                    <div><strong>${scenario.name}</strong></div>
+                    <div>用户: ${scenario.username}</div>
+                    <div class="avatar-status status-loading" id="real-status-${index}">加载中...</div>
+                `;
+                demoContainer.appendChild(testItem);
+
+                const img = document.getElementById(`real-img-${index}`);
+                const status = document.getElementById(`real-status-${index}`);
+                
+                // 模拟延迟加载
+                setTimeout(() => {
+                    if (typeof APP_CONFIG.loadAvatarWithFallback === 'function') {
+                        APP_CONFIG.loadAvatarWithFallback(img, scenario.avatar, scenario.username);
+                        
+                        img.onload = () => {
+                            status.textContent = '加载完成';
+                            status.className = 'avatar-status status-success';
+                        };
+                        
+                        img.onerror = () => {
+                            status.textContent = '使用备用';
+                            status.className = 'avatar-status status-success';
+                        };
+                    }
+                }, index * 500); // 错开加载时间
+            });
+
+            addResult('realtime-results', 'success', '实时测试启动', '已模拟4种实际使用场景');
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateConfigDisplay();
+                
+                addResult('service-test-results', 'info', '页面加载完成', `
+新的默认头像配置已生效：
+- 主要服务: UI Avatars
+- 备用服务: ${APP_CONFIG.fallbackAvatars.length} 个
+- 回退机制: ${typeof APP_CONFIG.loadAvatarWithFallback === 'function' ? '已启用' : '未启用'}
+
+建议先运行"测试所有头像服务"来检查服务可用性。
+                `);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

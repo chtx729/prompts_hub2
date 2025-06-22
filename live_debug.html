@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时调试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 0;
+            padding: 1rem;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-size: 12px;
+        }
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 400px;
+            max-height: 90vh;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            overflow-y: auto;
+            z-index: 10000;
+        }
+        .debug-header {
+            background: #007acc;
+            color: white;
+            padding: 8px 12px;
+            font-weight: bold;
+            cursor: move;
+        }
+        .debug-content {
+            padding: 8px;
+        }
+        .log-entry {
+            margin: 4px 0;
+            padding: 4px 8px;
+            border-radius: 2px;
+            border-left: 3px solid;
+        }
+        .log-info { border-color: #007acc; background: rgba(0, 122, 204, 0.1); }
+        .log-success { border-color: #28a745; background: rgba(40, 167, 69, 0.1); }
+        .log-warning { border-color: #ffc107; background: rgba(255, 193, 7, 0.1); }
+        .log-error { border-color: #dc3545; background: rgba(220, 53, 69, 0.1); }
+        .timestamp { color: #888; font-size: 10px; }
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            margin: 4px;
+        }
+        .toggle-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            margin: 4px;
+        }
+        .minimized .debug-content { display: none; }
+        .status-bar {
+            background: #252526;
+            padding: 4px 8px;
+            border-top: 1px solid #3e3e42;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-panel" id="debugPanel">
+        <div class="debug-header" id="debugHeader">
+            🐛 实时调试面板
+            <button class="toggle-btn" onclick="togglePanel()">-</button>
+            <button class="clear-btn" onclick="clearLogs()">清除</button>
+        </div>
+        <div class="debug-content" id="debugContent">
+            <div id="logs"></div>
+        </div>
+        <div class="status-bar" id="statusBar">
+            等待初始化...
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        let isMinimized = false;
+
+        function addLog(type, message, details = '') {
+            const timestamp = new Date().toLocaleTimeString();
+            const log = { type, message, details, timestamp };
+            logs.push(log);
+            
+            const logsContainer = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `
+                <div class="timestamp">${timestamp}</div>
+                <div>${message}</div>
+                ${details ? `<div style="font-size: 10px; color: #888; margin-top: 2px;">${details}</div>` : ''}
+            `;
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // 限制日志数量
+            if (logs.length > 100) {
+                logs.shift();
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+
+            updateStatus();
+        }
+
+        function updateStatus() {
+            const statusBar = document.getElementById('statusBar');
+            const errorCount = logs.filter(log => log.type === 'error').length;
+            const warningCount = logs.filter(log => log.type === 'warning').length;
+            statusBar.textContent = `日志: ${logs.length} | 错误: ${errorCount} | 警告: ${warningCount}`;
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('logs').innerHTML = '';
+            updateStatus();
+        }
+
+        function togglePanel() {
+            isMinimized = !isMinimized;
+            const panel = document.getElementById('debugPanel');
+            const btn = event.target;
+            
+            if (isMinimized) {
+                panel.classList.add('minimized');
+                btn.textContent = '+';
+            } else {
+                panel.classList.remove('minimized');
+                btn.textContent = '-';
+            }
+        }
+
+        // 拦截console方法
+        const originalConsole = {
+            log: console.log,
+            info: console.info,
+            warn: console.warn,
+            error: console.error
+        };
+
+        console.log = function(...args) {
+            originalConsole.log.apply(console, args);
+            addLog('info', args.join(' '));
+        };
+
+        console.info = function(...args) {
+            originalConsole.info.apply(console, args);
+            addLog('info', args.join(' '));
+        };
+
+        console.warn = function(...args) {
+            originalConsole.warn.apply(console, args);
+            addLog('warning', args.join(' '));
+        };
+
+        console.error = function(...args) {
+            originalConsole.error.apply(console, args);
+            addLog('error', args.join(' '), args.length > 1 ? JSON.stringify(args.slice(1)) : '');
+        };
+
+        // 拦截全局错误
+        window.addEventListener('error', (e) => {
+            addLog('error', `全局错误: ${e.message}`, `文件: ${e.filename}:${e.lineno}`);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            addLog('error', `未处理的Promise拒绝: ${e.reason?.message || e.reason}`, JSON.stringify(e.reason));
+        });
+
+        // 监控网络请求
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+            const url = args[0];
+            addLog('info', `网络请求: ${url}`);
+            
+            return originalFetch.apply(this, args)
+                .then(response => {
+                    if (response.ok) {
+                        addLog('success', `请求成功: ${url}`, `状态: ${response.status}`);
+                    } else {
+                        addLog('error', `请求失败: ${url}`, `状态: ${response.status} ${response.statusText}`);
+                    }
+                    return response;
+                })
+                .catch(error => {
+                    addLog('error', `请求错误: ${url}`, error.message);
+                    throw error;
+                });
+        };
+
+        // 监控DOM变化
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.classList && node.classList.contains('notification')) {
+                                const text = node.textContent || node.innerText;
+                                if (text.includes('错误') || text.includes('失败')) {
+                                    addLog('error', `UI通知: ${text}`);
+                                } else if (text.includes('警告')) {
+                                    addLog('warning', `UI通知: ${text}`);
+                                } else {
+                                    addLog('info', `UI通知: ${text}`);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // 监控特定变量
+        function checkVariables() {
+            const checks = [
+                { name: 'supabase', value: window.supabase },
+                { name: 'authManager', value: window.authManager },
+                { name: 'promptsManager', value: window.promptsManager },
+                { name: 'app', value: window.app }
+            ];
+
+            checks.forEach(check => {
+                if (check.value === undefined) {
+                    addLog('warning', `变量未定义: ${check.name}`);
+                } else if (check.value === null) {
+                    addLog('warning', `变量为null: ${check.name}`);
+                }
+            });
+        }
+
+        // 定期检查
+        setInterval(checkVariables, 5000);
+
+        // 初始化日志
+        addLog('info', '实时调试面板已启动');
+        addLog('info', '正在监控应用状态...');
+
+        // 使面板可拖拽
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        const dragElement = document.getElementById('debugHeader');
+        const panel = document.getElementById('debugPanel');
+
+        dragElement.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+
+        function dragStart(e) {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+
+            if (e.target === dragElement) {
+                isDragging = true;
+            }
+        }
+
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                panel.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+            }
+        }
+
+        function dragEnd(e) {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+        }
+    </script>
+</body>
+</html>

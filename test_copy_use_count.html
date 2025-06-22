@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>复制按钮使用量测试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .prompt-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+        .use-count {
+            font-weight: bold;
+            color: #059669;
+        }
+        .test-prompt {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .action-buttons button {
+            flex: 1;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+</head>
+<body>
+    <h1>🔍 复制按钮使用量测试</h1>
+    <p>此工具用于测试点击"复制提示词"按钮时使用量是否正确增加。</p>
+
+    <div class="test-section">
+        <h3>📊 选择测试提示词</h3>
+        <button onclick="loadTestPrompts()">加载测试提示词</button>
+        <div id="prompts-list"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 使用量测试</h3>
+        <div id="selected-prompt"></div>
+        <div class="action-buttons">
+            <button onclick="simulateCopyClick()" id="copy-btn" disabled>模拟"复制提示词"</button>
+            <button onclick="simulateUseClick()" id="use-btn" disabled>模拟"使用提示词"</button>
+            <button onclick="checkUseCount()" id="check-btn" disabled>检查使用量</button>
+        </div>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 使用日志对比</h3>
+        <button onclick="showUsageHistory()" id="history-btn" disabled>查看使用历史</button>
+        <div id="history-results"></div>
+    </div>
+
+    <script>
+        let selectedPromptId = null;
+        let selectedPromptContent = '';
+        let initialUseCount = 0;
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function loadTestPrompts() {
+            clearResults('prompts-list');
+            
+            try {
+                addResult('prompts-list', 'info', '加载测试提示词', '正在获取提示词列表...');
+
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, content, use_count, status')
+                    .eq('status', 'published')
+                    .eq('is_public', true)
+                    .limit(5);
+
+                if (error) {
+                    addResult('prompts-list', 'error', '加载失败', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    addResult('prompts-list', 'warning', '没有数据', '没有找到公开的提示词');
+                    return;
+                }
+
+                clearResults('prompts-list');
+                addResult('prompts-list', 'success', '加载成功', `找到 ${data.length} 个提示词`);
+
+                // 创建提示词选择列表
+                const container = document.getElementById('prompts-list');
+                data.forEach(prompt => {
+                    const promptDiv = document.createElement('div');
+                    promptDiv.className = 'test-prompt';
+                    promptDiv.innerHTML = `
+                        <h4>${prompt.title}</h4>
+                        <p>当前使用量: <span class="use-count">${prompt.use_count || 0}</span></p>
+                        <p>内容预览: ${prompt.content.substring(0, 100)}...</p>
+                        <button onclick="selectPrompt(${prompt.prompt_id}, '${prompt.title.replace(/'/g, "\\'")}', '${prompt.content.replace(/'/g, "\\'")}', ${prompt.use_count || 0})">
+                            选择此提示词进行测试
+                        </button>
+                    `;
+                    container.appendChild(promptDiv);
+                });
+
+            } catch (error) {
+                addResult('prompts-list', 'error', '测试失败', error.message);
+            }
+        }
+
+        function selectPrompt(promptId, title, content, useCount) {
+            selectedPromptId = promptId;
+            selectedPromptContent = content;
+            initialUseCount = useCount;
+
+            const container = document.getElementById('selected-prompt');
+            container.innerHTML = `
+                <div class="test-prompt">
+                    <h4>已选择: ${title}</h4>
+                    <p>提示词ID: ${promptId}</p>
+                    <p>初始使用量: <span class="use-count">${useCount}</span></p>
+                    <p>内容: ${content.substring(0, 200)}...</p>
+                </div>
+            `;
+
+            // 启用测试按钮
+            document.getElementById('copy-btn').disabled = false;
+            document.getElementById('use-btn').disabled = false;
+            document.getElementById('check-btn').disabled = false;
+            document.getElementById('history-btn').disabled = false;
+
+            clearResults('test-results');
+            clearResults('history-results');
+        }
+
+        async function simulateCopyClick() {
+            if (!selectedPromptId) {
+                addResult('test-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟复制操作', '正在调用 logUsage 方法（copy）...');
+
+            try {
+                // 模拟复制到剪贴板
+                await navigator.clipboard.writeText(selectedPromptContent);
+                
+                // 调用 logUsage 方法，使用 'copy' 动作类型
+                const result = await apiManager.logUsage(selectedPromptId, 'copy');
+
+                if (result.success) {
+                    addResult('test-results', 'success', '复制操作成功', '已记录复制日志并应该增加使用量');
+                    addResult('test-results', 'info', '提示', '请点击"检查使用量"按钮查看更新后的数值');
+                } else {
+                    addResult('test-results', 'error', '复制操作失败', result.error || '未知错误');
+                }
+
+            } catch (error) {
+                addResult('test-results', 'error', '操作失败', error.message);
+            }
+        }
+
+        async function simulateUseClick() {
+            if (!selectedPromptId) {
+                addResult('test-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟使用操作', '正在调用 logUsage 方法（use）...');
+
+            try {
+                // 模拟复制到剪贴板
+                await navigator.clipboard.writeText(selectedPromptContent);
+                
+                // 调用 logUsage 方法，使用 'use' 动作类型
+                const result = await apiManager.logUsage(selectedPromptId, 'use');
+
+                if (result.success) {
+                    addResult('test-results', 'success', '使用操作成功', '已记录使用日志并增加使用量');
+                    addResult('test-results', 'info', '提示', '请点击"检查使用量"按钮查看更新后的数值');
+                } else {
+                    addResult('test-results', 'error', '使用操作失败', result.error || '未知错误');
+                }
+
+            } catch (error) {
+                addResult('test-results', 'error', '操作失败', error.message);
+            }
+        }
+
+        async function checkUseCount() {
+            if (!selectedPromptId) {
+                addResult('test-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            try {
+                addResult('test-results', 'info', '检查使用量', '正在查询最新的使用量...');
+
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('use_count')
+                    .eq('prompt_id', selectedPromptId)
+                    .single();
+
+                if (error) {
+                    addResult('test-results', 'error', '查询失败', error.message);
+                    return;
+                }
+
+                const currentUseCount = data.use_count || 0;
+                const increase = currentUseCount - initialUseCount;
+
+                if (increase > 0) {
+                    addResult('test-results', 'success', '使用量检查结果', `
+初始使用量: ${initialUseCount}
+当前使用量: ${currentUseCount}
+增加数量: +${increase}
+
+✅ 使用量增加功能正常工作！
+                    `);
+                } else if (increase === 0) {
+                    addResult('test-results', 'warning', '使用量检查结果', `
+初始使用量: ${initialUseCount}
+当前使用量: ${currentUseCount}
+增加数量: ${increase}
+
+⚠️ 使用量没有增加，可能需要检查：
+1. increment_use_count 函数是否存在
+2. 数据库权限是否正确
+3. logUsage 方法的逻辑是否正确
+                    `);
+                } else {
+                    addResult('test-results', 'error', '使用量检查结果', `
+初始使用量: ${initialUseCount}
+当前使用量: ${currentUseCount}
+变化: ${increase}
+
+❌ 使用量异常减少，请检查数据库
+                    `);
+                }
+
+            } catch (error) {
+                addResult('test-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function showUsageHistory() {
+            if (!selectedPromptId) {
+                addResult('history-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            clearResults('history-results');
+
+            try {
+                addResult('history-results', 'info', '查看使用历史', '正在查询使用日志...');
+
+                const { data, error } = await supabase
+                    .from('usage_logs')
+                    .select('*')
+                    .eq('prompt_id', selectedPromptId)
+                    .in('action_type', ['use', 'copy'])
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (error) {
+                    addResult('history-results', 'error', '查询失败', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    addResult('history-results', 'warning', '没有使用记录', '该提示词还没有使用记录');
+                    return;
+                }
+
+                let historyText = `最近 ${data.length} 次使用记录:\n\n`;
+                data.forEach((log, index) => {
+                    const date = new Date(log.created_at).toLocaleString('zh-CN');
+                    const userId = log.user_id || '匿名用户';
+                    const actionText = log.action_type === 'copy' ? '复制' : '使用';
+                    historyText += `${index + 1}. ${date} - ${actionText} - ${userId}\n`;
+                });
+
+                addResult('history-results', 'success', '使用历史', historyText);
+
+                // 统计不同动作类型的数量
+                const copyCount = data.filter(log => log.action_type === 'copy').length;
+                const useCount = data.filter(log => log.action_type === 'use').length;
+                
+                addResult('history-results', 'info', '统计信息', `
+复制次数: ${copyCount}
+使用次数: ${useCount}
+总计: ${copyCount + useCount}
+
+✅ 两种操作都应该增加使用量
+                `);
+
+            } catch (error) {
+                addResult('history-results', 'error', '查询失败', error.message);
+            }
+        }
+
+        // 页面加载时自动加载测试提示词
+        window.addEventListener('load', () => {
+            setTimeout(loadTestPrompts, 1000);
+        });
+    </script>
+</body>
+</html>

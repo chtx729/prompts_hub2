@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>认证通知测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .notification-log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 1rem 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .auth-status {
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            font-weight: bold;
+        }
+        .logged-in { background: #f0fdf4; color: #166534; }
+        .logged-out { background: #fef2f2; color: #dc2626; }
+        .test-scenario {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border-left: 4px solid #4f46e5;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/auth.js"></script>
+</head>
+<body>
+    <h1>🔍 认证通知修复测试</h1>
+    <p>此工具用于测试以下两个问题的修复效果：</p>
+    <ol>
+        <li>第一次打开首页，不必显示"已登出"</li>
+        <li>从其他页面返回首页不必显示"登录成功"</li>
+    </ol>
+
+    <div class="test-section">
+        <h3>🔐 当前认证状态</h3>
+        <div id="auth-status" class="auth-status logged-out">检查中...</div>
+        <button onclick="checkAuthStatus()">检查认证状态</button>
+        <button onclick="clearAllData()">清空所有数据</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 通知监控</h3>
+        <button onclick="clearNotificationLog()">清空通知日志</button>
+        <button onclick="toggleNotificationMonitoring()" id="monitor-btn">开始监控</button>
+        <div id="notification-log" class="notification-log">等待通知...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 测试场景</h3>
+        
+        <div class="test-scenario">
+            <h4>场景1: 第一次打开页面</h4>
+            <p>测试第一次打开页面时是否显示"已登出"通知</p>
+            <button onclick="testFirstTimeOpen()">模拟第一次打开</button>
+            <button onclick="simulatePageLoad()">模拟页面加载</button>
+        </div>
+
+        <div class="test-scenario">
+            <h4>场景2: 页面焦点变化</h4>
+            <p>测试页面最小化后恢复是否显示不必要的通知</p>
+            <button onclick="simulateFocusChange()">模拟焦点变化</button>
+            <button onclick="simulatePageVisibility()">模拟页面可见性变化</button>
+        </div>
+
+        <div class="test-scenario">
+            <h4>场景3: 认证操作</h4>
+            <p>测试正常的登录登出操作</p>
+            <div style="display: flex; gap: 1rem; align-items: end; margin: 1rem 0;">
+                <div>
+                    <label>邮箱:</label><br>
+                    <input type="email" id="test-email" value="test@example.com" style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label>密码:</label><br>
+                    <input type="password" id="test-password" value="password123" style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <button onclick="testLogin()">测试登录</button>
+                <button onclick="testLogout()">测试登出</button>
+            </div>
+        </div>
+
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 认证事件日志</h3>
+        <button onclick="clearEventLog()">清空事件日志</button>
+        <div id="event-log" class="notification-log">等待认证事件...</div>
+    </div>
+
+    <script>
+        let notificationLog = [];
+        let eventLog = [];
+        let isMonitoring = false;
+
+        // 重写 UI.showNotification 来记录通知
+        const originalShowNotification = UI.showNotification;
+        UI.showNotification = function(message, type) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            notificationLog.push(logEntry);
+            updateNotificationLog();
+            
+            // 特别标记我们关注的通知
+            if (message === '已登出' || message === '登录成功') {
+                console.warn('🚨 关注的通知:', logEntry);
+            }
+            
+            // 调用原始方法
+            return originalShowNotification.call(this, message, type);
+        };
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function updateNotificationLog() {
+            const logContainer = document.getElementById('notification-log');
+            logContainer.innerHTML = notificationLog.join('\n') || '暂无通知';
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateEventLog() {
+            const logContainer = document.getElementById('event-log');
+            logContainer.innerHTML = eventLog.join('\n') || '暂无认证事件';
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateAuthStatus() {
+            const statusDiv = document.getElementById('auth-status');
+            const user = authManager.getCurrentUser();
+            
+            if (user) {
+                statusDiv.textContent = `已登录: ${user.username || user.email}`;
+                statusDiv.className = 'auth-status logged-in';
+            } else {
+                statusDiv.textContent = '未登录';
+                statusDiv.className = 'auth-status logged-out';
+            }
+        }
+
+        function checkAuthStatus() {
+            clearResults('test-results');
+            
+            const user = authManager.getCurrentUser();
+            const isAuth = authManager.isAuthenticated();
+            
+            addResult('test-results', 'info', '认证状态检查', `
+isAuthenticated(): ${isAuth}
+currentUser: ${user ? user.email : 'null'}
+lastAuthEvent: ${authManager.lastAuthEvent || 'null'}
+lastEventTime: ${authManager.lastEventTime || 0}
+            `);
+            
+            updateAuthStatus();
+        }
+
+        function clearAllData() {
+            // 清空本地存储
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // 清空日志
+            notificationLog = [];
+            eventLog = [];
+            updateNotificationLog();
+            updateEventLog();
+            
+            addResult('test-results', 'info', '数据清空', '已清空所有本地数据和日志');
+        }
+
+        function clearNotificationLog() {
+            notificationLog = [];
+            updateNotificationLog();
+        }
+
+        function clearEventLog() {
+            eventLog = [];
+            updateEventLog();
+        }
+
+        function toggleNotificationMonitoring() {
+            const btn = document.getElementById('monitor-btn');
+            isMonitoring = !isMonitoring;
+            
+            if (isMonitoring) {
+                btn.textContent = '停止监控';
+                addResult('test-results', 'info', '通知监控', '已开始监控所有通知');
+            } else {
+                btn.textContent = '开始监控';
+                addResult('test-results', 'info', '通知监控', '已停止监控');
+            }
+        }
+
+        async function testFirstTimeOpen() {
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟第一次打开', '正在模拟第一次打开页面的场景...');
+            
+            // 记录当前通知数量
+            const beforeCount = notificationLog.length;
+            
+            try {
+                // 模拟第一次打开：没有会话的情况
+                await authManager.handleUserSignOut(false);
+                
+                const afterCount = notificationLog.length;
+                const newNotifications = notificationLog.slice(beforeCount);
+                
+                if (newNotifications.length === 0) {
+                    addResult('test-results', 'success', '第一次打开测试通过', '没有显示"已登出"通知 ✅');
+                } else {
+                    addResult('test-results', 'error', '第一次打开测试失败', `显示了通知: ${newNotifications.join(', ')}`);
+                }
+                
+            } catch (error) {
+                addResult('test-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function simulatePageLoad() {
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟页面加载', '正在模拟页面加载时的认证检查...');
+            
+            const beforeCount = notificationLog.length;
+            
+            try {
+                // 模拟页面加载时的会话检查
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session?.user) {
+                    await authManager.handleUserSignIn(session.user, false);
+                    addResult('test-results', 'info', '会话检查', '发现现有会话，已静默处理');
+                } else {
+                    await authManager.handleUserSignOut(false);
+                    addResult('test-results', 'info', '会话检查', '没有现有会话，已静默处理');
+                }
+                
+                const afterCount = notificationLog.length;
+                const newNotifications = notificationLog.slice(beforeCount);
+                
+                if (newNotifications.length === 0) {
+                    addResult('test-results', 'success', '页面加载测试通过', '页面加载时没有显示不必要的通知 ✅');
+                } else {
+                    addResult('test-results', 'warning', '页面加载测试', `显示了通知: ${newNotifications.join(', ')}`);
+                }
+                
+                updateAuthStatus();
+                
+            } catch (error) {
+                addResult('test-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        function simulateFocusChange() {
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟焦点变化', '正在模拟页面焦点变化...');
+            
+            const beforeCount = notificationLog.length;
+            
+            // 模拟页面失去焦点
+            window.dispatchEvent(new Event('blur'));
+            
+            setTimeout(() => {
+                // 模拟页面获得焦点
+                window.dispatchEvent(new Event('focus'));
+                
+                setTimeout(() => {
+                    const afterCount = notificationLog.length;
+                    const newNotifications = notificationLog.slice(beforeCount);
+                    
+                    if (newNotifications.length === 0) {
+                        addResult('test-results', 'success', '焦点变化测试通过', '焦点变化时没有显示不必要的通知 ✅');
+                    } else {
+                        addResult('test-results', 'warning', '焦点变化测试', `显示了通知: ${newNotifications.join(', ')}`);
+                    }
+                }, 500);
+            }, 500);
+        }
+
+        function simulatePageVisibility() {
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟页面可见性变化', '正在模拟页面最小化和恢复...');
+            
+            const beforeCount = notificationLog.length;
+            
+            // 模拟页面隐藏
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                // 模拟页面显示
+                Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+                document.dispatchEvent(new Event('visibilitychange'));
+                
+                setTimeout(() => {
+                    const afterCount = notificationLog.length;
+                    const newNotifications = notificationLog.slice(beforeCount);
+                    
+                    if (newNotifications.length === 0) {
+                        addResult('test-results', 'success', '页面可见性测试通过', '页面可见性变化时没有显示不必要的通知 ✅');
+                    } else {
+                        addResult('test-results', 'warning', '页面可见性测试', `显示了通知: ${newNotifications.join(', ')}`);
+                    }
+                }, 500);
+            }, 500);
+        }
+
+        async function testLogin() {
+            clearResults('test-results');
+            
+            const email = document.getElementById('test-email').value;
+            const password = document.getElementById('test-password').value;
+            
+            if (!email || !password) {
+                addResult('test-results', 'error', '登录测试失败', '请输入邮箱和密码');
+                return;
+            }
+            
+            addResult('test-results', 'info', '登录测试', '正在尝试登录...');
+            
+            const beforeCount = notificationLog.length;
+            
+            try {
+                const result = await authManager.signIn(email, password);
+                
+                if (result.success) {
+                    const afterCount = notificationLog.length;
+                    const newNotifications = notificationLog.slice(beforeCount);
+                    const hasLoginSuccess = newNotifications.some(n => n.includes('登录成功'));
+                    
+                    if (hasLoginSuccess) {
+                        addResult('test-results', 'success', '登录测试通过', '正确显示了"登录成功"通知 ✅');
+                    } else {
+                        addResult('test-results', 'warning', '登录测试', '没有显示"登录成功"通知');
+                    }
+                    
+                    updateAuthStatus();
+                } else {
+                    addResult('test-results', 'error', '登录测试失败', result.error);
+                }
+                
+            } catch (error) {
+                addResult('test-results', 'error', '登录测试异常', error.message);
+            }
+        }
+
+        async function testLogout() {
+            clearResults('test-results');
+            
+            if (!authManager.isAuthenticated()) {
+                addResult('test-results', 'warning', '登出测试', '用户未登录，无需登出');
+                return;
+            }
+            
+            addResult('test-results', 'info', '登出测试', '正在尝试登出...');
+            
+            const beforeCount = notificationLog.length;
+            
+            try {
+                const result = await authManager.signOut();
+                
+                if (result.success) {
+                    const afterCount = notificationLog.length;
+                    const newNotifications = notificationLog.slice(beforeCount);
+                    const hasLogoutSuccess = newNotifications.some(n => n.includes('已登出'));
+                    
+                    if (hasLogoutSuccess) {
+                        addResult('test-results', 'success', '登出测试通过', '正确显示了"已登出"通知 ✅');
+                    } else {
+                        addResult('test-results', 'warning', '登出测试', '没有显示"已登出"通知');
+                    }
+                    
+                    updateAuthStatus();
+                } else {
+                    addResult('test-results', 'error', '登出测试失败', result.error);
+                }
+                
+            } catch (error) {
+                addResult('test-results', 'error', '登出测试异常', error.message);
+            }
+        }
+
+        // 监听认证状态变化
+        if (authManager && authManager.onAuthStateChange) {
+            authManager.onAuthStateChange((event, user) => {
+                const timestamp = new Date().toLocaleTimeString();
+                eventLog.push(`[${timestamp}] 认证事件: ${event}, 用户: ${user ? user.email : 'null'}`);
+                updateEventLog();
+            });
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateAuthStatus();
+                checkAuthStatus();
+                
+                // 记录页面加载事件
+                const timestamp = new Date().toLocaleTimeString();
+                notificationLog.push(`[${timestamp}] 页面加载完成`);
+                updateNotificationLog();
+                
+                // 自动开始监控
+                toggleNotificationMonitoring();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

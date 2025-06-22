@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>调试工具 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .debug-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .debug-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+</head>
+<body>
+    <h1>🔧 调试工具 - AI提示词宝库</h1>
+    <p>此工具帮助诊断和解决应用中的问题。</p>
+
+    <div class="debug-section">
+        <h3>🔍 基础连接测试</h3>
+        <button onclick="testBasicConnection()">测试 Supabase 连接</button>
+        <button onclick="testDatabaseTables()">测试数据库表</button>
+        <button onclick="testCategories()">测试分类数据</button>
+        <div id="basic-results"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>📊 数据查询测试</h3>
+        <button onclick="testPromptsQuery()">测试提示词查询</button>
+        <button onclick="testUsersQuery()">测试用户查询</button>
+        <button onclick="testJoinQuery()">测试关联查询</button>
+        <div id="query-results"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🔐 认证功能测试</h3>
+        <button onclick="testAuthStatus()">检查认证状态</button>
+        <button onclick="testUserCreation()">测试用户创建</button>
+        <div id="auth-results"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🛠️ 数据库修复</h3>
+        <button onclick="runDiagnostics()">运行诊断</button>
+        <button onclick="showFixInstructions()">显示修复指令</button>
+        <div id="fix-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `debug-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function testBasicConnection() {
+            clearResults('basic-results');
+            
+            try {
+                if (!supabase) {
+                    addResult('basic-results', 'error', 'Supabase 连接失败', 'Supabase 客户端未初始化');
+                    return;
+                }
+
+                addResult('basic-results', 'success', 'Supabase 连接成功', `URL: ${SUPABASE_CONFIG.url}`);
+
+                // 测试简单查询
+                const { data, error } = await supabase.from('categories').select('count').limit(1);
+                
+                if (error) {
+                    addResult('basic-results', 'error', '数据库查询失败', error.message);
+                } else {
+                    addResult('basic-results', 'success', '数据库查询成功', '可以正常访问数据库');
+                }
+
+            } catch (error) {
+                addResult('basic-results', 'error', '连接测试失败', error.message);
+            }
+        }
+
+        async function testDatabaseTables() {
+            clearResults('basic-results');
+            
+            const tables = ['users', 'categories', 'prompts', 'user_favorites', 'user_likes', 'user_ratings', 'usage_logs', 'comments', 'system_configs'];
+            
+            for (const table of tables) {
+                try {
+                    const { data, error } = await supabase.from(table).select('*').limit(1);
+                    
+                    if (error) {
+                        addResult('basic-results', 'error', `表 ${table}`, error.message);
+                    } else {
+                        addResult('basic-results', 'success', `表 ${table}`, '存在且可访问');
+                    }
+                } catch (error) {
+                    addResult('basic-results', 'error', `表 ${table}`, error.message);
+                }
+            }
+        }
+
+        async function testCategories() {
+            clearResults('basic-results');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .eq('is_active', true);
+
+                if (error) {
+                    addResult('basic-results', 'error', '分类查询失败', error.message);
+                } else {
+                    addResult('basic-results', 'success', '分类查询成功', `找到 ${data.length} 个分类:\n${data.map(c => `- ${c.name}`).join('\n')}`);
+                }
+            } catch (error) {
+                addResult('basic-results', 'error', '分类测试失败', error.message);
+            }
+        }
+
+        async function testPromptsQuery() {
+            clearResults('query-results');
+            
+            try {
+                // 测试基本查询
+                const { data: basicData, error: basicError } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, status, author_name, category_name')
+                    .limit(3);
+
+                if (basicError) {
+                    addResult('query-results', 'error', '基本提示词查询失败', basicError.message);
+                } else {
+                    addResult('query-results', 'success', '基本提示词查询成功', `找到 ${basicData.length} 条记录:\n${basicData.map(p => `- ${p.title} (${p.status})`).join('\n')}`);
+                }
+
+                // 测试关联查询
+                const { data: joinData, error: joinError } = await supabase
+                    .from('prompts')
+                    .select(`
+                        prompt_id,
+                        title,
+                        categories(name, color)
+                    `)
+                    .eq('status', 'published')
+                    .limit(3);
+
+                if (joinError) {
+                    addResult('query-results', 'error', '关联查询失败', joinError.message);
+                } else {
+                    addResult('query-results', 'success', '关联查询成功', `找到 ${joinData.length} 条记录`);
+                }
+
+            } catch (error) {
+                addResult('query-results', 'error', '提示词查询测试失败', error.message);
+            }
+        }
+
+        async function testUsersQuery() {
+            clearResults('query-results');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('id, user_id, username')
+                    .limit(5);
+
+                if (error) {
+                    addResult('query-results', 'error', '用户查询失败', error.message);
+                } else {
+                    addResult('query-results', 'success', '用户查询成功', `找到 ${data.length} 个用户:\n${data.map(u => `- ${u.username} (ID: ${u.id}, UUID: ${u.user_id})`).join('\n')}`);
+                }
+            } catch (error) {
+                addResult('query-results', 'error', '用户查询测试失败', error.message);
+            }
+        }
+
+        async function testJoinQuery() {
+            clearResults('query-results');
+            
+            try {
+                // 测试有问题的关联查询
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select(`
+                        prompt_id,
+                        title,
+                        user_id,
+                        author_name,
+                        category_id,
+                        category_name,
+                        categories(name, color)
+                    `)
+                    .eq('status', 'published')
+                    .limit(3);
+
+                if (error) {
+                    addResult('query-results', 'error', '关联查询失败', `错误: ${error.message}\n这可能是导致UUID错误的原因`);
+                } else {
+                    addResult('query-results', 'success', '关联查询成功', `查询成功，数据结构正常:\n${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                addResult('query-results', 'error', '关联查询测试失败', error.message);
+            }
+        }
+
+        async function testAuthStatus() {
+            clearResults('auth-results');
+            
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session) {
+                    addResult('auth-results', 'success', '用户已登录', `用户ID: ${session.user.id}\n邮箱: ${session.user.email}`);
+                } else {
+                    addResult('auth-results', 'info', '用户未登录', '当前没有活跃的用户会话');
+                }
+
+                // 检查用户表中的记录
+                if (session) {
+                    const { data: userData, error: userError } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('user_id', session.user.id);
+
+                    if (userError) {
+                        addResult('auth-results', 'error', '用户数据查询失败', userError.message);
+                    } else if (userData.length === 0) {
+                        addResult('auth-results', 'warning', '用户记录不存在', '认证用户存在但users表中没有对应记录');
+                    } else {
+                        addResult('auth-results', 'success', '用户记录正常', `用户名: ${userData[0].username}`);
+                    }
+                }
+
+            } catch (error) {
+                addResult('auth-results', 'error', '认证状态检查失败', error.message);
+            }
+        }
+
+        async function testUserCreation() {
+            clearResults('auth-results');
+            addResult('auth-results', 'info', '用户创建测试', '请在主应用中尝试注册新用户，然后回到这里检查结果');
+        }
+
+        async function runDiagnostics() {
+            clearResults('fix-results');
+            
+            addResult('fix-results', 'info', '运行诊断', '正在检查数据库结构和数据完整性...');
+
+            try {
+                // 检查prompts表结构
+                const { data: promptsData, error: promptsError } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, author_name, category_name, user_id, category_id')
+                    .limit(5);
+
+                if (promptsError) {
+                    addResult('fix-results', 'error', 'prompts表结构问题', promptsError.message);
+                } else {
+                    const issues = [];
+                    promptsData.forEach(p => {
+                        if (!p.author_name) issues.push(`提示词 ${p.prompt_id} 缺少作者信息`);
+                        if (!p.category_name) issues.push(`提示词 ${p.prompt_id} 缺少分类信息`);
+                    });
+
+                    if (issues.length > 0) {
+                        addResult('fix-results', 'warning', '数据完整性问题', issues.join('\n'));
+                    } else {
+                        addResult('fix-results', 'success', 'prompts表数据正常', '所有检查项都通过');
+                    }
+                }
+
+                // 检查触发器函数
+                const { data: functionsData, error: functionsError } = await supabase
+                    .rpc('increment_view_count', { prompt_id: 1 });
+
+                if (functionsError) {
+                    addResult('fix-results', 'error', '触发器函数问题', functionsError.message);
+                } else {
+                    addResult('fix-results', 'success', '触发器函数正常', '计数器函数可以正常调用');
+                }
+
+            } catch (error) {
+                addResult('fix-results', 'error', '诊断失败', error.message);
+            }
+        }
+
+        function showFixInstructions() {
+            clearResults('fix-results');
+            
+            const instructions = `
+请按以下步骤修复问题：
+
+1. 在 Supabase SQL 编辑器中运行修复脚本：
+   复制 fix_complete.sql 的内容并执行
+
+2. 关键修复内容：
+   - 修复触发器函数中的字段名错误
+   - 添加缺失的 author_name 和 author_avatar 字段
+   - 更新现有数据
+   - 重新创建正确的视图
+
+3. 验证修复：
+   - 刷新此页面
+   - 点击"运行诊断"按钮
+   - 确认所有测试都通过
+
+4. 如果问题仍然存在：
+   - 检查浏览器控制台的详细错误信息
+   - 查看 Supabase 项目的日志
+   - 确认数据库表结构完整
+            `;
+
+            addResult('fix-results', 'info', '修复指令', instructions);
+        }
+
+        // 页面加载时自动运行基础测试
+        window.addEventListener('load', () => {
+            setTimeout(testBasicConnection, 1000);
+        });
+    </script>
+</body>
+</html>

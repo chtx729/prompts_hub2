@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分类颜色修复测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .color-demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin: var(--space-6) 0;
+        }
+        .color-demo-item {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            text-align: center;
+        }
+        .color-info {
+            background: var(--gray-50);
+            padding: var(--space-2);
+            border-radius: var(--radius-md);
+            margin-top: var(--space-2);
+            font-family: monospace;
+            font-size: 12px;
+            text-align: left;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-6);
+            margin: var(--space-6) 0;
+        }
+        .comparison-item {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+        }
+        .comparison-item h4 {
+            margin-bottom: var(--space-3);
+            color: var(--text-primary);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>🎨 分类颜色修复测试</h1>
+    <p>此工具用于测试分类颜色显示修复效果，确保每个分类都显示正确的颜色。</p>
+
+    <div class="test-section">
+        <h3>🌈 颜色样式演示</h3>
+        <button onclick="showColorDemo()">显示颜色演示</button>
+        <div id="color-demo"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 数据库分类颜色测试</h3>
+        <button onclick="testDatabaseColors()">测试数据库分类颜色</button>
+        <div id="database-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 修复前后对比</h3>
+        <button onclick="showBeforeAfterComparison()">显示修复对比</button>
+        <div id="comparison-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 实际卡片测试</h3>
+        <button onclick="testRealCards()">测试实际提示词卡片</button>
+        <div id="real-cards-results"></div>
+        <div id="real-cards-demo" class="color-demo-grid"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function showColorDemo() {
+            clearResults('color-demo');
+            
+            const container = document.getElementById('color-demo');
+            
+            // 演示不同颜色的分类标签
+            const demoColors = [
+                { name: '写作', icon: 'fas fa-pen', color: '#8b5cf6', desc: '紫色系' },
+                { name: '编程', icon: 'fas fa-code', color: '#10b981', desc: '绿色系' },
+                { name: '设计', icon: 'fas fa-palette', color: '#f59e0b', desc: '橙色系' },
+                { name: '营销', icon: 'fas fa-bullhorn', color: '#ef4444', desc: '红色系' },
+                { name: '教育', icon: 'fas fa-graduation-cap', color: '#3b82f6', desc: '蓝色系' },
+                { name: '商务', icon: 'fas fa-briefcase', color: '#6366f1', desc: '靛色系' },
+                { name: '娱乐', icon: 'fas fa-gamepad', color: '#ec4899', desc: '粉色系' },
+                { name: '科技', icon: 'fas fa-robot', color: '#06b6d4', desc: '青色系' }
+            ];
+            
+            const demoDiv = document.createElement('div');
+            demoDiv.innerHTML = `
+                <h4>分类颜色演示</h4>
+                <p style="color: var(--text-secondary); margin-bottom: var(--space-4);">
+                    以下展示了修复后的分类颜色效果，每个分类都应该显示不同的背景颜色：
+                </p>
+                <div class="color-demo-grid">
+                    ${demoColors.map(cat => `
+                        <div class="color-demo-item">
+                            <span class="prompt-card-category" style="background-color: ${cat.color}">
+                                <i class="${cat.icon}"></i>
+                                ${cat.name}
+                            </span>
+                            <div class="color-info">
+                                名称: ${cat.name}<br>
+                                图标: ${cat.icon}<br>
+                                颜色: ${cat.color}<br>
+                                描述: ${cat.desc}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.appendChild(demoDiv);
+            
+            addResult('color-demo', 'success', '颜色演示生成完成', '已显示8种不同颜色的分类标签');
+        }
+
+        async function testDatabaseColors() {
+            clearResults('database-results');
+            
+            try {
+                addResult('database-results', 'info', '测试数据库分类颜色', '正在获取数据库中的分类数据...');
+
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .limit(10);
+
+                if (error) {
+                    addResult('database-results', 'error', '数据库查询失败', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    addResult('database-results', 'warning', '没有分类数据', '数据库中没有找到分类数据');
+                    return;
+                }
+
+                addResult('database-results', 'success', '数据库查询成功', `找到 ${data.length} 个分类`);
+                
+                // 显示数据库中的分类颜色
+                const container = document.getElementById('database-results');
+                const demoDiv = document.createElement('div');
+                demoDiv.innerHTML = `
+                    <h4>数据库分类颜色</h4>
+                    <div class="color-demo-grid">
+                        ${data.map(cat => `
+                            <div class="color-demo-item">
+                                <span class="prompt-card-category" style="background-color: ${cat.color || '#4f46e5'}">
+                                    <i class="${cat.icon || 'fas fa-folder'}"></i>
+                                    ${cat.name}
+                                </span>
+                                <div class="color-info">
+                                    ID: ${cat.category_id}<br>
+                                    名称: ${cat.name}<br>
+                                    图标: ${cat.icon || '无'}<br>
+                                    颜色: ${cat.color || '无 (使用默认)'}<br>
+                                    描述: ${cat.description || '无'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                container.appendChild(demoDiv);
+
+            } catch (error) {
+                addResult('database-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        function showBeforeAfterComparison() {
+            clearResults('comparison-results');
+            
+            const container = document.getElementById('comparison-results');
+            
+            const comparisonDiv = document.createElement('div');
+            comparisonDiv.innerHTML = `
+                <h4>修复前后对比</h4>
+                <div class="comparison-grid">
+                    <div class="comparison-item">
+                        <h4>修复前 ❌</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--space-3);">
+                            所有分类都显示相同的紫色渐变背景：
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                            <span style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: 11px; font-weight: 600; text-transform: uppercase; display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content;">
+                                <i class="fas fa-pen"></i>写作
+                            </span>
+                            <span style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: 11px; font-weight: 600; text-transform: uppercase; display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content;">
+                                <i class="fas fa-code"></i>编程
+                            </span>
+                            <span style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: 11px; font-weight: 600; text-transform: uppercase; display: inline-flex; align-items: center; gap: var(--space-1); width: fit-content;">
+                                <i class="fas fa-palette"></i>设计
+                            </span>
+                        </div>
+                        <p style="color: var(--error-500); font-size: 12px; margin-top: var(--space-2);">
+                            问题：CSS渐变背景覆盖了内联样式
+                        </p>
+                    </div>
+                    
+                    <div class="comparison-item">
+                        <h4>修复后 ✅</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: var(--space-3);">
+                            每个分类显示不同的颜色：
+                        </p>
+                        <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+                            <span class="prompt-card-category" style="background-color: #8b5cf6; width: fit-content;">
+                                <i class="fas fa-pen"></i>写作
+                            </span>
+                            <span class="prompt-card-category" style="background-color: #10b981; width: fit-content;">
+                                <i class="fas fa-code"></i>编程
+                            </span>
+                            <span class="prompt-card-category" style="background-color: #f59e0b; width: fit-content;">
+                                <i class="fas fa-palette"></i>设计
+                            </span>
+                        </div>
+                        <p style="color: var(--success-500); font-size: 12px; margin-top: var(--space-2);">
+                            解决：移除CSS渐变，使用纯色背景+渐变遮罩
+                        </p>
+                    </div>
+                </div>
+                
+                <div style="background: var(--gray-50); padding: var(--space-4); border-radius: var(--radius-lg); margin-top: var(--space-4);">
+                    <h5 style="margin-bottom: var(--space-2); color: var(--text-primary);">技术修复说明：</h5>
+                    <ul style="color: var(--text-secondary); font-size: 14px; line-height: 1.6;">
+                        <li>移除了固定的CSS渐变背景</li>
+                        <li>改用纯色背景，允许内联样式覆盖</li>
+                        <li>添加伪元素渐变遮罩增强视觉效果</li>
+                        <li>确保图标和文字在渐变层之上显示</li>
+                    </ul>
+                </div>
+            `;
+            
+            container.appendChild(comparisonDiv);
+            
+            addResult('comparison-results', 'success', '对比展示完成', '已显示修复前后的效果对比');
+        }
+
+        async function testRealCards() {
+            clearResults('real-cards-results');
+            clearResults('real-cards-demo');
+            
+            try {
+                addResult('real-cards-results', 'info', '测试实际提示词卡片', '正在获取真实的提示词数据...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 6
+                });
+
+                if (result.success && result.data.length > 0) {
+                    const container = document.getElementById('real-cards-demo');
+                    
+                    result.data.forEach(prompt => {
+                        // 创建简化的卡片展示
+                        const cardDiv = document.createElement('div');
+                        cardDiv.className = 'color-demo-item';
+                        
+                        const categoryInfo = prompt.categories || {};
+                        const categoryName = categoryInfo.name || prompt.category_name || '未分类';
+                        const categoryColor = categoryInfo.color || '#4f46e5';
+                        const categoryIcon = categoryInfo.icon || 'fas fa-folder';
+                        
+                        cardDiv.innerHTML = `
+                            <h5 style="margin-bottom: var(--space-2); color: var(--text-primary);">${prompt.title}</h5>
+                            <span class="prompt-card-category" style="background-color: ${categoryColor}">
+                                <i class="${categoryIcon}"></i>
+                                ${categoryName}
+                            </span>
+                            <div class="color-info">
+                                分类: ${categoryName}<br>
+                                图标: ${categoryIcon}<br>
+                                颜色: ${categoryColor}<br>
+                                数据源: ${prompt.categories ? 'categories对象' : 'category_name字段'}
+                            </div>
+                        `;
+                        
+                        container.appendChild(cardDiv);
+                    });
+
+                    addResult('real-cards-results', 'success', '实际卡片测试完成', `显示了 ${result.data.length} 个真实提示词的分类颜色`);
+                } else {
+                    addResult('real-cards-results', 'warning', '没有数据', '没有找到提示词数据');
+                }
+
+            } catch (error) {
+                addResult('real-cards-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        // 页面加载时自动显示颜色演示
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                showColorDemo();
+                showBeforeAfterComparison();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

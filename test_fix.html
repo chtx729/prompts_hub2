@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修复测试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .prompt-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+</head>
+<body>
+    <h1>🧪 修复测试页面</h1>
+    <p>此页面用于测试修复后的功能是否正常工作。</p>
+
+    <div class="test-section">
+        <h3>🔧 基础功能测试</h3>
+        <button onclick="testBasicQuery()">测试基础查询</button>
+        <button onclick="testPromptsLoad()">测试提示词加载</button>
+        <button onclick="testCategoriesLoad()">测试分类加载</button>
+        <div id="basic-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 提示词显示测试</h3>
+        <button onclick="loadAndDisplayPrompts()">加载并显示提示词</button>
+        <div id="prompts-display"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 错误检查</h3>
+        <button onclick="checkForErrors()">检查控制台错误</button>
+        <div id="error-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function testBasicQuery() {
+            clearResults('basic-results');
+            
+            try {
+                if (!supabase) {
+                    addResult('basic-results', 'error', '连接失败', 'Supabase 客户端未初始化');
+                    return;
+                }
+
+                // 测试简单查询
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, author_name, category_name')
+                    .limit(3);
+                
+                if (error) {
+                    addResult('basic-results', 'error', '查询失败', error.message);
+                } else {
+                    addResult('basic-results', 'success', '查询成功', `找到 ${data.length} 条记录:\n${data.map(p => `- ${p.title} (作者: ${p.author_name})`).join('\n')}`);
+                }
+
+            } catch (error) {
+                addResult('basic-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function testPromptsLoad() {
+            clearResults('basic-results');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('*')
+                    .eq('status', 'published')
+                    .eq('is_public', true)
+                    .limit(5);
+
+                if (error) {
+                    addResult('basic-results', 'error', '提示词加载失败', error.message);
+                } else {
+                    const issues = [];
+                    data.forEach(p => {
+                        if (!p.author_name) issues.push(`提示词 ${p.prompt_id} 缺少作者信息`);
+                        if (!p.category_name) issues.push(`提示词 ${p.prompt_id} 缺少分类信息`);
+                    });
+
+                    if (issues.length > 0) {
+                        addResult('basic-results', 'warning', '数据完整性问题', issues.join('\n'));
+                    } else {
+                        addResult('basic-results', 'success', '提示词加载成功', `加载了 ${data.length} 条提示词，数据完整`);
+                    }
+                }
+            } catch (error) {
+                addResult('basic-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function testCategoriesLoad() {
+            clearResults('basic-results');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .eq('is_active', true);
+
+                if (error) {
+                    addResult('basic-results', 'error', '分类加载失败', error.message);
+                } else {
+                    addResult('basic-results', 'success', '分类加载成功', `找到 ${data.length} 个分类:\n${data.map(c => `- ${c.name}`).join('\n')}`);
+                }
+            } catch (error) {
+                addResult('basic-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function loadAndDisplayPrompts() {
+            const container = document.getElementById('prompts-display');
+            container.innerHTML = '<p>正在加载...</p>';
+            
+            try {
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('*')
+                    .eq('status', 'published')
+                    .eq('is_public', true)
+                    .limit(3);
+
+                if (error) {
+                    container.innerHTML = `<div class="test-result error">加载失败: ${error.message}</div>`;
+                    return;
+                }
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="test-result warning">没有找到提示词</div>';
+                    return;
+                }
+
+                container.innerHTML = '';
+                data.forEach(prompt => {
+                    const card = document.createElement('div');
+                    card.className = 'prompt-card';
+                    card.innerHTML = `
+                        <h4>${prompt.title}</h4>
+                        <p><strong>作者:</strong> ${prompt.author_name || '匿名用户'}</p>
+                        <p><strong>分类:</strong> ${prompt.category_name || '未分类'}</p>
+                        <p><strong>描述:</strong> ${prompt.description || '无描述'}</p>
+                        <p><strong>标签:</strong> ${prompt.tags ? prompt.tags.join(', ') : '无标签'}</p>
+                        <p><strong>统计:</strong> 浏览 ${prompt.view_count || 0} | 使用 ${prompt.use_count || 0} | 点赞 ${prompt.like_count || 0}</p>
+                    `;
+                    container.appendChild(card);
+                });
+
+                addResult('prompts-display', 'success', '显示成功', `成功显示 ${data.length} 个提示词卡片`);
+
+            } catch (error) {
+                container.innerHTML = `<div class="test-result error">显示失败: ${error.message}</div>`;
+            }
+        }
+
+        function checkForErrors() {
+            clearResults('error-results');
+            
+            // 检查控制台错误
+            const errors = [];
+            
+            // 检查全局变量
+            if (typeof supabase === 'undefined') {
+                errors.push('supabase 未定义');
+            }
+            
+            if (typeof SUPABASE_CONFIG === 'undefined') {
+                errors.push('SUPABASE_CONFIG 未定义');
+            }
+            
+            if (typeof APP_CONFIG === 'undefined') {
+                errors.push('APP_CONFIG 未定义');
+            }
+
+            if (errors.length > 0) {
+                addResult('error-results', 'error', '发现错误', errors.join('\n'));
+            } else {
+                addResult('error-results', 'success', '检查完成', '没有发现明显错误');
+            }
+
+            // 检查网络连接
+            testBasicQuery().then(() => {
+                addResult('error-results', 'info', '网络测试', '基础查询测试已完成，请查看上方结果');
+            });
+        }
+
+        // 页面加载时自动运行基础测试
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addResult('basic-results', 'info', '自动测试', '页面已加载，开始自动测试...');
+                testBasicQuery();
+            }, 1000);
+        });
+
+        // 捕获错误
+        window.addEventListener('error', (e) => {
+            addResult('error-results', 'error', '页面错误', `${e.error?.message || e.message}\n文件: ${e.filename}\n行号: ${e.lineno}`);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            addResult('error-results', 'error', 'Promise错误', e.reason?.message || e.reason);
+        });
+    </script>
+</body>
+</html>

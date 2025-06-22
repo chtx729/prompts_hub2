@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导航返回功能测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .navigation-flow {
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .flow-step {
+            display: flex;
+            align-items: center;
+            margin: var(--space-2) 0;
+            padding: var(--space-2);
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .flow-step .step-number {
+            background: var(--primary-color);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: var(--space-3);
+        }
+        .flow-step .step-content {
+            flex: 1;
+        }
+        .flow-step .step-action {
+            margin-left: var(--space-3);
+        }
+        .current-page-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            font-size: 12px;
+        }
+        .test-instructions {
+            background: var(--primary-50);
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .test-instructions h4 {
+            color: var(--primary-700);
+            margin-bottom: var(--space-2);
+        }
+        .test-instructions ol {
+            color: var(--primary-600);
+            margin-left: var(--space-4);
+        }
+        .test-instructions li {
+            margin: var(--space-1) 0;
+        }
+        .navigation-log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: var(--space-3) 0;
+        }
+        .log-entry {
+            margin: var(--space-1) 0;
+            padding: var(--space-1);
+            border-radius: var(--radius-sm);
+        }
+        .log-entry.navigation { background: rgba(139, 92, 246, 0.2); }
+        .log-entry.detail { background: rgba(34, 197, 94, 0.2); }
+        .log-entry.error { background: rgba(239, 68, 68, 0.2); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <h1>🔄 导航返回功能测试</h1>
+    <p>此工具用于测试从"我的空间"查看详情后返回的功能是否正确。</p>
+
+    <div class="current-page-indicator" id="current-page-indicator">
+        当前页面: 测试页面
+    </div>
+
+    <div class="test-section">
+        <h3>📊 当前状态</h3>
+        <div>
+            <strong>登录状态：</strong>
+            <span id="login-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>提示词管理器：</strong>
+            <span id="manager-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>我的空间管理器：</strong>
+            <span id="myspace-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>当前记录的来源页面：</strong>
+            <span id="previous-page-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 测试说明</h3>
+        <div class="test-instructions">
+            <h4>测试目标</h4>
+            <ol>
+                <li><strong>首页 → 详情 → 返回首页</strong>：从首页查看详情后应该返回首页</li>
+                <li><strong>我的空间 → 详情 → 返回我的空间</strong>：从我的空间查看详情后应该返回我的空间</li>
+                <li><strong>来源页面记录</strong>：系统应该正确记录来源页面</li>
+                <li><strong>返回按钮功能</strong>：返回按钮应该返回到正确的页面</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 导航流程测试</h3>
+        <div class="navigation-flow">
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <strong>模拟首页导航</strong><br>
+                    <small>测试从首页查看详情的返回功能</small>
+                </div>
+                <div class="step-action">
+                    <button onclick="testHomeNavigation()" id="test-home-btn">测试首页流程</button>
+                </div>
+            </div>
+
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <strong>模拟我的空间导航</strong><br>
+                    <small>测试从我的空间查看详情的返回功能</small>
+                </div>
+                <div class="step-action">
+                    <button onclick="testMySpaceNavigation()" id="test-myspace-btn">测试我的空间流程</button>
+                </div>
+            </div>
+            
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <strong>测试返回功能</strong><br>
+                    <small>直接测试返回按钮的功能</small>
+                </div>
+                <div class="step-action">
+                    <button onclick="testGoBackFunction()">测试返回功能</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 导航日志</h3>
+        <button onclick="clearNavigationLog()">清空日志</button>
+        <button onclick="showCurrentState()">显示当前状态</button>
+        <div id="navigation-log" class="navigation-log">等待导航操作...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 手动测试</h3>
+        <button onclick="simulateHomePage()">模拟首页</button>
+        <button onclick="simulateMySpacePage()">模拟我的空间</button>
+        <button onclick="simulateDetailPage()">模拟详情页面</button>
+        <button onclick="testReturnButton()">测试返回按钮</button>
+        <div id="manual-test-results"></div>
+    </div>
+
+    <script>
+        let navigationLog = [];
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function addNavigationLog(message, type = 'navigation') {
+            const timestamp = new Date().toLocaleTimeString();
+            navigationLog.push({
+                time: timestamp,
+                message: message,
+                type: type
+            });
+            updateNavigationLogDisplay();
+        }
+
+        function updateNavigationLogDisplay() {
+            const container = document.getElementById('navigation-log');
+            
+            if (navigationLog.length === 0) {
+                container.innerHTML = '等待导航操作...';
+                return;
+            }
+            
+            const logHtml = navigationLog.map(entry => 
+                `<div class="log-entry ${entry.type}">[${entry.time}] ${entry.message}</div>`
+            ).join('');
+            
+            container.innerHTML = logHtml;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearNavigationLog() {
+            navigationLog = [];
+            updateNavigationLogDisplay();
+        }
+
+        function updateStatus() {
+            const loginStatus = document.getElementById('login-status');
+            const managerStatus = document.getElementById('manager-status');
+            const myspaceStatus = document.getElementById('myspace-status');
+            const previousPageStatus = document.getElementById('previous-page-status');
+            
+            // 检查登录状态
+            if (window.authManager && authManager.isAuthenticated()) {
+                loginStatus.textContent = '已登录';
+                loginStatus.style.color = 'var(--success-color)';
+            } else {
+                loginStatus.textContent = '未登录';
+                loginStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查提示词管理器
+            if (window.promptsManager) {
+                managerStatus.textContent = '已初始化';
+                managerStatus.style.color = 'var(--success-color)';
+                
+                // 显示当前记录的来源页面
+                previousPageStatus.textContent = promptsManager.previousPage || '未设置';
+                previousPageStatus.style.color = 'var(--info-color)';
+            } else {
+                managerStatus.textContent = '未初始化';
+                managerStatus.style.color = 'var(--error-color)';
+                previousPageStatus.textContent = '管理器未初始化';
+                previousPageStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查我的空间管理器
+            if (window.mySpaceManager) {
+                myspaceStatus.textContent = '已初始化';
+                myspaceStatus.style.color = 'var(--success-color)';
+            } else {
+                myspaceStatus.textContent = '未初始化';
+                myspaceStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        function updateCurrentPageIndicator() {
+            const indicator = document.getElementById('current-page-indicator');
+            const activePageElement = document.querySelector('.page.active');
+            
+            if (activePageElement) {
+                const pageName = activePageElement.id;
+                const pageNames = {
+                    'home-page': '首页',
+                    'my-space-page': '我的空间',
+                    'prompt-detail-page': '提示词详情'
+                };
+                indicator.textContent = `当前页面: ${pageNames[pageName] || pageName}`;
+            } else {
+                indicator.textContent = '当前页面: 测试页面';
+            }
+        }
+
+        // 重写关键方法来监控导航
+        const originalShowPage = UI.showPage;
+        UI.showPage = function(pageId) {
+            addNavigationLog(`页面切换: ${pageId}`, 'navigation');
+            updateCurrentPageIndicator();
+            return originalShowPage.call(this, pageId);
+        };
+
+        const originalShowPromptDetail = window.promptsManager?.showPromptDetail;
+        if (originalShowPromptDetail) {
+            window.promptsManager.showPromptDetail = function(promptId, fromPage) {
+                addNavigationLog(`查看详情: 提示词 ${promptId}, 来源页面: ${fromPage || '自动检测'}`, 'detail');
+                return originalShowPromptDetail.call(this, promptId, fromPage);
+            };
+        }
+
+        const originalGoBack = window.promptsManager?.goBack;
+        if (originalGoBack) {
+            window.promptsManager.goBack = function() {
+                addNavigationLog(`执行返回: 目标页面 ${this.previousPage}`, 'navigation');
+                return originalGoBack.call(this);
+            };
+        }
+
+        async function testHomeNavigation() {
+            const btn = document.getElementById('test-home-btn');
+            if (btn.disabled) return;
+
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            clearResults('manual-test-results');
+            addNavigationLog('开始测试首页导航流程', 'navigation');
+
+            try {
+                if (!window.promptsManager) {
+                    addResult('manual-test-results', 'error', '测试失败', '提示词管理器未初始化');
+                    return;
+                }
+
+                // 先获取真实的提示词ID
+                addNavigationLog('获取真实提示词数据...', 'navigation');
+                const result = await apiManager.getPrompts({ page: 1, limit: 1 });
+
+                if (!result.success || !result.data.length) {
+                    addResult('manual-test-results', 'warning', '测试跳过', '没有找到提示词数据，无法测试');
+                    return;
+                }
+
+                const firstPrompt = result.data[0];
+                addNavigationLog(`使用真实提示词ID: ${firstPrompt.prompt_id}`, 'navigation');
+
+                // 模拟从首页查看详情
+                addNavigationLog('设置来源页面为首页', 'navigation');
+                promptsManager.previousPage = 'home-page';
+
+                // 模拟查看详情
+                addNavigationLog(`模拟查看详情（提示词ID: ${firstPrompt.prompt_id}）`, 'detail');
+                await promptsManager.showPromptDetail(firstPrompt.prompt_id, 'home-page');
+
+                addResult('manual-test-results', 'success', '首页导航测试', '已模拟从首页查看详情，请点击详情页面的返回按钮测试');
+            } catch (error) {
+                addNavigationLog(`测试失败: ${error.message}`, 'error');
+                addResult('manual-test-results', 'error', '测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试首页流程';
+            }
+        }
+
+        async function testMySpaceNavigation() {
+            const btn = document.getElementById('test-myspace-btn');
+            if (btn.disabled) return;
+
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            clearResults('manual-test-results');
+            addNavigationLog('开始测试我的空间导航流程', 'navigation');
+
+            try {
+                if (!window.promptsManager) {
+                    addResult('manual-test-results', 'error', '测试失败', '提示词管理器未初始化');
+                    return;
+                }
+
+                if (!authManager.isAuthenticated()) {
+                    addResult('manual-test-results', 'warning', '测试跳过', '需要登录才能测试我的空间功能');
+                    return;
+                }
+
+                // 先获取我的提示词数据
+                addNavigationLog('获取我的提示词数据...', 'navigation');
+                const result = await apiManager.getMyPrompts({ page: 1, limit: 1 });
+
+                if (!result.success || !result.data.length) {
+                    // 如果没有我的提示词，使用首页的提示词进行测试
+                    addNavigationLog('没有我的提示词，使用首页数据测试...', 'navigation');
+                    const homeResult = await apiManager.getPrompts({ page: 1, limit: 1 });
+
+                    if (!homeResult.success || !homeResult.data.length) {
+                        addResult('manual-test-results', 'warning', '测试跳过', '没有找到任何提示词数据，无法测试');
+                        return;
+                    }
+
+                    const firstPrompt = homeResult.data[0];
+                    addNavigationLog(`使用首页提示词ID进行测试: ${firstPrompt.prompt_id}`, 'navigation');
+
+                    // 模拟从我的空间查看详情
+                    addNavigationLog('设置来源页面为我的空间', 'navigation');
+                    promptsManager.previousPage = 'my-space-page';
+
+                    // 模拟查看详情
+                    addNavigationLog(`模拟查看详情（提示词ID: ${firstPrompt.prompt_id}）`, 'detail');
+                    await promptsManager.showPromptDetail(firstPrompt.prompt_id, 'my-space-page');
+
+                    addResult('manual-test-results', 'success', '我的空间导航测试', '已模拟从我的空间查看详情，请点击详情页面的返回按钮测试');
+                    return;
+                }
+
+                const firstPrompt = result.data[0];
+                addNavigationLog(`使用我的提示词ID: ${firstPrompt.prompt_id}`, 'navigation');
+
+                // 模拟从我的空间查看详情
+                addNavigationLog('设置来源页面为我的空间', 'navigation');
+                promptsManager.previousPage = 'my-space-page';
+
+                // 模拟查看详情
+                addNavigationLog(`模拟查看详情（提示词ID: ${firstPrompt.prompt_id}）`, 'detail');
+                await promptsManager.showPromptDetail(firstPrompt.prompt_id, 'my-space-page');
+
+                addResult('manual-test-results', 'success', '我的空间导航测试', '已模拟从我的空间查看详情，请点击详情页面的返回按钮测试');
+            } catch (error) {
+                addNavigationLog(`测试失败: ${error.message}`, 'error');
+                addResult('manual-test-results', 'error', '测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试我的空间流程';
+            }
+        }
+
+        function testGoBackFunction() {
+            clearResults('manual-test-results');
+            
+            if (!window.promptsManager) {
+                addResult('manual-test-results', 'error', '测试失败', '提示词管理器未初始化');
+                return;
+            }
+
+            const currentPreviousPage = promptsManager.previousPage;
+            addNavigationLog(`当前记录的来源页面: ${currentPreviousPage}`, 'navigation');
+            
+            // 测试返回功能
+            addNavigationLog('执行返回功能测试', 'navigation');
+            promptsManager.goBack();
+            
+            addResult('manual-test-results', 'success', '返回功能测试', `已执行返回，目标页面: ${currentPreviousPage}`);
+        }
+
+        function simulateHomePage() {
+            addNavigationLog('手动切换到首页', 'navigation');
+            UI.showPage('home-page');
+            if (window.promptsManager) {
+                promptsManager.previousPage = 'home-page';
+            }
+        }
+
+        function simulateMySpacePage() {
+            addNavigationLog('手动切换到我的空间', 'navigation');
+            UI.showPage('my-space-page');
+            if (window.promptsManager) {
+                promptsManager.previousPage = 'my-space-page';
+            }
+        }
+
+        function simulateDetailPage() {
+            addNavigationLog('手动切换到详情页面', 'navigation');
+            UI.showPage('prompt-detail-page');
+        }
+
+        function testReturnButton() {
+            clearResults('manual-test-results');
+            
+            if (!window.promptsManager) {
+                addResult('manual-test-results', 'error', '测试失败', '提示词管理器未初始化');
+                return;
+            }
+
+            addNavigationLog('测试返回按钮功能', 'navigation');
+            
+            // 创建一个模拟的返回按钮点击
+            const returnButton = document.createElement('button');
+            returnButton.textContent = '模拟返回按钮';
+            returnButton.onclick = () => promptsManager.goBack();
+            
+            addResult('manual-test-results', 'info', '返回按钮测试', '已创建模拟返回按钮');
+            document.getElementById('manual-test-results').appendChild(returnButton);
+        }
+
+        function showCurrentState() {
+            if (window.promptsManager) {
+                addNavigationLog(`当前状态 - 来源页面: ${promptsManager.previousPage}`, 'navigation');
+            } else {
+                addNavigationLog('提示词管理器未初始化', 'error');
+            }
+            
+            const activePageElement = document.querySelector('.page.active');
+            if (activePageElement) {
+                addNavigationLog(`当前活动页面: ${activePageElement.id}`, 'navigation');
+            } else {
+                addNavigationLog('没有活动页面', 'navigation');
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                updateCurrentPageIndicator();
+                
+                // 初始化管理器
+                if (!window.promptsManager) {
+                    window.promptsManager = new PromptsManager();
+                }
+                
+                // 重新绑定方法监控
+                if (window.promptsManager && !originalShowPromptDetail) {
+                    const originalMethod = window.promptsManager.showPromptDetail;
+                    window.promptsManager.showPromptDetail = function(promptId, fromPage) {
+                        addNavigationLog(`查看详情: 提示词 ${promptId}, 来源页面: ${fromPage || '自动检测'}`, 'detail');
+                        return originalMethod.call(this, promptId, fromPage);
+                    };
+                }
+                
+                if (window.promptsManager && !originalGoBack) {
+                    const originalGoBackMethod = window.promptsManager.goBack;
+                    window.promptsManager.goBack = function() {
+                        addNavigationLog(`执行返回: 目标页面 ${this.previousPage}`, 'navigation');
+                        return originalGoBackMethod.call(this);
+                    };
+                }
+                
+                addNavigationLog('测试页面初始化完成', 'navigation');
+                
+                // 定期更新状态
+                setInterval(() => {
+                    updateStatus();
+                    updateCurrentPageIndicator();
+                }, 3000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

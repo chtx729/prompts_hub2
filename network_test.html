@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网络资源测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-item {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .success { background: #f0fdf4; border-color: #22c55e; color: #166534; }
+        .error { background: #fef2f2; border-color: #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border-color: #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border-color: #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        .status { font-weight: bold; margin-right: 0.5rem; }
+        pre { background: #f8fafc; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+    <h1>🌐 网络资源测试工具</h1>
+    <p>此工具帮助诊断网络资源加载问题，识别404错误的来源。</p>
+
+    <div id="test-results">
+        <div class="test-item info">
+            <div class="status">📋</div>
+            <strong>测试说明</strong><br>
+            点击下方按钮测试各种网络资源的可用性。
+        </div>
+    </div>
+
+    <div style="margin: 2rem 0;">
+        <button onclick="testCDNResources()">测试 CDN 资源</button>
+        <button onclick="testLocalFiles()">测试本地文件</button>
+        <button onclick="testSupabaseConnection()">测试 Supabase 连接</button>
+        <button onclick="runAllTests()">🚀 运行所有测试</button>
+    </div>
+
+    <script>
+        function addTestResult(name, status, message, details = '') {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-item ${status}`;
+            
+            const statusIcon = status === 'success' ? '✅' : status === 'error' ? '❌' : '⚠️';
+            
+            div.innerHTML = `
+                <div class="status">${statusIcon}</div>
+                <strong>${name}</strong><br>
+                ${message}
+                ${details ? `<pre>${details}</pre>` : ''}
+            `;
+            
+            container.appendChild(div);
+        }
+
+        async function testCDNResources() {
+            const resources = [
+                {
+                    name: 'Font Awesome CSS',
+                    url: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+                    type: 'css'
+                },
+                {
+                    name: 'Google Fonts',
+                    url: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+                    type: 'css'
+                },
+                {
+                    name: 'Supabase JS',
+                    url: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+                    type: 'js'
+                }
+            ];
+
+            for (const resource of resources) {
+                try {
+                    const response = await fetch(resource.url, { method: 'HEAD' });
+                    if (response.ok) {
+                        addTestResult(
+                            `CDN资源: ${resource.name}`,
+                            'success',
+                            `资源可用 (状态: ${response.status})`
+                        );
+                    } else {
+                        addTestResult(
+                            `CDN资源: ${resource.name}`,
+                            'error',
+                            `资源不可用 (状态: ${response.status})`,
+                            `URL: ${resource.url}`
+                        );
+                    }
+                } catch (error) {
+                    addTestResult(
+                        `CDN资源: ${resource.name}`,
+                        'error',
+                        '网络错误或资源不可访问',
+                        `错误: ${error.message}\nURL: ${resource.url}`
+                    );
+                }
+                
+                // 添加延迟避免请求过快
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+
+        async function testLocalFiles() {
+            const files = [
+                'css/main.css',
+                'css/components.css',
+                'js/config.js',
+                'js/auth.js',
+                'js/api.js',
+                'js/ui.js',
+                'js/prompts.js',
+                'js/search.js',
+                'js/myspace.js',
+                'js/main.js'
+            ];
+
+            for (const file of files) {
+                try {
+                    const response = await fetch(file, { method: 'HEAD' });
+                    if (response.ok) {
+                        addTestResult(
+                            `本地文件: ${file}`,
+                            'success',
+                            '文件存在且可访问'
+                        );
+                    } else {
+                        addTestResult(
+                            `本地文件: ${file}`,
+                            'error',
+                            `文件不存在或不可访问 (状态: ${response.status})`
+                        );
+                    }
+                } catch (error) {
+                    addTestResult(
+                        `本地文件: ${file}`,
+                        'error',
+                        '文件访问失败',
+                        `错误: ${error.message}`
+                    );
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        async function testSupabaseConnection() {
+            try {
+                // 检查 Supabase 库是否加载
+                if (typeof window.supabase === 'undefined') {
+                    addTestResult(
+                        'Supabase 库',
+                        'error',
+                        'Supabase 库未加载',
+                        '请检查 CDN 连接或网络设置'
+                    );
+                    return;
+                }
+
+                addTestResult(
+                    'Supabase 库',
+                    'success',
+                    'Supabase 库已成功加载'
+                );
+
+                // 检查配置文件
+                const configResponse = await fetch('js/config.js');
+                if (configResponse.ok) {
+                    const configText = await configResponse.text();
+                    
+                    if (configText.includes('YOUR_SUPABASE_URL') || configText.includes('your-project')) {
+                        addTestResult(
+                            'Supabase 配置',
+                            'warning',
+                            '配置文件存在但未正确配置',
+                            '请在 js/config.js 中填入正确的 Supabase URL 和 API Key'
+                        );
+                    } else {
+                        addTestResult(
+                            'Supabase 配置',
+                            'success',
+                            '配置文件已更新'
+                        );
+                    }
+                } else {
+                    addTestResult(
+                        'Supabase 配置',
+                        'error',
+                        '无法读取配置文件'
+                    );
+                }
+
+            } catch (error) {
+                addTestResult(
+                    'Supabase 连接测试',
+                    'error',
+                    '测试失败',
+                    error.message
+                );
+            }
+        }
+
+        async function runAllTests() {
+            // 清空之前的结果
+            const container = document.getElementById('test-results');
+            container.innerHTML = `
+                <div class="test-item info">
+                    <div class="status">🧪</div>
+                    <strong>正在运行网络诊断...</strong><br>
+                    请稍候，测试结果将显示在下方。
+                </div>
+            `;
+
+            await testCDNResources();
+            await testLocalFiles();
+            await testSupabaseConnection();
+
+            addTestResult(
+                '诊断完成',
+                'info',
+                '网络资源诊断已完成',
+                '请查看上方的测试结果，修复任何标记为错误的项目'
+            );
+        }
+
+        // 页面加载时显示欢迎信息
+        window.addEventListener('load', () => {
+            addTestResult(
+                '网络诊断工具',
+                'info',
+                '此工具将帮助您识别和解决网络资源加载问题'
+            );
+        });
+
+        // 监听网络错误
+        window.addEventListener('error', (e) => {
+            if (e.target.tagName === 'LINK' || e.target.tagName === 'SCRIPT') {
+                addTestResult(
+                    '资源加载错误',
+                    'error',
+                    `无法加载资源: ${e.target.src || e.target.href}`,
+                    `元素类型: ${e.target.tagName}`
+                );
+            }
+        });
+    </script>
+</body>
+</html>

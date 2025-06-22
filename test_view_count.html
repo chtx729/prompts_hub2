@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览量增加测试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .prompt-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+        .view-count {
+            font-weight: bold;
+            color: #059669;
+        }
+        .test-prompt {
+            background: #f3f4f6;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+</head>
+<body>
+    <h1>🔍 浏览量增加功能测试</h1>
+    <p>此工具用于测试点击"查看"按钮时浏览量是否正确增加。</p>
+
+    <div class="test-section">
+        <h3>📊 选择测试提示词</h3>
+        <button onclick="loadTestPrompts()">加载测试提示词</button>
+        <div id="prompts-list"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 浏览量测试</h3>
+        <div id="selected-prompt"></div>
+        <button onclick="simulateViewClick()" id="view-btn" disabled>模拟点击"查看"</button>
+        <button onclick="checkViewCount()" id="check-btn" disabled>检查浏览量</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 浏览量历史</h3>
+        <button onclick="showViewHistory()" id="history-btn" disabled>查看浏览历史</button>
+        <div id="history-results"></div>
+    </div>
+
+    <script>
+        let selectedPromptId = null;
+        let initialViewCount = 0;
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function loadTestPrompts() {
+            clearResults('prompts-list');
+            
+            try {
+                addResult('prompts-list', 'info', '加载测试提示词', '正在获取提示词列表...');
+
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, view_count, status')
+                    .eq('status', 'published')
+                    .eq('is_public', true)
+                    .limit(5);
+
+                if (error) {
+                    addResult('prompts-list', 'error', '加载失败', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    addResult('prompts-list', 'warning', '没有数据', '没有找到公开的提示词');
+                    return;
+                }
+
+                clearResults('prompts-list');
+                addResult('prompts-list', 'success', '加载成功', `找到 ${data.length} 个提示词`);
+
+                // 创建提示词选择列表
+                const container = document.getElementById('prompts-list');
+                data.forEach(prompt => {
+                    const promptDiv = document.createElement('div');
+                    promptDiv.className = 'test-prompt';
+                    promptDiv.innerHTML = `
+                        <h4>${prompt.title}</h4>
+                        <p>当前浏览量: <span class="view-count">${prompt.view_count || 0}</span></p>
+                        <button onclick="selectPrompt(${prompt.prompt_id}, '${prompt.title}', ${prompt.view_count || 0})">
+                            选择此提示词进行测试
+                        </button>
+                    `;
+                    container.appendChild(promptDiv);
+                });
+
+            } catch (error) {
+                addResult('prompts-list', 'error', '测试失败', error.message);
+            }
+        }
+
+        function selectPrompt(promptId, title, viewCount) {
+            selectedPromptId = promptId;
+            initialViewCount = viewCount;
+
+            const container = document.getElementById('selected-prompt');
+            container.innerHTML = `
+                <div class="test-prompt">
+                    <h4>已选择: ${title}</h4>
+                    <p>提示词ID: ${promptId}</p>
+                    <p>初始浏览量: <span class="view-count">${viewCount}</span></p>
+                </div>
+            `;
+
+            // 启用测试按钮
+            document.getElementById('view-btn').disabled = false;
+            document.getElementById('check-btn').disabled = false;
+            document.getElementById('history-btn').disabled = false;
+
+            clearResults('test-results');
+            clearResults('history-results');
+        }
+
+        async function simulateViewClick() {
+            if (!selectedPromptId) {
+                addResult('test-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            clearResults('test-results');
+            addResult('test-results', 'info', '模拟查看操作', '正在调用 logUsage 方法...');
+
+            try {
+                // 直接调用 logUsage 方法，模拟点击查看按钮的行为
+                const result = await apiManager.logUsage(selectedPromptId, 'view');
+
+                if (result.success) {
+                    addResult('test-results', 'success', '查看操作成功', '已记录查看日志并增加浏览量');
+                    
+                    // 等待一下让数据库更新
+                    setTimeout(() => {
+                        addResult('test-results', 'info', '提示', '请点击"检查浏览量"按钮查看更新后的数值');
+                    }, 1000);
+                } else {
+                    addResult('test-results', 'error', '查看操作失败', result.error || '未知错误');
+                }
+
+            } catch (error) {
+                addResult('test-results', 'error', '操作失败', error.message);
+            }
+        }
+
+        async function checkViewCount() {
+            if (!selectedPromptId) {
+                addResult('test-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            try {
+                addResult('test-results', 'info', '检查浏览量', '正在查询最新的浏览量...');
+
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('view_count')
+                    .eq('prompt_id', selectedPromptId)
+                    .single();
+
+                if (error) {
+                    addResult('test-results', 'error', '查询失败', error.message);
+                    return;
+                }
+
+                const currentViewCount = data.view_count || 0;
+                const increase = currentViewCount - initialViewCount;
+
+                if (increase > 0) {
+                    addResult('test-results', 'success', '浏览量检查结果', `
+初始浏览量: ${initialViewCount}
+当前浏览量: ${currentViewCount}
+增加数量: +${increase}
+
+✅ 浏览量增加功能正常工作！
+                    `);
+                } else if (increase === 0) {
+                    addResult('test-results', 'warning', '浏览量检查结果', `
+初始浏览量: ${initialViewCount}
+当前浏览量: ${currentViewCount}
+增加数量: ${increase}
+
+⚠️ 浏览量没有增加，可能需要检查：
+1. increment_view_count 函数是否存在
+2. 数据库权限是否正确
+3. 是否有其他错误
+                    `);
+                } else {
+                    addResult('test-results', 'error', '浏览量检查结果', `
+初始浏览量: ${initialViewCount}
+当前浏览量: ${currentViewCount}
+变化: ${increase}
+
+❌ 浏览量异常减少，请检查数据库
+                    `);
+                }
+
+            } catch (error) {
+                addResult('test-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function showViewHistory() {
+            if (!selectedPromptId) {
+                addResult('history-results', 'error', '错误', '请先选择一个提示词');
+                return;
+            }
+
+            clearResults('history-results');
+
+            try {
+                addResult('history-results', 'info', '查看浏览历史', '正在查询使用日志...');
+
+                const { data, error } = await supabase
+                    .from('usage_logs')
+                    .select('*')
+                    .eq('prompt_id', selectedPromptId)
+                    .eq('action_type', 'view')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                if (error) {
+                    addResult('history-results', 'error', '查询失败', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    addResult('history-results', 'warning', '没有浏览记录', '该提示词还没有浏览记录');
+                    return;
+                }
+
+                let historyText = `最近 ${data.length} 次浏览记录:\n\n`;
+                data.forEach((log, index) => {
+                    const date = new Date(log.created_at).toLocaleString('zh-CN');
+                    const userId = log.user_id || '匿名用户';
+                    historyText += `${index + 1}. ${date} - ${userId}\n`;
+                });
+
+                addResult('history-results', 'success', '浏览历史', historyText);
+
+            } catch (error) {
+                addResult('history-results', 'error', '查询失败', error.message);
+            }
+        }
+
+        // 页面加载时自动加载测试提示词
+        window.addEventListener('load', () => {
+            setTimeout(loadTestPrompts, 1000);
+        });
+    </script>
+</body>
+</html>

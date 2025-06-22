@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模态框滚动测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .scroll-test-content {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            background: var(--gray-50);
+            margin: var(--space-3) 0;
+        }
+        .scroll-indicator {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57);
+            background-size: 400% 400%;
+            animation: gradientShift 3s ease infinite;
+            color: white;
+            padding: var(--space-2);
+            margin: var(--space-1) 0;
+            border-radius: var(--radius-md);
+            text-align: center;
+            font-weight: 600;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <h1>🔄 模态框滚动测试</h1>
+    <p>此工具用于测试创建提示词模态框的滚动功能修复效果。</p>
+
+    <div class="test-section">
+        <h3>📋 滚动功能说明</h3>
+        <div class="test-result info">
+修复内容：
+1. 模态框高度限制：max-height: 85vh
+2. 模态框主体滚动：overflow-y: auto
+3. Flexbox布局：确保正确的高度计算
+4. 滚动条样式：美化滚动条外观
+5. 表单布局：flex布局确保正确显示
+
+测试方法：
+- 鼠标滚轮滚动
+- 拖拽滚动条
+- 键盘导航（Tab/Shift+Tab）
+- 触摸滚动（移动设备）
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 模态框滚动测试</h3>
+        <button onclick="testCreatePromptModal()">测试创建提示词模态框</button>
+        <button onclick="testScrollBehavior()">测试滚动行为</button>
+        <div id="modal-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📏 滚动区域演示</h3>
+        <p>以下是一个滚动区域演示，模拟模态框内的滚动效果：</p>
+        <div class="scroll-test-content">
+            <div class="scroll-indicator">🔝 滚动区域开始</div>
+            <div class="scroll-indicator">📝 表单字段 1 - 标题</div>
+            <div class="scroll-indicator">📝 表单字段 2 - 描述</div>
+            <div class="scroll-indicator">📝 表单字段 3 - 分类</div>
+            <div class="scroll-indicator">📝 表单字段 4 - 提示词内容</div>
+            <div class="scroll-indicator">📝 表单字段 5 - 标签</div>
+            <div class="scroll-indicator">📝 表单字段 6 - 使用模型</div>
+            <div class="scroll-indicator">📝 表单字段 7 - 参考输出</div>
+            <div class="scroll-indicator">🔘 操作按钮区域</div>
+            <div class="scroll-indicator">🔽 滚动区域结束</div>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 14px;">
+            ☝️ 请尝试用鼠标滚轮、拖拽滚动条或键盘方向键来滚动上面的区域
+        </p>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 CSS样式检查</h3>
+        <button onclick="checkModalStyles()">检查模态框样式</button>
+        <div id="style-check-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📱 响应式测试</h3>
+        <button onclick="testResponsiveModal()">测试响应式模态框</button>
+        <div id="responsive-test-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function testCreatePromptModal() {
+            clearResults('modal-test-results');
+            
+            try {
+                addResult('modal-test-results', 'info', '测试创建提示词模态框', '正在打开模态框...');
+
+                // 检查是否有mySpaceManager
+                if (!window.mySpaceManager) {
+                    addResult('modal-test-results', 'error', '测试失败', 'mySpaceManager未初始化');
+                    return;
+                }
+
+                // 创建模态框（如果不存在）
+                if (!document.getElementById('prompt-modal')) {
+                    mySpaceManager.createPromptModal();
+                    addResult('modal-test-results', 'success', '模态框创建成功', '已创建提示词模态框');
+                }
+
+                // 显示模态框
+                mySpaceManager.showCreatePromptModal();
+                
+                addResult('modal-test-results', 'success', '模态框显示成功', `
+测试说明：
+1. 模态框应该正确显示
+2. 可以使用鼠标滚轮滚动表单内容
+3. 可以拖拽滚动条
+4. Tab键导航应该正常工作
+5. 表单字段应该完全可见
+
+请在模态框中测试滚动功能！
+                `);
+
+                // 添加滚动测试提示
+                setTimeout(() => {
+                    const modal = document.getElementById('prompt-modal');
+                    if (modal && modal.classList.contains('active')) {
+                        addResult('modal-test-results', 'info', '滚动测试提示', `
+模态框已打开，请测试：
+✅ 鼠标滚轮滚动
+✅ 拖拽滚动条
+✅ 键盘Tab导航
+✅ 所有表单字段可见
+                        `);
+                    }
+                }, 1000);
+
+            } catch (error) {
+                addResult('modal-test-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        function testScrollBehavior() {
+            clearResults('modal-test-results');
+            
+            const modal = document.getElementById('prompt-modal');
+            if (!modal || !modal.classList.contains('active')) {
+                addResult('modal-test-results', 'warning', '请先打开模态框', '请先点击"测试创建提示词模态框"按钮');
+                return;
+            }
+
+            const modalBody = modal.querySelector('.modal-body');
+            if (!modalBody) {
+                addResult('modal-test-results', 'error', '模态框结构错误', '找不到.modal-body元素');
+                return;
+            }
+
+            // 检查滚动属性
+            const computedStyle = window.getComputedStyle(modalBody);
+            const scrollHeight = modalBody.scrollHeight;
+            const clientHeight = modalBody.clientHeight;
+            const canScroll = scrollHeight > clientHeight;
+
+            addResult('modal-test-results', 'info', '滚动行为检查', `
+模态框主体样式：
+- overflow-y: ${computedStyle.overflowY}
+- max-height: ${computedStyle.maxHeight}
+- height: ${computedStyle.height}
+- scroll-height: ${scrollHeight}px
+- client-height: ${clientHeight}px
+- 可滚动: ${canScroll ? '是' : '否'}
+            `);
+
+            if (canScroll) {
+                addResult('modal-test-results', 'success', '滚动功能正常', '模态框内容可以滚动');
+                
+                // 自动滚动测试
+                let scrollPosition = 0;
+                const scrollTest = setInterval(() => {
+                    scrollPosition += 50;
+                    modalBody.scrollTop = scrollPosition;
+                    
+                    if (scrollPosition >= scrollHeight - clientHeight) {
+                        clearInterval(scrollTest);
+                        modalBody.scrollTop = 0; // 滚回顶部
+                        addResult('modal-test-results', 'success', '自动滚动测试完成', '已自动滚动到底部并返回顶部');
+                    }
+                }, 100);
+            } else {
+                addResult('modal-test-results', 'warning', '内容无需滚动', '当前内容高度不超过容器高度');
+            }
+        }
+
+        function checkModalStyles() {
+            clearResults('style-check-results');
+            
+            // 检查CSS样式是否正确加载
+            const testElement = document.createElement('div');
+            testElement.className = 'modal-content';
+            testElement.id = 'test-modal-content';
+            document.body.appendChild(testElement);
+            
+            const computedStyle = window.getComputedStyle(testElement);
+            
+            addResult('style-check-results', 'info', 'CSS样式检查', `
+.modal-content 样式：
+- display: ${computedStyle.display}
+- flex-direction: ${computedStyle.flexDirection}
+- max-height: ${computedStyle.maxHeight}
+- overflow: ${computedStyle.overflow}
+
+.modal-body 预期样式：
+- overflow-y: auto
+- flex: 1
+- min-height: 0
+            `);
+            
+            // 清理测试元素
+            document.body.removeChild(testElement);
+            
+            // 检查特定的模态框样式
+            const promptModalStyle = document.querySelector('#prompt-modal .modal-content');
+            if (promptModalStyle) {
+                const promptStyle = window.getComputedStyle(promptModalStyle);
+                addResult('style-check-results', 'success', '提示词模态框样式', `
+#prompt-modal .modal-content:
+- max-width: ${promptStyle.maxWidth}
+- max-height: ${promptStyle.maxHeight}
+                `);
+            } else {
+                addResult('style-check-results', 'warning', '提示词模态框未创建', '请先创建提示词模态框');
+            }
+        }
+
+        function testResponsiveModal() {
+            clearResults('responsive-test-results');
+            
+            addResult('responsive-test-results', 'info', '响应式测试', '正在测试不同屏幕尺寸...');
+            
+            // 模拟不同屏幕尺寸
+            const screenSizes = [
+                { name: '桌面端', width: 1200, height: 800 },
+                { name: '平板端', width: 768, height: 1024 },
+                { name: '手机端', width: 375, height: 667 }
+            ];
+            
+            screenSizes.forEach(size => {
+                // 这里只是模拟检查，实际需要改变窗口大小
+                const modalMaxWidth = size.width < 768 ? '95%' : '600px';
+                const modalMaxHeight = size.height < 600 ? '90vh' : '85vh';
+                
+                addResult('responsive-test-results', 'info', `${size.name} (${size.width}x${size.height})`, `
+预期模态框样式：
+- max-width: ${modalMaxWidth}
+- max-height: ${modalMaxHeight}
+- 滚动: ${size.height < 600 ? '必需' : '可选'}
+                `);
+            });
+            
+            addResult('responsive-test-results', 'success', '响应式检查完成', '请手动调整浏览器窗口大小测试响应式效果');
+        }
+
+        // 页面加载时的说明
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addResult('modal-test-results', 'info', '测试准备就绪', `
+模态框滚动修复已完成，包含以下改进：
+
+🔧 技术修复：
+- 模态框使用Flexbox布局
+- 正确的高度计算和滚动区域
+- 优化的滚动条样式
+- 响应式高度设置
+
+🧪 测试方法：
+1. 点击"测试创建提示词模态框"打开模态框
+2. 在模态框中尝试鼠标滚轮滚动
+3. 拖拽滚动条
+4. 使用Tab键导航
+5. 检查所有表单字段是否可见
+
+请开始测试！
+                `);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的空间分类颜色测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-6);
+            margin: var(--space-6) 0;
+        }
+        .comparison-item {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+        }
+        .comparison-item h4 {
+            margin-bottom: var(--space-3);
+            color: var(--text-primary);
+        }
+        .demo-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            padding: var(--space-4);
+            margin: var(--space-3) 0;
+            background: var(--surface-color);
+        }
+        .category-info {
+            background: var(--gray-50);
+            padding: var(--space-2);
+            border-radius: var(--radius-md);
+            margin-top: var(--space-2);
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <h1>🔍 我的空间分类颜色修复测试</h1>
+    <p>此工具专门用于测试"我的空间"页面的分类颜色显示修复效果。已添加 !important 强制应用颜色。</p>
+
+    <div class="test-section">
+        <h3>🔐 登录状态检查</h3>
+        <button onclick="checkLoginStatus()">检查登录状态</button>
+        <div id="login-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔄 首页 vs 我的空间对比</h3>
+        <button onclick="compareHomeAndMySpace()">对比分类显示</button>
+        <div id="comparison-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 我的空间卡片测试</h3>
+        <button onclick="testMySpaceCards()">测试我的空间卡片</button>
+        <div id="myspace-results"></div>
+        <div id="myspace-demo"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 CSS样式检查</h3>
+        <button onclick="checkCSSStyles()">检查CSS样式</button>
+        <div id="css-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 手动创建测试</h3>
+        <button onclick="createManualTest()">手动创建卡片测试</button>
+        <div id="manual-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function checkLoginStatus() {
+            clearResults('login-status');
+            
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session) {
+                    addResult('login-status', 'success', '登录状态', `
+已登录用户: ${session.user.email}
+用户ID: ${session.user.id}
+可以测试我的空间功能
+                    `);
+                } else {
+                    addResult('login-status', 'warning', '未登录', '需要登录才能测试我的空间功能');
+                }
+            } catch (error) {
+                addResult('login-status', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function compareHomeAndMySpace() {
+            clearResults('comparison-results');
+            
+            try {
+                addResult('comparison-results', 'info', '对比测试', '正在获取首页和我的空间数据...');
+
+                // 获取首页数据
+                const homeResult = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 3
+                });
+
+                // 获取我的空间数据
+                const { data: { session } } = await supabase.auth.getSession();
+                let mySpaceResult = null;
+                
+                if (session) {
+                    mySpaceResult = await apiManager.getPrompts({
+                        page: 1,
+                        pageSize: 3,
+                        userId: session.user.id
+                    });
+                }
+
+                const container = document.getElementById('comparison-results');
+                const comparisonDiv = document.createElement('div');
+                comparisonDiv.innerHTML = `
+                    <div class="comparison-grid">
+                        <div class="comparison-item">
+                            <h4>首页卡片 (UI.createPromptCard)</h4>
+                            ${homeResult.success && homeResult.data.length > 0 ? 
+                                homeResult.data.slice(0, 2).map(prompt => {
+                                    const categoryInfo = prompt.categories || {};
+                                    const categoryName = categoryInfo.name || prompt.category_name || '未分类';
+                                    const categoryColor = categoryInfo.color || '#4f46e5';
+                                    const categoryIcon = categoryInfo.icon || 'fas fa-folder';
+                                    
+                                    return `
+                                        <div class="demo-card">
+                                            <h5>${prompt.title}</h5>
+                                            <span class="prompt-card-category" style="background-color: ${categoryColor}">
+                                                <i class="${categoryIcon}"></i>
+                                                ${categoryName}
+                                            </span>
+                                            <div class="category-info">
+                                                分类: ${categoryName}<br>
+                                                颜色: ${categoryColor}<br>
+                                                图标: ${categoryIcon}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('') 
+                                : '<p>没有首页数据</p>'
+                            }
+                        </div>
+                        
+                        <div class="comparison-item">
+                            <h4>我的空间卡片 (createMyPromptCard)</h4>
+                            ${mySpaceResult && mySpaceResult.success && mySpaceResult.data.length > 0 ? 
+                                mySpaceResult.data.slice(0, 2).map(prompt => {
+                                    const categoryInfo = prompt.categories || {};
+                                    const categoryName = categoryInfo.name || prompt.category_name || '未分类';
+                                    const categoryColor = categoryInfo.color || '#4f46e5';
+                                    const categoryIcon = categoryInfo.icon || 'fas fa-folder';
+                                    
+                                    return `
+                                        <div class="demo-card my-prompt-card">
+                                            <h5>${prompt.title}</h5>
+                                            <span class="prompt-card-category" style="background-color: ${categoryColor}">
+                                                <i class="${categoryIcon}"></i>
+                                                ${categoryName}
+                                            </span>
+                                            <div class="category-info">
+                                                分类: ${categoryName}<br>
+                                                颜色: ${categoryColor}<br>
+                                                图标: ${categoryIcon}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('') 
+                                : '<p>没有我的空间数据或未登录</p>'
+                            }
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(comparisonDiv);
+
+                addResult('comparison-results', 'success', '对比完成', '请查看上方的分类颜色对比');
+
+            } catch (error) {
+                addResult('comparison-results', 'error', '对比失败', error.message);
+            }
+        }
+
+        async function testMySpaceCards() {
+            clearResults('myspace-results');
+            clearResults('myspace-demo');
+            
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    addResult('myspace-results', 'warning', '需要登录', '请先登录以测试我的空间卡片');
+                    return;
+                }
+
+                addResult('myspace-results', 'info', '测试我的空间卡片', '正在获取用户提示词数据...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 3,
+                    userId: session.user.id
+                });
+
+                if (result.success && result.data.length > 0) {
+                    const container = document.getElementById('myspace-demo');
+                    
+                    result.data.forEach(prompt => {
+                        // 使用mySpaceManager创建卡片
+                        if (window.mySpaceManager) {
+                            const card = mySpaceManager.createMyPromptCard(prompt);
+                            container.appendChild(card);
+                            
+                            // 显示调试信息
+                            const categoryInfo = prompt.categories || {};
+                            const categoryName = categoryInfo.name || prompt.category_name || '未分类';
+                            const categoryColor = categoryInfo.color || '#4f46e5';
+                            const categoryIcon = categoryInfo.icon || 'fas fa-folder';
+                            
+                            const debugDiv = document.createElement('div');
+                            debugDiv.className = 'category-info';
+                            debugDiv.innerHTML = `
+调试信息:
+- 提示词: ${prompt.title}
+- 分类名称: ${categoryName}
+- 分类颜色: ${categoryColor}
+- 分类图标: ${categoryIcon}
+- 数据源: ${prompt.categories ? 'categories对象' : 'category_name字段'}
+- HTML中的style: background-color: ${categoryColor}
+                            `;
+                            container.appendChild(debugDiv);
+                        }
+                    });
+
+                    addResult('myspace-results', 'success', '我的空间卡片测试完成', `生成了 ${result.data.length} 个卡片`);
+                } else {
+                    addResult('myspace-results', 'warning', '没有数据', '用户没有提示词数据');
+                }
+
+            } catch (error) {
+                addResult('myspace-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        function checkCSSStyles() {
+            clearResults('css-results');
+            
+            // 检查CSS样式
+            const styles = window.getComputedStyle(document.body);
+            
+            // 创建测试元素
+            const testElement = document.createElement('span');
+            testElement.className = 'prompt-card-category';
+            testElement.style.backgroundColor = '#ff0000'; // 红色测试
+            testElement.innerHTML = '<i class="fas fa-test"></i>测试';
+            document.body.appendChild(testElement);
+            
+            const computedStyles = window.getComputedStyle(testElement);
+            
+            addResult('css-results', 'info', 'CSS样式检查', `
+测试元素的计算样式:
+- background-color: ${computedStyles.backgroundColor}
+- background-image: ${computedStyles.backgroundImage}
+- background: ${computedStyles.background}
+- display: ${computedStyles.display}
+- position: ${computedStyles.position}
+            `);
+            
+            // 检查是否有my-prompt-card特殊样式
+            testElement.className = 'prompt-card-category my-prompt-card';
+            const mySpaceStyles = window.getComputedStyle(testElement);
+            
+            addResult('css-results', 'info', '我的空间特殊样式检查', `
+my-prompt-card类的计算样式:
+- background-color: ${mySpaceStyles.backgroundColor}
+- background-image: ${mySpaceStyles.backgroundImage}
+- background: ${mySpaceStyles.background}
+            `);
+            
+            // 清理测试元素
+            document.body.removeChild(testElement);
+            
+            addResult('css-results', 'success', 'CSS检查完成', '请查看上方的样式信息');
+        }
+
+        function createManualTest() {
+            clearResults('manual-results');
+            
+            const container = document.getElementById('manual-results');
+            
+            // 手动创建测试卡片
+            const testColors = [
+                { name: '写作', icon: 'fas fa-pen', color: '#8b5cf6' },
+                { name: '编程', icon: 'fas fa-code', color: '#10b981' },
+                { name: '设计', icon: 'fas fa-palette', color: '#f59e0b' }
+            ];
+            
+            const testDiv = document.createElement('div');
+            testDiv.innerHTML = `
+                <h4>手动创建的分类标签测试</h4>
+                <p style="color: var(--text-secondary); margin-bottom: var(--space-4);">
+                    以下是手动创建的分类标签，用于验证CSS样式是否正确：
+                </p>
+                
+                <div style="margin: var(--space-4) 0;">
+                    <h5>普通分类标签：</h5>
+                    ${testColors.map(cat => `
+                        <span class="prompt-card-category" style="background-color: ${cat.color}; margin: var(--space-1);">
+                            <i class="${cat.icon}"></i>
+                            ${cat.name}
+                        </span>
+                    `).join('')}
+                </div>
+                
+                <div style="margin: var(--space-4) 0;">
+                    <h5>带my-prompt-card类的分类标签：</h5>
+                    <div class="my-prompt-card">
+                        ${testColors.map(cat => `
+                            <span class="prompt-card-category" style="background-color: ${cat.color}; margin: var(--space-1);">
+                                <i class="${cat.icon}"></i>
+                                ${cat.name}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div style="background: var(--gray-50); padding: var(--space-3); border-radius: var(--radius-md); margin-top: var(--space-4);">
+                    <strong>观察要点：</strong>
+                    <ul style="margin: var(--space-2) 0; padding-left: var(--space-4);">
+                        <li>两组标签的颜色是否相同？</li>
+                        <li>是否都显示了正确的自定义颜色？</li>
+                        <li>是否有任何样式覆盖问题？</li>
+                    </ul>
+                </div>
+            `;
+            
+            container.appendChild(testDiv);
+            
+            addResult('manual-results', 'success', '手动测试创建完成', '请观察上方的分类标签颜色');
+        }
+
+        // 页面加载时自动检查登录状态
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkLoginStatus();
+                createManualTest();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

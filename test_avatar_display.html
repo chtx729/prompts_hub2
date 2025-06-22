@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户头像显示测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .avatar-demo {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            text-align: center;
+        }
+        .avatar-demo img {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+            margin-bottom: var(--space-2);
+        }
+        .avatar-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: var(--space-2);
+        }
+        .current-user-display {
+            background: var(--primary-50);
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .sql-code {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin: var(--space-3) 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>👤 用户头像显示测试</h1>
+    <p>此工具用于测试用户头像显示功能和数据库头像数据。</p>
+
+    <div class="test-section">
+        <h3>📊 当前用户状态</h3>
+        <div id="current-user-status">
+            <div>
+                <strong>登录状态：</strong>
+                <span id="login-status">检查中...</span>
+            </div>
+            <div style="margin-top: var(--space-2);">
+                <strong>用户信息：</strong>
+                <span id="user-info">检查中...</span>
+            </div>
+            <div style="margin-top: var(--space-2);">
+                <strong>头像URL：</strong>
+                <span id="avatar-url">检查中...</span>
+            </div>
+        </div>
+        
+        <div id="current-user-display" class="current-user-display" style="display: none;">
+            <h4>当前用户头像显示</h4>
+            <div style="display: flex; align-items: center; gap: var(--space-3);">
+                <img id="current-avatar" src="" alt="当前用户头像" style="width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--primary-color);">
+                <div>
+                    <div><strong>用户名：</strong><span id="current-username"></span></div>
+                    <div><strong>邮箱：</strong><span id="current-email"></span></div>
+                    <div><strong>头像状态：</strong><span id="avatar-status"></span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🗄️ 数据库头像数据</h3>
+        <button onclick="checkDatabaseAvatars()">检查数据库头像数据</button>
+        <button onclick="updateDatabaseAvatars()">更新数据库头像</button>
+        <div id="database-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 头像服务演示</h3>
+        <button onclick="showAvatarServices()">显示不同头像服务</button>
+        <div id="avatar-services-demo"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 头像修复工具</h3>
+        <button onclick="testAvatarLoading()">测试头像加载</button>
+        <button onclick="testDefaultAvatar()">测试默认头像</button>
+        <button onclick="refreshUserAvatar()">刷新用户头像</button>
+        <div id="avatar-fix-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 SQL更新脚本</h3>
+        <p>使用以下SQL脚本来更新数据库中的头像数据：</p>
+        <div class="sql-code">
+-- 更新users表中的avatar_url字段
+UPDATE users 
+SET avatar_url = CASE 
+    WHEN id % 10 = 0 THEN 'https://i.pravatar.cc/150?img=1'
+    WHEN id % 10 = 1 THEN 'https://i.pravatar.cc/150?img=2'
+    WHEN id % 10 = 2 THEN 'https://i.pravatar.cc/150?img=3'
+    WHEN id % 10 = 3 THEN 'https://i.pravatar.cc/150?img=4'
+    WHEN id % 10 = 4 THEN 'https://i.pravatar.cc/150?img=5'
+    WHEN id % 10 = 5 THEN 'https://i.pravatar.cc/150?img=6'
+    WHEN id % 10 = 6 THEN 'https://i.pravatar.cc/150?img=7'
+    WHEN id % 10 = 7 THEN 'https://i.pravatar.cc/150?img=8'
+    WHEN id % 10 = 8 THEN 'https://i.pravatar.cc/150?img=9'
+    WHEN id % 10 = 9 THEN 'https://i.pravatar.cc/150?img=10'
+END
+WHERE avatar_url IS NULL;
+        </div>
+        <button onclick="copySQL()">复制SQL脚本</button>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function updateUserStatus() {
+            const loginStatus = document.getElementById('login-status');
+            const userInfo = document.getElementById('user-info');
+            const avatarUrl = document.getElementById('avatar-url');
+            const currentUserDisplay = document.getElementById('current-user-display');
+            
+            if (window.authManager) {
+                const isAuth = authManager.isAuthenticated();
+                const user = authManager.getCurrentUser();
+                
+                loginStatus.textContent = isAuth ? '已登录' : '未登录';
+                
+                if (user) {
+                    userInfo.textContent = `${user.username} (${user.email})`;
+                    avatarUrl.textContent = user.avatar_url || '无';
+                    
+                    // 显示当前用户头像
+                    currentUserDisplay.style.display = 'block';
+                    document.getElementById('current-avatar').src = user.avatar_url || APP_CONFIG.defaultAvatar;
+                    document.getElementById('current-username').textContent = user.username;
+                    document.getElementById('current-email').textContent = user.email;
+                    
+                    // 测试头像加载状态
+                    const avatarImg = document.getElementById('current-avatar');
+                    avatarImg.onload = () => {
+                        document.getElementById('avatar-status').textContent = '加载成功';
+                        document.getElementById('avatar-status').style.color = 'var(--success-color)';
+                    };
+                    avatarImg.onerror = () => {
+                        document.getElementById('avatar-status').textContent = '加载失败';
+                        document.getElementById('avatar-status').style.color = 'var(--error-color)';
+                        avatarImg.src = APP_CONFIG.defaultAvatar;
+                    };
+                } else {
+                    userInfo.textContent = '无';
+                    avatarUrl.textContent = '无';
+                    currentUserDisplay.style.display = 'none';
+                }
+            } else {
+                loginStatus.textContent = '认证管理器未初始化';
+                userInfo.textContent = '无';
+                avatarUrl.textContent = '无';
+                currentUserDisplay.style.display = 'none';
+            }
+        }
+
+        async function checkDatabaseAvatars() {
+            clearResults('database-results');
+            
+            try {
+                addResult('database-results', 'info', '检查数据库头像数据', '正在查询数据库...');
+
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('id, username, email, avatar_url')
+                    .limit(10);
+
+                if (error) {
+                    addResult('database-results', 'error', '查询失败', error.message);
+                    return;
+                }
+
+                if (data.length === 0) {
+                    addResult('database-results', 'warning', '没有用户数据', '数据库中没有找到用户数据');
+                    return;
+                }
+
+                const usersWithAvatar = data.filter(user => user.avatar_url);
+                const usersWithoutAvatar = data.filter(user => !user.avatar_url);
+
+                addResult('database-results', 'success', '数据库查询成功', `
+总用户数: ${data.length}
+有头像: ${usersWithAvatar.length}
+无头像: ${usersWithoutAvatar.length}
+                `);
+
+                // 显示用户头像数据
+                const avatarGrid = document.createElement('div');
+                avatarGrid.className = 'avatar-grid';
+                
+                data.forEach(user => {
+                    const avatarDemo = document.createElement('div');
+                    avatarDemo.className = 'avatar-demo';
+                    avatarDemo.innerHTML = `
+                        <img src="${user.avatar_url || APP_CONFIG.defaultAvatar}" 
+                             alt="${user.username}的头像"
+                             onerror="this.src='${APP_CONFIG.defaultAvatar}'">
+                        <div><strong>${user.username}</strong></div>
+                        <div class="avatar-info">
+                            ID: ${user.id}<br>
+                            邮箱: ${user.email}<br>
+                            头像: ${user.avatar_url ? '有' : '无'}
+                        </div>
+                    `;
+                    avatarGrid.appendChild(avatarDemo);
+                });
+                
+                document.getElementById('database-results').appendChild(avatarGrid);
+
+            } catch (error) {
+                addResult('database-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function updateDatabaseAvatars() {
+            clearResults('database-results');
+            
+            try {
+                addResult('database-results', 'info', '更新数据库头像', '正在更新头像数据...');
+
+                // 获取没有头像的用户
+                const { data: usersWithoutAvatar, error: fetchError } = await supabase
+                    .from('users')
+                    .select('id, username, email')
+                    .is('avatar_url', null);
+
+                if (fetchError) {
+                    addResult('database-results', 'error', '获取用户失败', fetchError.message);
+                    return;
+                }
+
+                if (usersWithoutAvatar.length === 0) {
+                    addResult('database-results', 'success', '无需更新', '所有用户都已有头像');
+                    return;
+                }
+
+                // 为每个用户生成头像URL
+                const updates = usersWithoutAvatar.map(user => ({
+                    id: user.id,
+                    avatar_url: `https://i.pravatar.cc/150?img=${(user.id % 70) + 1}`
+                }));
+
+                // 批量更新
+                for (const update of updates) {
+                    const { error: updateError } = await supabase
+                        .from('users')
+                        .update({ avatar_url: update.avatar_url })
+                        .eq('id', update.id);
+
+                    if (updateError) {
+                        console.error('更新用户头像失败:', updateError);
+                    }
+                }
+
+                addResult('database-results', 'success', '更新完成', `已为 ${updates.length} 个用户添加头像`);
+
+            } catch (error) {
+                addResult('database-results', 'error', '更新失败', error.message);
+            }
+        }
+
+        function showAvatarServices() {
+            clearResults('avatar-services-demo');
+            
+            const services = [
+                {
+                    name: 'Pravatar',
+                    url: 'https://i.pravatar.cc/150?img=1',
+                    description: '真实人物头像'
+                },
+                {
+                    name: 'DiceBear Avataaars',
+                    url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=test',
+                    description: '卡通风格头像'
+                },
+                {
+                    name: 'UI Avatars',
+                    url: 'https://ui-avatars.com/api/?name=Test+User&background=8b5cf6&color=ffffff&size=150',
+                    description: '基于姓名的头像'
+                },
+                {
+                    name: 'DiceBear Personas',
+                    url: 'https://api.dicebear.com/7.x/personas/svg?seed=test',
+                    description: '简约人物头像'
+                },
+                {
+                    name: 'DiceBear Fun Emoji',
+                    url: 'https://api.dicebear.com/7.x/fun-emoji/svg?seed=test',
+                    description: '表情符号头像'
+                },
+                {
+                    name: '默认头像',
+                    url: APP_CONFIG.defaultAvatar,
+                    description: '系统默认头像'
+                }
+            ];
+
+            const avatarGrid = document.createElement('div');
+            avatarGrid.className = 'avatar-grid';
+            
+            services.forEach(service => {
+                const avatarDemo = document.createElement('div');
+                avatarDemo.className = 'avatar-demo';
+                avatarDemo.innerHTML = `
+                    <img src="${service.url}" 
+                         alt="${service.name}"
+                         onerror="this.src='${APP_CONFIG.defaultAvatar}'">
+                    <div><strong>${service.name}</strong></div>
+                    <div class="avatar-info">${service.description}</div>
+                `;
+                avatarGrid.appendChild(avatarDemo);
+            });
+            
+            document.getElementById('avatar-services-demo').appendChild(avatarGrid);
+            
+            addResult('avatar-services-demo', 'success', '头像服务演示', '已显示不同头像服务的效果');
+        }
+
+        function testAvatarLoading() {
+            clearResults('avatar-fix-results');
+            
+            const testUrls = [
+                'https://i.pravatar.cc/150?img=1',
+                'https://invalid-url.com/avatar.jpg',
+                APP_CONFIG.defaultAvatar,
+                'https://api.dicebear.com/7.x/avataaars/svg?seed=test'
+            ];
+
+            addResult('avatar-fix-results', 'info', '测试头像加载', '正在测试不同头像URL的加载情况...');
+
+            testUrls.forEach((url, index) => {
+                const img = new Image();
+                img.onload = () => {
+                    addResult('avatar-fix-results', 'success', `URL ${index + 1} 加载成功`, url);
+                };
+                img.onerror = () => {
+                    addResult('avatar-fix-results', 'error', `URL ${index + 1} 加载失败`, url);
+                };
+                img.src = url;
+            });
+        }
+
+        function testDefaultAvatar() {
+            clearResults('avatar-fix-results');
+            
+            addResult('avatar-fix-results', 'info', '测试默认头像', `默认头像URL: ${APP_CONFIG.defaultAvatar}`);
+            
+            const img = new Image();
+            img.onload = () => {
+                addResult('avatar-fix-results', 'success', '默认头像加载成功', '默认头像可以正常显示');
+            };
+            img.onerror = () => {
+                addResult('avatar-fix-results', 'error', '默认头像加载失败', '需要检查默认头像配置');
+            };
+            img.src = APP_CONFIG.defaultAvatar;
+        }
+
+        function refreshUserAvatar() {
+            clearResults('avatar-fix-results');
+            
+            if (!window.authManager || !authManager.isAuthenticated()) {
+                addResult('avatar-fix-results', 'warning', '用户未登录', '请先登录以刷新头像');
+                return;
+            }
+
+            addResult('avatar-fix-results', 'info', '刷新用户头像', '正在重新加载用户头像...');
+            
+            // 重新更新UI中的头像
+            authManager.updateUI();
+            updateUserStatus();
+            
+            addResult('avatar-fix-results', 'success', '头像刷新完成', '已重新加载用户头像');
+        }
+
+        function copySQL() {
+            const sqlCode = document.querySelector('.sql-code').textContent;
+            navigator.clipboard.writeText(sqlCode).then(() => {
+                alert('SQL脚本已复制到剪贴板');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            });
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateUserStatus();
+                
+                // 定期更新状态
+                setInterval(updateUserStatus, 5000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

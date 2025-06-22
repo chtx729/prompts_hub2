@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分页信息测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .pagination-demo {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background: white;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>🔍 分页信息显示测试</h1>
+    <p>此工具用于测试首页底部分页组件的总条数信息显示。</p>
+
+    <div class="test-section">
+        <h3>📊 分页数据测试</h3>
+        <button onclick="testPaginationData()">获取分页数据</button>
+        <button onclick="testDifferentPages()">测试不同页码</button>
+        <div id="data-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 分页组件渲染测试</h3>
+        <button onclick="renderPaginationDemo()">渲染分页组件</button>
+        <button onclick="testDifferentScenarios()">测试不同场景</button>
+        <div id="render-results"></div>
+        
+        <!-- 分页组件容器 -->
+        <div class="pagination-demo">
+            <h4>分页组件预览：</h4>
+            <div id="pagination"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 实际数据测试</h3>
+        <button onclick="testRealData()">使用真实数据测试</button>
+        <div id="real-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function testPaginationData() {
+            clearResults('data-results');
+            
+            try {
+                addResult('data-results', 'info', '测试分页数据', '正在获取API返回的分页信息...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 10
+                });
+
+                if (result.success) {
+                    const { pagination } = result;
+                    const dataInfo = `
+分页数据结构:
+{
+  page: ${pagination.page}
+  pageSize: ${pagination.pageSize}
+  total: ${pagination.total}
+  totalPages: ${pagination.totalPages}
+}
+
+计算信息:
+- 当前页显示: 第 ${(pagination.page - 1) * pagination.pageSize + 1}-${Math.min(pagination.page * pagination.pageSize, pagination.total)} 条
+- 总条数: ${pagination.total} 条提示词
+                    `;
+                    addResult('data-results', 'success', '分页数据获取成功', dataInfo);
+                } else {
+                    addResult('data-results', 'error', '分页数据获取失败', result.error);
+                }
+
+            } catch (error) {
+                addResult('data-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function testDifferentPages() {
+            clearResults('data-results');
+            
+            try {
+                const pages = [1, 2, 3];
+                
+                for (const page of pages) {
+                    addResult('data-results', 'info', `测试第${page}页`, '正在获取数据...');
+                    
+                    const result = await apiManager.getPrompts({
+                        page: page,
+                        pageSize: 5
+                    });
+
+                    if (result.success) {
+                        const { pagination } = result;
+                        const startItem = (pagination.page - 1) * pagination.pageSize + 1;
+                        const endItem = Math.min(pagination.page * pagination.pageSize, pagination.total);
+                        
+                        addResult('data-results', 'success', `第${page}页数据`, `
+显示第 ${startItem}-${endItem} 条，共 ${pagination.total} 条提示词
+实际返回: ${result.data.length} 条记录
+                        `);
+                    } else {
+                        addResult('data-results', 'error', `第${page}页失败`, result.error);
+                    }
+                }
+
+            } catch (error) {
+                addResult('data-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        function renderPaginationDemo() {
+            clearResults('render-results');
+            
+            // 模拟分页数据
+            const mockPagination = {
+                page: 2,
+                pageSize: 10,
+                total: 156,
+                totalPages: 16
+            };
+
+            addResult('render-results', 'info', '渲染分页组件', '使用模拟数据渲染分页组件...');
+
+            try {
+                UI.createPagination(mockPagination, (page) => {
+                    addResult('render-results', 'success', '分页点击事件', `用户点击了第 ${page} 页`);
+                });
+
+                addResult('render-results', 'success', '分页组件渲染成功', `
+使用的数据:
+- 当前页: ${mockPagination.page}
+- 每页条数: ${mockPagination.pageSize}
+- 总条数: ${mockPagination.total}
+- 总页数: ${mockPagination.totalPages}
+
+应该显示: "显示第 11-20 条，共 156 条提示词"
+                `);
+
+            } catch (error) {
+                addResult('render-results', 'error', '渲染失败', error.message);
+            }
+        }
+
+        function testDifferentScenarios() {
+            clearResults('render-results');
+            
+            const scenarios = [
+                {
+                    name: '第一页',
+                    pagination: { page: 1, pageSize: 10, total: 156, totalPages: 16 }
+                },
+                {
+                    name: '中间页',
+                    pagination: { page: 5, pageSize: 10, total: 156, totalPages: 16 }
+                },
+                {
+                    name: '最后一页',
+                    pagination: { page: 16, pageSize: 10, total: 156, totalPages: 16 }
+                },
+                {
+                    name: '不满一页',
+                    pagination: { page: 1, pageSize: 10, total: 7, totalPages: 1 }
+                },
+                {
+                    name: '最后一页不满',
+                    pagination: { page: 3, pageSize: 10, total: 25, totalPages: 3 }
+                }
+            ];
+
+            scenarios.forEach((scenario, index) => {
+                setTimeout(() => {
+                    addResult('render-results', 'info', `场景${index + 1}: ${scenario.name}`, '正在渲染...');
+                    
+                    try {
+                        UI.createPagination(scenario.pagination, (page) => {
+                            console.log(`${scenario.name} - 点击第 ${page} 页`);
+                        });
+
+                        const startItem = (scenario.pagination.page - 1) * scenario.pagination.pageSize + 1;
+                        const endItem = Math.min(scenario.pagination.page * scenario.pagination.pageSize, scenario.pagination.total);
+                        
+                        addResult('render-results', 'success', `${scenario.name} 渲染完成`, `
+应该显示: "显示第 ${startItem}-${endItem} 条，共 ${scenario.pagination.total} 条提示词"
+                        `);
+
+                    } catch (error) {
+                        addResult('render-results', 'error', `${scenario.name} 渲染失败`, error.message);
+                    }
+                }, index * 1000);
+            });
+        }
+
+        async function testRealData() {
+            clearResults('real-results');
+            
+            try {
+                addResult('real-results', 'info', '使用真实数据测试', '正在获取真实的提示词数据...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 8
+                });
+
+                if (result.success) {
+                    addResult('real-results', 'success', '真实数据获取成功', `
+获取到 ${result.data.length} 条提示词
+分页信息: 第${result.pagination.page}页，共${result.pagination.totalPages}页，总计${result.pagination.total}条
+                    `);
+
+                    // 使用真实数据渲染分页组件
+                    UI.createPagination(result.pagination, (page) => {
+                        addResult('real-results', 'info', '分页交互', `用户点击了第 ${page} 页`);
+                        
+                        // 模拟加载新页面数据
+                        setTimeout(async () => {
+                            const newResult = await apiManager.getPrompts({
+                                page: page,
+                                pageSize: 8
+                            });
+                            
+                            if (newResult.success) {
+                                UI.createPagination(newResult.pagination, arguments.callee);
+                                addResult('real-results', 'success', `第${page}页数据加载完成`, `
+显示 ${newResult.data.length} 条记录
+分页信息已更新
+                                `);
+                            }
+                        }, 500);
+                    });
+
+                    addResult('real-results', 'success', '真实分页组件渲染完成', '请查看上方的分页组件预览');
+
+                } else {
+                    addResult('real-results', 'error', '真实数据获取失败', result.error);
+                }
+
+            } catch (error) {
+                addResult('real-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        // 页面加载时自动运行基础测试
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testPaginationData();
+                setTimeout(renderPaginationDemo, 1000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

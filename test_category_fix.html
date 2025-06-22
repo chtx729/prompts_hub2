@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分类显示修复测试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .prompt-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+        .prompt-card-category {
+            background: #4f46e5;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 0.5rem;
+        }
+        .data-structure {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>🔧 分类显示修复测试</h1>
+    <p>此工具用于测试首页和"我的空间"页面的分类显示修复效果。</p>
+
+    <div class="test-section">
+        <h3>🏠 首页提示词查询测试</h3>
+        <button onclick="testHomePageQuery()">测试首页查询</button>
+        <button onclick="renderHomePageCards()">渲染首页卡片</button>
+        <div id="home-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>👤 我的空间提示词查询测试</h3>
+        <button onclick="testMySpaceQuery()">测试我的空间查询</button>
+        <button onclick="renderMySpaceCards()">渲染我的空间卡片</button>
+        <div id="myspace-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 数据结构对比</h3>
+        <button onclick="compareDataStructures()">对比数据结构</button>
+        <div id="compare-results"></div>
+    </div>
+
+    <script>
+        let homePageData = null;
+        let mySpaceData = null;
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function testHomePageQuery() {
+            clearResults('home-results');
+            
+            try {
+                addResult('home-results', 'info', '测试首页查询', '执行不带userId的查询...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 3
+                });
+
+                if (result.success) {
+                    homePageData = result.data;
+                    addResult('home-results', 'success', '首页查询成功', `找到 ${result.data.length} 条记录`);
+                    
+                    // 显示数据结构
+                    if (result.data.length > 0) {
+                        const sample = result.data[0];
+                        const dataStructure = `
+数据结构示例:
+{
+  prompt_id: ${sample.prompt_id}
+  title: "${sample.title}"
+  category_id: ${sample.category_id}
+  category_name: "${sample.category_name || 'NULL'}"
+  categories: ${JSON.stringify(sample.categories, null, 2)}
+  users: ${JSON.stringify(sample.users, null, 2)}
+}
+                        `;
+                        addResult('home-results', 'info', '数据结构', dataStructure);
+                    }
+                } else {
+                    addResult('home-results', 'error', '首页查询失败', result.error);
+                }
+
+            } catch (error) {
+                addResult('home-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function testMySpaceQuery() {
+            clearResults('myspace-results');
+            
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    addResult('myspace-results', 'warning', '需要登录', '请先登录以测试我的空间查询');
+                    return;
+                }
+
+                const userId = session.user.id;
+                addResult('myspace-results', 'info', '测试我的空间查询', `使用用户ID: ${userId}`);
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    pageSize: 3,
+                    userId: userId
+                });
+
+                if (result.success) {
+                    mySpaceData = result.data;
+                    addResult('myspace-results', 'success', '我的空间查询成功', `找到 ${result.data.length} 条记录`);
+                    
+                    // 显示数据结构
+                    if (result.data.length > 0) {
+                        const sample = result.data[0];
+                        const dataStructure = `
+数据结构示例:
+{
+  prompt_id: ${sample.prompt_id}
+  title: "${sample.title}"
+  category_id: ${sample.category_id}
+  category_name: "${sample.category_name || 'NULL'}"
+  categories: ${JSON.stringify(sample.categories, null, 2)}
+  users: ${JSON.stringify(sample.users, null, 2)}
+}
+                        `;
+                        addResult('myspace-results', 'info', '数据结构', dataStructure);
+                    }
+                } else {
+                    addResult('myspace-results', 'error', '我的空间查询失败', result.error);
+                }
+
+            } catch (error) {
+                addResult('myspace-results', 'error', '测试失败', error.message);
+            }
+        }
+
+        async function renderHomePageCards() {
+            clearResults('home-results');
+            
+            if (!homePageData || homePageData.length === 0) {
+                addResult('home-results', 'warning', '没有数据', '请先运行首页查询测试');
+                return;
+            }
+
+            addResult('home-results', 'info', '渲染首页卡片', '使用UI.createPromptCard方法...');
+
+            try {
+                const container = document.createElement('div');
+                homePageData.forEach(prompt => {
+                    const card = UI.createPromptCard(prompt, 'card', {});
+                    container.appendChild(card);
+                });
+
+                addResult('home-results', 'success', '首页卡片渲染成功', container.innerHTML);
+
+                // 检查分类显示
+                const categories = homePageData.map(p => {
+                    const categoryInfo = p.categories || {};
+                    const categoryName = categoryInfo.name || p.category_name || '未分类';
+                    return `${p.title}: ${categoryName}`;
+                });
+
+                addResult('home-results', 'info', '分类显示检查', categories.join('\n'));
+
+            } catch (error) {
+                addResult('home-results', 'error', '渲染失败', error.message);
+            }
+        }
+
+        async function renderMySpaceCards() {
+            clearResults('myspace-results');
+            
+            if (!mySpaceData || mySpaceData.length === 0) {
+                addResult('myspace-results', 'warning', '没有数据', '请先运行我的空间查询测试');
+                return;
+            }
+
+            addResult('myspace-results', 'info', '渲染我的空间卡片', '使用修复后的createMyPromptCard方法...');
+
+            try {
+                // 模拟MySpaceManager的createMyPromptCard方法
+                const container = document.createElement('div');
+                mySpaceData.forEach(prompt => {
+                    const card = document.createElement('div');
+                    card.className = 'prompt-card';
+                    
+                    // 使用修复后的逻辑
+                    const categoryName = prompt.categories?.name || prompt.category_name || '未分类';
+                    
+                    card.innerHTML = `
+                        <div class="prompt-card-header">
+                            <h3>${prompt.title}</h3>
+                            <div class="prompt-card-meta">
+                                <span class="prompt-card-category">${categoryName}</span>
+                                <span>${new Date(prompt.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                addResult('myspace-results', 'success', '我的空间卡片渲染成功', container.innerHTML);
+
+                // 检查分类显示
+                const categories = mySpaceData.map(p => {
+                    const categoryName = p.categories?.name || p.category_name || '未分类';
+                    return `${p.title}: ${categoryName}`;
+                });
+
+                addResult('myspace-results', 'info', '分类显示检查', categories.join('\n'));
+
+            } catch (error) {
+                addResult('myspace-results', 'error', '渲染失败', error.message);
+            }
+        }
+
+        async function compareDataStructures() {
+            clearResults('compare-results');
+            
+            if (!homePageData || !mySpaceData) {
+                addResult('compare-results', 'warning', '数据不完整', '请先运行首页和我的空间查询测试');
+                return;
+            }
+
+            const homeStructure = homePageData[0] || {};
+            const mySpaceStructure = mySpaceData[0] || {};
+
+            const comparison = `
+首页数据结构:
+- category_name: ${homeStructure.category_name || 'NULL'}
+- categories: ${JSON.stringify(homeStructure.categories)}
+- users: ${JSON.stringify(homeStructure.users)}
+
+我的空间数据结构:
+- category_name: ${mySpaceStructure.category_name || 'NULL'}
+- categories: ${JSON.stringify(mySpaceStructure.categories)}
+- users: ${JSON.stringify(mySpaceStructure.users)}
+
+分类显示逻辑:
+- 首页: categoryInfo.name || prompt.category_name || '未分类'
+- 我的空间: prompt.categories?.name || prompt.category_name || '未分类'
+
+结论:
+${homeStructure.categories && mySpaceStructure.categories ? 
+  '✅ 两个页面都有categories关联数据' : 
+  '❌ 缺少categories关联数据'}
+            `;
+
+            addResult('compare-results', 'info', '数据结构对比', comparison);
+        }
+
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testHomePageQuery();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词详情页面测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .demo-prompt {
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-3) 0;
+        }
+        .demo-prompt h4 {
+            margin: 0 0 var(--space-2) 0;
+            color: var(--primary-600);
+        }
+        .demo-prompt p {
+            margin: var(--space-1) 0;
+            font-size: 14px;
+        }
+        .field-preview {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            margin: var(--space-2) 0;
+        }
+        .field-preview h5 {
+            margin: 0 0 var(--space-2) 0;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .field-preview .content {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+        .prompt-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-3);
+        }
+        .prompt-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-2);
+            margin: var(--space-1) 0;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+        .prompt-item:hover {
+            background: var(--primary-50);
+            border-color: var(--primary-200);
+        }
+        .prompt-info {
+            flex: 1;
+        }
+        .prompt-title {
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+        .prompt-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+</head>
+<body>
+    <h1>📄 提示词详情页面测试</h1>
+    <p>此工具用于测试提示词详情页面的显示效果，包括使用模型、参考输出和参考图片。</p>
+
+    <div class="test-section">
+        <h3>📊 当前状态</h3>
+        <div>
+            <strong>登录状态：</strong>
+            <span id="login-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>API连接：</strong>
+            <span id="api-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>提示词管理器：</strong>
+            <span id="manager-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 提示词查询</h3>
+        <button onclick="loadPromptsList()">加载提示词列表</button>
+        <button onclick="clearPromptsList()">清空列表</button>
+        <div id="prompts-query-results"></div>
+        <div id="prompts-list" class="prompt-list" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 详情字段预览</h3>
+        <p>以下是提示词详情页面将显示的字段：</p>
+        
+        <div class="demo-prompt">
+            <h4>示例提示词数据结构</h4>
+            <div class="field-preview">
+                <h5>🤖 使用模型 (model_name)</h5>
+                <div class="content">显示为带图标的徽章，例如：GPT-4、Claude-3、Gemini Pro</div>
+            </div>
+            <div class="field-preview">
+                <h5>📄 参考输出 (output_text)</h5>
+                <div class="content">显示提示词的示例输出内容，帮助用户了解效果</div>
+            </div>
+            <div class="field-preview">
+                <h5>🖼️ 参考图片 (output_media)</h5>
+                <div class="content">显示参考图片，支持点击全屏查看、新窗口打开、下载功能</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 详情页面测试</h3>
+        <div>
+            <label for="test-prompt-id">提示词ID：</label>
+            <input type="number" id="test-prompt-id" placeholder="输入提示词ID" style="margin: 0 var(--space-2); padding: var(--space-1); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <button onclick="testPromptDetail()">查看详情</button>
+        </div>
+        <button onclick="createMockPrompt()">创建模拟数据</button>
+        <button onclick="testImageFeatures()">测试图片功能</button>
+        <div id="detail-test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 样式预览</h3>
+        <button onclick="showStylePreview()">显示样式预览</button>
+        <div id="style-preview-container"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function updateStatus() {
+            const loginStatus = document.getElementById('login-status');
+            const apiStatus = document.getElementById('api-status');
+            const managerStatus = document.getElementById('manager-status');
+            
+            // 检查登录状态
+            if (window.authManager && authManager.isAuthenticated()) {
+                loginStatus.textContent = '已登录';
+                loginStatus.style.color = 'var(--success-color)';
+            } else {
+                loginStatus.textContent = '未登录';
+                loginStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查API连接
+            if (window.apiManager) {
+                apiStatus.textContent = '已连接';
+                apiStatus.style.color = 'var(--success-color)';
+            } else {
+                apiStatus.textContent = '未连接';
+                apiStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查提示词管理器
+            if (window.promptsManager) {
+                managerStatus.textContent = '已初始化';
+                managerStatus.style.color = 'var(--success-color)';
+            } else {
+                managerStatus.textContent = '未初始化';
+                managerStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        async function loadPromptsList() {
+            clearResults('prompts-query-results');
+            
+            try {
+                addResult('prompts-query-results', 'info', '查询提示词', '正在获取提示词列表...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    limit: 20
+                });
+
+                if (result.success && result.data.length > 0) {
+                    addResult('prompts-query-results', 'success', '查询成功', `找到 ${result.data.length} 个提示词`);
+                    
+                    const promptsList = document.getElementById('prompts-list');
+                    promptsList.innerHTML = '';
+                    promptsList.style.display = 'block';
+
+                    result.data.forEach(prompt => {
+                        const promptItem = document.createElement('div');
+                        promptItem.className = 'prompt-item';
+                        promptItem.innerHTML = `
+                            <div class="prompt-info">
+                                <div class="prompt-title">${prompt.title}</div>
+                                <div class="prompt-meta">
+                                    ID: ${prompt.prompt_id} | 
+                                    模型: ${prompt.model_name || '未指定'} | 
+                                    图片: ${prompt.output_media ? '有' : '无'}
+                                </div>
+                            </div>
+                            <button onclick="testSpecificPrompt(${prompt.prompt_id})" class="btn btn-sm">查看</button>
+                        `;
+                        promptsList.appendChild(promptItem);
+                    });
+                } else {
+                    addResult('prompts-query-results', 'warning', '没有数据', '没有找到提示词数据');
+                }
+
+            } catch (error) {
+                addResult('prompts-query-results', 'error', '查询失败', error.message);
+            }
+        }
+
+        function clearPromptsList() {
+            clearResults('prompts-query-results');
+            document.getElementById('prompts-list').style.display = 'none';
+        }
+
+        async function testPromptDetail() {
+            const promptId = document.getElementById('test-prompt-id').value;
+            
+            if (!promptId) {
+                addResult('detail-test-results', 'warning', '缺少参数', '请输入提示词ID');
+                return;
+            }
+
+            await testSpecificPrompt(parseInt(promptId));
+        }
+
+        async function testSpecificPrompt(promptId) {
+            clearResults('detail-test-results');
+            
+            try {
+                addResult('detail-test-results', 'info', '测试详情页面', `正在加载提示词 ${promptId} 的详情...`);
+
+                if (!window.promptsManager) {
+                    // 初始化提示词管理器
+                    window.promptsManager = new PromptsManager();
+                }
+
+                // 调用详情页面显示
+                await window.promptsManager.showPromptDetail(promptId);
+                
+                addResult('detail-test-results', 'success', '详情页面已显示', `提示词 ${promptId} 的详情页面已成功显示`);
+
+                // 检查详情页面内容
+                setTimeout(() => {
+                    checkDetailPageContent();
+                }, 1000);
+
+            } catch (error) {
+                addResult('detail-test-results', 'error', '显示失败', error.message);
+            }
+        }
+
+        function checkDetailPageContent() {
+            const detailPage = document.getElementById('prompt-detail-page');
+            const detailContent = document.getElementById('prompt-detail-content');
+            
+            if (!detailPage || !detailContent) {
+                addResult('detail-test-results', 'error', '页面检查', '详情页面元素未找到');
+                return;
+            }
+
+            const checks = {
+                '使用模型': detailContent.querySelector('.prompt-model-section'),
+                '参考输出': detailContent.querySelector('.prompt-output-section'),
+                '参考图片': detailContent.querySelector('.prompt-media-section'),
+                '提示词内容': detailContent.querySelector('.prompt-content-section')
+            };
+
+            let checkResults = [];
+            for (const [name, element] of Object.entries(checks)) {
+                if (element) {
+                    checkResults.push(`✅ ${name}: 已显示`);
+                } else {
+                    checkResults.push(`❌ ${name}: 未显示`);
+                }
+            }
+
+            addResult('detail-test-results', 'info', '内容检查', checkResults.join('\n'));
+        }
+
+        function createMockPrompt() {
+            clearResults('detail-test-results');
+            
+            const mockPrompt = {
+                prompt_id: 999999,
+                title: '测试提示词 - 完整字段展示',
+                description: '这是一个用于测试的提示词，包含所有字段',
+                content: '请帮我写一篇关于人工智能的文章，要求：\n1. 内容要专业且易懂\n2. 字数控制在1000字左右\n3. 包含AI的发展历程和未来展望',
+                model_name: 'GPT-4 Turbo',
+                output_text: '人工智能：从概念到现实的跨越\n\n人工智能（Artificial Intelligence，简称AI）作为21世纪最具革命性的技术之一，正在深刻地改变着我们的生活方式和工作模式...',
+                output_media: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=600&fit=crop',
+                category_name: '写作助手',
+                author_name: '测试用户',
+                author_avatar: APP_CONFIG.defaultAvatar,
+                created_at: new Date().toISOString(),
+                view_count: 1234,
+                use_count: 567,
+                like_count: 89,
+                rating_average: 4.8,
+                tags: ['写作', 'AI', '文章', '专业']
+            };
+
+            // 直接渲染详情页面
+            if (!window.promptsManager) {
+                window.promptsManager = new PromptsManager();
+            }
+
+            window.promptsManager.renderPromptDetail(mockPrompt);
+            UI.showPage('prompt-detail-page');
+
+            addResult('detail-test-results', 'success', '模拟数据创建', '已创建包含所有字段的模拟提示词数据并显示详情页面');
+        }
+
+        function testImageFeatures() {
+            clearResults('detail-test-results');
+            
+            addResult('detail-test-results', 'info', '图片功能测试', '测试图片相关功能...');
+
+            // 测试下载功能
+            const testImageUrl = 'https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=300&fit=crop';
+            const testFilename = '测试图片';
+
+            if (window.promptsManager && typeof window.promptsManager.downloadImage === 'function') {
+                addResult('detail-test-results', 'success', '下载功能', '下载方法已定义，可以测试下载功能');
+                
+                // 创建测试按钮
+                const testButton = document.createElement('button');
+                testButton.textContent = '测试下载图片';
+                testButton.onclick = () => {
+                    window.promptsManager.downloadImage(testImageUrl, testFilename);
+                };
+                document.getElementById('detail-test-results').appendChild(testButton);
+            } else {
+                addResult('detail-test-results', 'error', '下载功能', '下载方法未定义');
+            }
+
+            // 测试图片显示
+            const testImageHtml = `
+                <div class="prompt-media-section" style="margin: var(--space-4) 0;">
+                    <h3>参考图片测试</h3>
+                    <div class="prompt-media">
+                        <div class="media-container">
+                            <img src="${testImageUrl}" alt="测试图片" class="reference-image" onclick="this.requestFullscreen()">
+                            <div class="media-actions">
+                                <button class="btn btn-outline btn-sm" onclick="window.open('${testImageUrl}', '_blank')">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    查看原图
+                                </button>
+                                <button class="btn btn-outline btn-sm" onclick="promptsManager.downloadImage('${testImageUrl}', '${testFilename}')">
+                                    <i class="fas fa-download"></i>
+                                    下载图片
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const testContainer = document.createElement('div');
+            testContainer.innerHTML = testImageHtml;
+            document.getElementById('detail-test-results').appendChild(testContainer);
+
+            addResult('detail-test-results', 'success', '图片显示测试', '已创建图片显示测试区域');
+        }
+
+        function showStylePreview() {
+            const container = document.getElementById('style-preview-container');
+            
+            container.innerHTML = `
+                <div style="margin: var(--space-4) 0;">
+                    <h4>使用模型样式预览</h4>
+                    <div class="prompt-model">
+                        <span class="model-badge">
+                            <i class="fas fa-robot"></i>
+                            GPT-4 Turbo
+                        </span>
+                    </div>
+                </div>
+                
+                <div style="margin: var(--space-4) 0;">
+                    <h4>参考输出样式预览</h4>
+                    <div class="prompt-output-section">
+                        <h3>参考输出</h3>
+                        <div class="prompt-output">
+                            <div class="output-content">
+                                这是一个示例输出内容，展示了提示词的使用效果。内容可能包含多行文本，需要保持良好的可读性和格式。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin: var(--space-4) 0;">
+                    <h4>参考图片样式预览</h4>
+                    <div class="prompt-media-section">
+                        <h3>参考图片</h3>
+                        <div class="prompt-media">
+                            <div class="media-container">
+                                <img src="https://images.unsplash.com/photo-1677442136019-21780ecad995?w=600&h=400&fit=crop" alt="示例图片" class="reference-image">
+                                <div class="media-actions">
+                                    <button class="btn btn-outline btn-sm">
+                                        <i class="fas fa-external-link-alt"></i>
+                                        查看原图
+                                    </button>
+                                    <button class="btn btn-outline btn-sm">
+                                        <i class="fas fa-download"></i>
+                                        下载图片
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                
+                // 初始化提示词管理器
+                if (!window.promptsManager) {
+                    window.promptsManager = new PromptsManager();
+                }
+                
+                // 定期更新状态
+                setInterval(updateStatus, 5000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

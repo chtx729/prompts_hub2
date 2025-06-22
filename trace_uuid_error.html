@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UUID错误追踪 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .debug-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .debug-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .query-log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 1rem 0;
+        }
+        .error-highlight { background: #dc2626; color: white; padding: 2px 4px; border-radius: 2px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+</head>
+<body>
+    <h1>🔍 UUID错误追踪工具</h1>
+    <p>此工具用于精确追踪UUID错误的来源。</p>
+
+    <div class="debug-section">
+        <h3>🎯 重现错误</h3>
+        <button onclick="simulateLoginError()">模拟登录后的错误</button>
+        <button onclick="traceAllQueries()">追踪所有查询</button>
+        <button onclick="checkAllTables()">检查所有表的UUID</button>
+        <div id="error-trace"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>📊 详细数据检查</h3>
+        <button onclick="checkPromptsTable()">检查prompts表</button>
+        <button onclick="checkUsersTable()">检查users表</button>
+        <button onclick="checkInteractionTables()">检查交互表</button>
+        <div id="data-check"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🔍 查询监控</h3>
+        <button onclick="startQueryMonitoring()">开始监控查询</button>
+        <button onclick="stopQueryMonitoring()">停止监控</button>
+        <button onclick="clearQueryLog()">清除日志</button>
+        <div id="query-monitor"></div>
+    </div>
+
+    <script>
+        let queryMonitoring = false;
+        let queryLog = [];
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `debug-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        // 拦截Supabase查询
+        const originalFrom = supabase.from;
+        supabase.from = function(table) {
+            const query = originalFrom.call(this, table);
+            
+            // 拦截select方法
+            const originalSelect = query.select;
+            query.select = function(...args) {
+                if (queryMonitoring) {
+                    logQuery('SELECT', table, args);
+                }
+                return originalSelect.apply(this, args);
+            };
+
+            // 拦截eq方法
+            const originalEq = query.eq;
+            query.eq = function(column, value) {
+                if (queryMonitoring) {
+                    logQuery('EQ', table, [column, value]);
+                    
+                    // 特别检查可能导致UUID错误的值
+                    if (column.includes('user_id') && value !== null) {
+                        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                        if (!uuidRegex.test(value)) {
+                            logQuery('UUID_ERROR', table, [`⚠️ 无效UUID: ${column} = ${value}`]);
+                        }
+                    }
+                }
+                return originalEq.apply(this, arguments);
+            };
+
+            return query;
+        };
+
+        function logQuery(type, table, params) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                type,
+                table,
+                params: JSON.stringify(params)
+            };
+            queryLog.push(logEntry);
+            
+            updateQueryMonitor();
+        }
+
+        function updateQueryMonitor() {
+            const container = document.getElementById('query-monitor');
+            if (!container) return;
+
+            const logHTML = queryLog.slice(-20).map(entry => {
+                const className = entry.type === 'UUID_ERROR' ? 'error-highlight' : '';
+                return `<div class="${className}">[${entry.timestamp}] ${entry.type} ${entry.table}: ${entry.params}</div>`;
+            }).join('');
+
+            container.innerHTML = `<div class="query-log">${logHTML}</div>`;
+        }
+
+        async function simulateLoginError() {
+            clearResults('error-trace');
+            addResult('error-trace', 'info', '开始模拟登录后的错误', '正在执行登录后会触发的查询...');
+
+            try {
+                // 检查当前用户
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    addResult('error-trace', 'warning', '用户未登录', '请先登录以模拟错误');
+                    return;
+                }
+
+                const userId = session.user.id;
+                addResult('error-trace', 'info', '当前用户ID', userId);
+
+                // 模拟getPrompts查询
+                addResult('error-trace', 'info', '步骤1: 查询提示词', '执行主要的提示词查询...');
+                const { data: prompts, error: promptsError } = await supabase
+                    .from('prompts')
+                    .select('*')
+                    .eq('status', 'published')
+                    .eq('is_public', true)
+                    .limit(5);
+
+                if (promptsError) {
+                    addResult('error-trace', 'error', '提示词查询失败', promptsError.message);
+                    return;
+                }
+
+                addResult('error-trace', 'success', '提示词查询成功', `找到 ${prompts.length} 条记录`);
+
+                // 模拟getUserInteractions查询
+                if (prompts.length > 0) {
+                    addResult('error-trace', 'info', '步骤2: 查询用户交互', '执行用户点赞和收藏状态查询...');
+                    
+                    const promptIds = prompts.map(p => p.prompt_id);
+                    
+                    // 查询点赞状态
+                    const { data: likes, error: likesError } = await supabase
+                        .from('user_likes')
+                        .select('prompt_id')
+                        .eq('user_id', userId)
+                        .in('prompt_id', promptIds);
+
+                    if (likesError) {
+                        addResult('error-trace', 'error', '点赞查询失败', likesError.message);
+                    } else {
+                        addResult('error-trace', 'success', '点赞查询成功', `找到 ${likes.length} 条点赞记录`);
+                    }
+
+                    // 查询收藏状态
+                    const { data: favorites, error: favoritesError } = await supabase
+                        .from('user_favorites')
+                        .select('prompt_id')
+                        .eq('user_id', userId)
+                        .in('prompt_id', promptIds);
+
+                    if (favoritesError) {
+                        addResult('error-trace', 'error', '收藏查询失败', favoritesError.message);
+                    } else {
+                        addResult('error-trace', 'success', '收藏查询成功', `找到 ${favorites.length} 条收藏记录`);
+                    }
+                }
+
+            } catch (error) {
+                addResult('error-trace', 'error', '模拟过程中发生错误', error.message + '\n' + error.stack);
+            }
+        }
+
+        async function checkAllTables() {
+            clearResults('error-trace');
+            
+            const tables = ['users', 'prompts', 'user_likes', 'user_favorites', 'usage_logs'];
+            
+            for (const table of tables) {
+                try {
+                    addResult('error-trace', 'info', `检查表: ${table}`, '正在查询...');
+                    
+                    const { data, error } = await supabase
+                        .from(table)
+                        .select('*')
+                        .limit(5);
+
+                    if (error) {
+                        addResult('error-trace', 'error', `表 ${table} 查询失败`, error.message);
+                    } else {
+                        addResult('error-trace', 'success', `表 ${table} 查询成功`, `返回 ${data.length} 条记录`);
+                        
+                        // 检查user_id字段
+                        if (data.length > 0 && data[0].user_id !== undefined) {
+                            const invalidIds = data.filter(row => {
+                                if (row.user_id === null) return false;
+                                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                                return !uuidRegex.test(row.user_id);
+                            });
+                            
+                            if (invalidIds.length > 0) {
+                                addResult('error-trace', 'error', `表 ${table} 发现无效UUID`, 
+                                    invalidIds.map(row => `ID: ${row.id || row.prompt_id}, user_id: ${row.user_id}`).join('\n'));
+                            }
+                        }
+                    }
+                } catch (error) {
+                    addResult('error-trace', 'error', `表 ${table} 检查失败`, error.message);
+                }
+            }
+        }
+
+        async function traceAllQueries() {
+            clearResults('error-trace');
+            queryLog = [];
+            
+            addResult('error-trace', 'info', '开始查询追踪', '启动查询监控...');
+            
+            queryMonitoring = true;
+            
+            // 执行一系列可能导致错误的查询
+            try {
+                await simulateLoginError();
+            } catch (error) {
+                addResult('error-trace', 'error', '查询追踪中发现错误', error.message);
+            }
+            
+            queryMonitoring = false;
+            
+            // 分析查询日志
+            const errorQueries = queryLog.filter(log => log.type === 'UUID_ERROR');
+            if (errorQueries.length > 0) {
+                addResult('error-trace', 'error', '发现UUID错误查询', 
+                    errorQueries.map(q => `${q.table}: ${q.params}`).join('\n'));
+            } else {
+                addResult('error-trace', 'success', '查询追踪完成', '未发现UUID错误');
+            }
+        }
+
+        function startQueryMonitoring() {
+            queryMonitoring = true;
+            queryLog = [];
+            addResult('query-monitor', 'info', '查询监控已启动', '所有Supabase查询将被记录');
+        }
+
+        function stopQueryMonitoring() {
+            queryMonitoring = false;
+            addResult('query-monitor', 'info', '查询监控已停止', '');
+        }
+
+        function clearQueryLog() {
+            queryLog = [];
+            document.getElementById('query-monitor').innerHTML = '';
+        }
+
+        // 页面加载时自动开始监控
+        window.addEventListener('load', () => {
+            startQueryMonitoring();
+        });
+    </script>
+</body>
+</html>

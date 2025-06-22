@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡片点击功能测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .demo-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .click-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary-color);
+            color: white;
+            padding: var(--space-3);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .instructions {
+            background: var(--primary-50);
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .instructions h4 {
+            color: var(--primary-700);
+            margin-bottom: var(--space-2);
+        }
+        .instructions ul {
+            color: var(--primary-600);
+            margin-left: var(--space-4);
+        }
+        .instructions li {
+            margin: var(--space-1) 0;
+        }
+        .test-counter {
+            background: var(--gray-100);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-3);
+            margin: var(--space-3) 0;
+            text-align: center;
+        }
+        .counter-item {
+            display: inline-block;
+            margin: 0 var(--space-3);
+            padding: var(--space-2);
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .counter-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-600);
+        }
+        .counter-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <h1>🖱️ 卡片点击功能测试</h1>
+    <p>此工具用于测试提示词卡片的点击功能，验证点击卡片内容区域是否能正确查看详情。</p>
+
+    <div class="click-indicator" id="click-indicator">
+        <i class="fas fa-mouse-pointer"></i>
+        <span id="click-message">卡片被点击了！</span>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 当前状态</h3>
+        <div>
+            <strong>登录状态：</strong>
+            <span id="login-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>提示词管理器：</strong>
+            <span id="manager-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>我的空间管理器：</strong>
+            <span id="myspace-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 测试说明</h3>
+        <div class="instructions">
+            <h4>测试目标</h4>
+            <ul>
+                <li><strong>卡片内容点击</strong>：点击卡片的标题、描述、分类等内容区域应该查看详情</li>
+                <li><strong>按钮点击</strong>：点击按钮应该执行对应功能，不触发卡片点击</li>
+                <li><strong>视觉反馈</strong>：卡片内容区域应该有鼠标悬浮效果</li>
+                <li><strong>事件隔离</strong>：按钮点击不应该同时触发卡片点击</li>
+            </ul>
+        </div>
+        
+        <div class="test-counter">
+            <div class="counter-item">
+                <div class="counter-number" id="card-click-count">0</div>
+                <div class="counter-label">卡片点击次数</div>
+            </div>
+            <div class="counter-item">
+                <div class="counter-number" id="button-click-count">0</div>
+                <div class="counter-label">按钮点击次数</div>
+            </div>
+            <div class="counter-item">
+                <div class="counter-number" id="detail-view-count">0</div>
+                <div class="counter-label">详情查看次数</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🏠 首页风格卡片测试</h3>
+        <button onclick="createHomeStyleCards()">创建首页风格卡片</button>
+        <button onclick="clearHomeCards()">清空卡片</button>
+        <div id="home-cards-container" class="demo-cards"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>👤 我的空间风格卡片测试</h3>
+        <button onclick="createMySpaceCards()">创建我的空间风格卡片</button>
+        <button onclick="clearMySpaceCards()">清空卡片</button>
+        <div id="myspace-cards-container" class="demo-cards"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 真实数据测试</h3>
+        <button onclick="loadRealHomeCards()">加载真实首页数据</button>
+        <button onclick="loadRealMySpaceCards()">加载真实我的空间数据</button>
+        <button onclick="clearRealCards()">清空真实数据</button>
+        <div id="real-cards-results"></div>
+        <div id="real-cards-container" class="demo-cards"></div>
+    </div>
+
+    <script>
+        let cardClickCount = 0;
+        let buttonClickCount = 0;
+        let detailViewCount = 0;
+
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        function updateCounters() {
+            document.getElementById('card-click-count').textContent = cardClickCount;
+            document.getElementById('button-click-count').textContent = buttonClickCount;
+            document.getElementById('detail-view-count').textContent = detailViewCount;
+        }
+
+        function showClickIndicator(message) {
+            const indicator = document.getElementById('click-indicator');
+            const messageSpan = document.getElementById('click-message');
+            messageSpan.textContent = message;
+            indicator.style.display = 'block';
+            
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2000);
+        }
+
+        function updateStatus() {
+            const loginStatus = document.getElementById('login-status');
+            const managerStatus = document.getElementById('manager-status');
+            const myspaceStatus = document.getElementById('myspace-status');
+            
+            // 检查登录状态
+            if (window.authManager && authManager.isAuthenticated()) {
+                loginStatus.textContent = '已登录';
+                loginStatus.style.color = 'var(--success-color)';
+            } else {
+                loginStatus.textContent = '未登录';
+                loginStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查提示词管理器
+            if (window.promptsManager) {
+                managerStatus.textContent = '已初始化';
+                managerStatus.style.color = 'var(--success-color)';
+            } else {
+                managerStatus.textContent = '未初始化';
+                managerStatus.style.color = 'var(--error-color)';
+            }
+            
+            // 检查我的空间管理器
+            if (window.mySpaceManager) {
+                myspaceStatus.textContent = '已初始化';
+                myspaceStatus.style.color = 'var(--success-color)';
+            } else {
+                myspaceStatus.textContent = '未初始化';
+                myspaceStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        // 重写showPromptDetail方法来监控调用
+        const originalShowPromptDetail = window.promptsManager?.showPromptDetail;
+        if (originalShowPromptDetail) {
+            window.promptsManager.showPromptDetail = function(promptId) {
+                detailViewCount++;
+                updateCounters();
+                showClickIndicator(`查看详情: 提示词 ${promptId}`);
+                console.log('详情查看被调用:', promptId);
+                
+                // 调用原始方法
+                return originalShowPromptDetail.call(this, promptId);
+            };
+        }
+
+        function createHomeStyleCards() {
+            const container = document.getElementById('home-cards-container');
+            container.innerHTML = '';
+
+            const mockPrompts = [
+                {
+                    prompt_id: 1001,
+                    title: '首页测试卡片 1',
+                    description: '这是一个用于测试首页卡片点击功能的示例提示词',
+                    category_name: '写作助手',
+                    author_name: '测试用户',
+                    author_avatar: APP_CONFIG.defaultAvatar,
+                    created_at: new Date().toISOString(),
+                    view_count: 123,
+                    use_count: 45,
+                    like_count: 12,
+                    rating_average: 4.5,
+                    tags: ['测试', '首页', '点击']
+                },
+                {
+                    prompt_id: 1002,
+                    title: '首页测试卡片 2',
+                    description: '另一个测试卡片，用于验证点击事件的正确性',
+                    category_name: '编程助手',
+                    author_name: '开发者',
+                    author_avatar: APP_CONFIG.defaultAvatar,
+                    created_at: new Date().toISOString(),
+                    view_count: 456,
+                    use_count: 78,
+                    like_count: 23,
+                    rating_average: 4.2,
+                    tags: ['编程', '测试']
+                }
+            ];
+
+            mockPrompts.forEach(prompt => {
+                const card = UI.createPromptCard(prompt);
+                
+                // 添加额外的事件监听来统计点击
+                const header = card.querySelector('.prompt-card-header');
+                if (header) {
+                    header.addEventListener('click', () => {
+                        cardClickCount++;
+                        updateCounters();
+                        showClickIndicator('首页卡片内容被点击');
+                    });
+                }
+
+                // 监控按钮点击
+                const buttons = card.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        buttonClickCount++;
+                        updateCounters();
+                        showClickIndicator(`按钮被点击: ${btn.textContent.trim()}`);
+                    });
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        function clearHomeCards() {
+            document.getElementById('home-cards-container').innerHTML = '';
+        }
+
+        function createMySpaceCards() {
+            const container = document.getElementById('myspace-cards-container');
+            container.innerHTML = '';
+
+            if (!window.mySpaceManager) {
+                addResult('myspace-cards-container', 'error', '错误', '我的空间管理器未初始化');
+                return;
+            }
+
+            const mockPrompts = [
+                {
+                    prompt_id: 2001,
+                    title: '我的空间测试卡片 1',
+                    description: '这是一个用于测试我的空间卡片点击功能的示例',
+                    category_name: '个人助手',
+                    status: 'published',
+                    created_at: new Date().toISOString(),
+                    view_count: 89,
+                    use_count: 34,
+                    like_count: 7
+                },
+                {
+                    prompt_id: 2002,
+                    title: '我的空间测试卡片 2',
+                    description: '另一个我的空间测试卡片',
+                    category_name: '学习助手',
+                    status: 'draft',
+                    created_at: new Date().toISOString(),
+                    view_count: 12,
+                    use_count: 5,
+                    like_count: 2
+                }
+            ];
+
+            mockPrompts.forEach(prompt => {
+                const card = mySpaceManager.createMyPromptCard(prompt);
+                
+                // 添加额外的事件监听来统计点击
+                const header = card.querySelector('.prompt-card-header');
+                if (header) {
+                    header.addEventListener('click', () => {
+                        cardClickCount++;
+                        updateCounters();
+                        showClickIndicator('我的空间卡片内容被点击');
+                    });
+                }
+
+                // 监控按钮点击
+                const buttons = card.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        buttonClickCount++;
+                        updateCounters();
+                        showClickIndicator(`按钮被点击: ${btn.textContent.trim()}`);
+                    });
+                });
+
+                container.appendChild(card);
+            });
+        }
+
+        function clearMySpaceCards() {
+            document.getElementById('myspace-cards-container').innerHTML = '';
+        }
+
+        async function loadRealHomeCards() {
+            clearResults('real-cards-results');
+            const container = document.getElementById('real-cards-container');
+            container.innerHTML = '';
+
+            try {
+                addResult('real-cards-results', 'info', '加载真实数据', '正在获取首页提示词数据...');
+
+                const result = await apiManager.getPrompts({
+                    page: 1,
+                    limit: 4
+                });
+
+                if (result.success && result.data.length > 0) {
+                    addResult('real-cards-results', 'success', '数据加载成功', `加载了 ${result.data.length} 个真实提示词`);
+
+                    result.data.forEach(prompt => {
+                        const card = UI.createPromptCard(prompt);
+                        container.appendChild(card);
+                    });
+                } else {
+                    addResult('real-cards-results', 'warning', '没有数据', '没有找到提示词数据');
+                }
+
+            } catch (error) {
+                addResult('real-cards-results', 'error', '加载失败', error.message);
+            }
+        }
+
+        async function loadRealMySpaceCards() {
+            clearResults('real-cards-results');
+            const container = document.getElementById('real-cards-container');
+            container.innerHTML = '';
+
+            if (!authManager.isAuthenticated()) {
+                addResult('real-cards-results', 'warning', '需要登录', '请先登录以查看我的空间数据');
+                return;
+            }
+
+            if (!window.mySpaceManager) {
+                addResult('real-cards-results', 'error', '管理器未初始化', '我的空间管理器未初始化');
+                return;
+            }
+
+            try {
+                addResult('real-cards-results', 'info', '加载我的数据', '正在获取我的空间提示词数据...');
+
+                const result = await apiManager.getMyPrompts({
+                    page: 1,
+                    limit: 4
+                });
+
+                if (result.success && result.data.length > 0) {
+                    addResult('real-cards-results', 'success', '数据加载成功', `加载了 ${result.data.length} 个我的提示词`);
+
+                    result.data.forEach(prompt => {
+                        const card = mySpaceManager.createMyPromptCard(prompt);
+                        container.appendChild(card);
+                    });
+                } else {
+                    addResult('real-cards-results', 'warning', '没有数据', '您还没有创建任何提示词');
+                }
+
+            } catch (error) {
+                addResult('real-cards-results', 'error', '加载失败', error.message);
+            }
+        }
+
+        function clearRealCards() {
+            clearResults('real-cards-results');
+            document.getElementById('real-cards-container').innerHTML = '';
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                updateCounters();
+                
+                // 初始化管理器
+                if (!window.promptsManager) {
+                    window.promptsManager = new PromptsManager();
+                }
+                
+                // 重写showPromptDetail方法
+                if (window.promptsManager && !originalShowPromptDetail) {
+                    const originalMethod = window.promptsManager.showPromptDetail;
+                    window.promptsManager.showPromptDetail = function(promptId) {
+                        detailViewCount++;
+                        updateCounters();
+                        showClickIndicator(`查看详情: 提示词 ${promptId}`);
+                        console.log('详情查看被调用:', promptId);
+                        
+                        // 调用原始方法
+                        return originalMethod.call(this, promptId);
+                    };
+                }
+                
+                // 定期更新状态
+                setInterval(updateStatus, 5000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户数据调试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .debug-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .debug-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        th { background: #f9fafb; font-weight: bold; }
+        .uuid { font-family: monospace; font-size: 0.8em; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+</head>
+<body>
+    <h1>🔍 用户数据调试工具</h1>
+    <p>此工具用于调试用户数据和UUID问题。</p>
+
+    <div class="debug-section">
+        <h3>🔍 用户表数据检查</h3>
+        <button onclick="checkUsersTable()">检查用户表</button>
+        <button onclick="checkPromptsUserIds()">检查提示词用户ID</button>
+        <button onclick="checkCurrentUser()">检查当前用户</button>
+        <div id="users-results"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🧪 UUID验证测试</h3>
+        <button onclick="testUUIDQueries()">测试UUID查询</button>
+        <button onclick="simulateLoginQuery()">模拟登录查询</button>
+        <div id="uuid-results"></div>
+    </div>
+
+    <div class="debug-section">
+        <h3>🔧 修复建议</h3>
+        <button onclick="generateFixSQL()">生成修复SQL</button>
+        <div id="fix-results"></div>
+    </div>
+
+    <script>
+        function addResult(containerId, type, title, content) {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `debug-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function checkUsersTable() {
+            clearResults('users-results');
+            
+            try {
+                // 检查用户表结构和数据
+                const { data: users, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .limit(10);
+
+                if (error) {
+                    addResult('users-results', 'error', '用户表查询失败', error.message);
+                    return;
+                }
+
+                if (users.length === 0) {
+                    addResult('users-results', 'warning', '用户表为空', '没有找到任何用户记录');
+                    return;
+                }
+
+                // 分析用户数据
+                let tableHTML = `
+                    <table>
+                        <tr>
+                            <th>ID</th>
+                            <th>User ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>User ID 类型</th>
+                        </tr>
+                `;
+
+                users.forEach(user => {
+                    const userIdType = typeof user.user_id;
+                    const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.user_id);
+                    
+                    tableHTML += `
+                        <tr>
+                            <td>${user.id || 'N/A'}</td>
+                            <td class="uuid">${user.user_id || 'N/A'}</td>
+                            <td>${user.username || 'N/A'}</td>
+                            <td>${user.email || 'N/A'}</td>
+                            <td>${userIdType} ${isValidUUID ? '✅' : '❌'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</table>';
+
+                addResult('users-results', 'success', `用户表数据 (${users.length} 条记录)`, tableHTML);
+
+                // 检查是否有问题
+                const issues = [];
+                users.forEach((user, index) => {
+                    if (!user.user_id) {
+                        issues.push(`用户 ${index + 1}: user_id 为空`);
+                    } else if (typeof user.user_id !== 'string') {
+                        issues.push(`用户 ${index + 1}: user_id 类型错误 (${typeof user.user_id})`);
+                    } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(user.user_id)) {
+                        issues.push(`用户 ${index + 1}: user_id 不是有效的UUID格式 (${user.user_id})`);
+                    }
+                });
+
+                if (issues.length > 0) {
+                    addResult('users-results', 'error', '发现问题', issues.join('\n'));
+                } else {
+                    addResult('users-results', 'success', '数据检查', '所有用户ID格式正确');
+                }
+
+            } catch (error) {
+                addResult('users-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function checkPromptsUserIds() {
+            clearResults('users-results');
+            
+            try {
+                // 检查提示词表中的用户ID
+                const { data: prompts, error } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, user_id')
+                    .limit(10);
+
+                if (error) {
+                    addResult('users-results', 'error', '提示词表查询失败', error.message);
+                    return;
+                }
+
+                if (prompts.length === 0) {
+                    addResult('users-results', 'warning', '提示词表为空', '没有找到任何提示词记录');
+                    return;
+                }
+
+                // 分析提示词中的用户ID
+                let tableHTML = `
+                    <table>
+                        <tr>
+                            <th>Prompt ID</th>
+                            <th>Title</th>
+                            <th>User ID</th>
+                            <th>User ID 类型</th>
+                        </tr>
+                `;
+
+                prompts.forEach(prompt => {
+                    const userIdType = typeof prompt.user_id;
+                    const isValidUUID = prompt.user_id ? /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(prompt.user_id) : false;
+                    
+                    tableHTML += `
+                        <tr>
+                            <td>${prompt.prompt_id}</td>
+                            <td>${prompt.title}</td>
+                            <td class="uuid">${prompt.user_id || 'NULL'}</td>
+                            <td>${userIdType} ${isValidUUID ? '✅' : '❌'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</table>';
+
+                addResult('users-results', 'success', `提示词用户ID数据 (${prompts.length} 条记录)`, tableHTML);
+
+            } catch (error) {
+                addResult('users-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function checkCurrentUser() {
+            clearResults('users-results');
+            
+            try {
+                // 检查当前认证用户
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (!session) {
+                    addResult('users-results', 'info', '当前用户', '没有登录用户');
+                    return;
+                }
+
+                const authUser = session.user;
+                addResult('users-results', 'info', '认证用户信息', `
+ID: ${authUser.id}
+Email: ${authUser.email}
+ID类型: ${typeof authUser.id}
+是否有效UUID: ${/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authUser.id) ? '✅' : '❌'}
+                `);
+
+                // 检查用户表中的对应记录
+                const { data: userProfile, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('user_id', authUser.id)
+                    .single();
+
+                if (error) {
+                    addResult('users-results', 'error', '用户资料查询失败', error.message);
+                } else {
+                    addResult('users-results', 'success', '用户资料', `
+ID: ${userProfile.id}
+User ID: ${userProfile.user_id}
+Username: ${userProfile.username}
+Email: ${userProfile.email}
+                    `);
+                }
+
+            } catch (error) {
+                addResult('users-results', 'error', '检查失败', error.message);
+            }
+        }
+
+        async function testUUIDQueries() {
+            clearResults('uuid-results');
+            
+            try {
+                // 测试各种UUID查询
+                const testCases = [
+                    { name: '字符串"13"', value: '13' },
+                    { name: '数字13', value: 13 },
+                    { name: '有效UUID', value: '550e8400-e29b-41d4-a716-446655440000' }
+                ];
+
+                for (const testCase of testCases) {
+                    try {
+                        const { data, error } = await supabase
+                            .from('prompts')
+                            .select('prompt_id, title')
+                            .eq('user_id', testCase.value)
+                            .limit(1);
+
+                        if (error) {
+                            addResult('uuid-results', 'error', `测试 ${testCase.name}`, error.message);
+                        } else {
+                            addResult('uuid-results', 'success', `测试 ${testCase.name}`, `查询成功，返回 ${data.length} 条记录`);
+                        }
+                    } catch (error) {
+                        addResult('uuid-results', 'error', `测试 ${testCase.name}`, error.message);
+                    }
+                }
+
+            } catch (error) {
+                addResult('uuid-results', 'error', 'UUID测试失败', error.message);
+            }
+        }
+
+        async function simulateLoginQuery() {
+            clearResults('uuid-results');
+            
+            try {
+                // 模拟登录后的查询
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (!session) {
+                    addResult('uuid-results', 'warning', '模拟登录查询', '需要先登录才能测试');
+                    return;
+                }
+
+                const userId = session.user.id;
+                addResult('uuid-results', 'info', '模拟查询', `使用用户ID: ${userId}`);
+
+                // 测试getPrompts查询
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .limit(5);
+
+                if (error) {
+                    addResult('uuid-results', 'error', '模拟getPrompts查询失败', error.message);
+                } else {
+                    addResult('uuid-results', 'success', '模拟getPrompts查询成功', `找到 ${data.length} 条用户提示词`);
+                }
+
+            } catch (error) {
+                addResult('uuid-results', 'error', '模拟查询失败', error.message);
+            }
+        }
+
+        async function generateFixSQL() {
+            clearResults('fix-results');
+            
+            const fixSQL = `
+-- 修复用户ID类型问题的SQL脚本
+
+-- 1. 检查users表中的无效user_id
+SELECT id, user_id, username, 
+       CASE 
+           WHEN user_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN 'Valid UUID'
+           ELSE 'Invalid UUID'
+       END as uuid_status
+FROM users
+WHERE user_id IS NOT NULL;
+
+-- 2. 检查prompts表中的无效user_id
+SELECT prompt_id, title, user_id,
+       CASE 
+           WHEN user_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN 'Valid UUID'
+           ELSE 'Invalid UUID'
+       END as uuid_status
+FROM prompts
+WHERE user_id IS NOT NULL;
+
+-- 3. 如果发现无效的UUID，可以使用以下方法修复：
+
+-- 方法1：删除无效的用户记录（谨慎使用）
+-- DELETE FROM users WHERE user_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
+
+-- 方法2：将无效user_id的提示词设为匿名
+-- UPDATE prompts SET user_id = NULL WHERE user_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
+
+-- 方法3：确保user_id字段类型正确
+-- ALTER TABLE users ALTER COLUMN user_id TYPE UUID USING user_id::UUID;
+-- ALTER TABLE prompts ALTER COLUMN user_id TYPE UUID USING user_id::UUID;
+            `;
+
+            addResult('fix-results', 'info', '修复SQL脚本', fixSQL);
+        }
+
+        // 页面加载时自动检查
+        window.addEventListener('load', () => {
+            setTimeout(checkUsersTable, 1000);
+        });
+    </script>
+</body>
+</html>

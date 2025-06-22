@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>现代化设计展示 - AI提示词宝库</title>
+    
+    <!-- CSS 文件 -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        .showcase-section {
+            padding: var(--space-16) 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .showcase-header {
+            text-align: center;
+            margin-bottom: var(--space-12);
+        }
+        
+        .showcase-header h2 {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: var(--space-4);
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        
+        .showcase-header p {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-8);
+            margin-bottom: var(--space-12);
+        }
+        
+        .component-demo {
+            background: var(--surface-color);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .component-demo h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: var(--space-4);
+            color: var(--text-primary);
+        }
+        
+        .button-showcase {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-3);
+        }
+        
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: var(--space-4);
+        }
+        
+        .color-swatch {
+            text-align: center;
+        }
+        
+        .color-box {
+            width: 100%;
+            height: 60px;
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-2);
+            border: 1px solid var(--border-color);
+        }
+        
+        .color-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <i class="fas fa-magic"></i>
+                <span>AI提示词宝库</span>
+            </div>
+            
+            <div class="nav-menu">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    返回首页
+                </a>
+                <a href="#" class="nav-link active">
+                    <i class="fas fa-palette"></i>
+                    设计展示
+                </a>
+            </div>
+            
+            <div class="nav-auth">
+                <button class="btn btn-outline">
+                    <i class="fas fa-sign-in-alt"></i>
+                    登录
+                </button>
+                <button class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i>
+                    注册
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容区域 -->
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="search-section">
+            <div class="container">
+                <div class="search-header">
+                    <h1>现代化设计系统</h1>
+                    <p>参考GitHub、Notion、Linear等优秀产品的设计理念</p>
+                </div>
+                
+                <div class="search-box">
+                    <div class="search-input-group">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="体验现代化搜索框...">
+                        <button class="btn btn-primary">搜索</button>
+                    </div>
+                </div>
+                
+                <div class="search-filters">
+                    <div class="filter-group">
+                        <label>分类：</label>
+                        <select>
+                            <option>全部分类</option>
+                            <option>设计系统</option>
+                            <option>用户体验</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>排序：</label>
+                        <select>
+                            <option>最新发布</option>
+                            <option>最受欢迎</option>
+                        </select>
+                    </div>
+                    
+                    <div class="view-toggle">
+                        <button class="view-btn active">
+                            <i class="fas fa-th"></i>
+                        </button>
+                        <button class="view-btn">
+                            <i class="fas fa-list"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 按钮展示 -->
+        <section class="showcase-section">
+            <div class="container">
+                <div class="showcase-header">
+                    <h2>现代化按钮系统</h2>
+                    <p>多种样式和尺寸的按钮组件，支持不同的交互状态</p>
+                </div>
+                
+                <div class="component-grid">
+                    <div class="component-demo">
+                        <h3>按钮样式</h3>
+                        <div class="button-showcase">
+                            <button class="btn btn-primary">主要按钮</button>
+                            <button class="btn btn-secondary">次要按钮</button>
+                            <button class="btn btn-outline">轮廓按钮</button>
+                            <button class="btn btn-ghost">幽灵按钮</button>
+                            <button class="btn btn-danger">危险按钮</button>
+                        </div>
+                    </div>
+                    
+                    <div class="component-demo">
+                        <h3>按钮尺寸</h3>
+                        <div class="button-showcase">
+                            <button class="btn btn-primary btn-xs">超小</button>
+                            <button class="btn btn-primary btn-sm">小号</button>
+                            <button class="btn btn-primary">默认</button>
+                            <button class="btn btn-primary btn-lg">大号</button>
+                            <button class="btn btn-primary btn-xl">超大</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 卡片展示 -->
+        <section class="showcase-section">
+            <div class="container">
+                <div class="showcase-header">
+                    <h2>现代化卡片设计</h2>
+                    <p>优雅的卡片组件，具有良好的视觉层次和交互效果</p>
+                </div>
+                
+                <div class="prompts-grid">
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <h3 class="prompt-card-title">创意写作助手</h3>
+                            <p class="prompt-card-description">帮助您创作引人入胜的故事和文章，提供创意灵感和写作技巧指导。</p>
+                            <div class="prompt-card-meta">
+                                <span class="prompt-card-category">写作</span>
+                                <span>2024-01-15</span>
+                            </div>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="prompt-stat">
+                                <i class="fas fa-eye"></i>
+                                <span>1.2k</span>
+                            </div>
+                            <div class="prompt-stat">
+                                <i class="fas fa-download"></i>
+                                <span>856</span>
+                            </div>
+                            <div class="prompt-stat">
+                                <i class="fas fa-heart"></i>
+                                <span>234</span>
+                            </div>
+                        </div>
+                        <div class="prompt-card-actions">
+                            <button class="btn btn-primary">使用提示词</button>
+                            <button class="btn btn-outline">查看详情</button>
+                        </div>
+                    </div>
+                    
+                    <div class="prompt-card">
+                        <div class="prompt-card-header">
+                            <h3 class="prompt-card-title">代码优化专家</h3>
+                            <p class="prompt-card-description">分析和优化您的代码，提供性能改进建议和最佳实践指导。</p>
+                            <div class="prompt-card-meta">
+                                <span class="prompt-card-category">编程</span>
+                                <span>2024-01-14</span>
+                            </div>
+                        </div>
+                        <div class="prompt-card-stats">
+                            <div class="prompt-stat">
+                                <i class="fas fa-eye"></i>
+                                <span>2.1k</span>
+                            </div>
+                            <div class="prompt-stat">
+                                <i class="fas fa-download"></i>
+                                <span>1.5k</span>
+                            </div>
+                            <div class="prompt-stat">
+                                <i class="fas fa-heart"></i>
+                                <span>567</span>
+                            </div>
+                        </div>
+                        <div class="prompt-card-actions">
+                            <button class="btn btn-primary">使用提示词</button>
+                            <button class="btn btn-outline">查看详情</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 颜色系统展示 -->
+        <section class="showcase-section">
+            <div class="container">
+                <div class="showcase-header">
+                    <h2>现代化色彩系统</h2>
+                    <p>精心设计的色彩调色板，确保良好的对比度和可访问性</p>
+                </div>
+                
+                <div class="component-demo">
+                    <h3>主色调</h3>
+                    <div class="color-palette">
+                        <div class="color-swatch">
+                            <div class="color-box" style="background: var(--primary-500);"></div>
+                            <div class="color-label">Primary</div>
+                        </div>
+                        <div class="color-swatch">
+                            <div class="color-box" style="background: var(--success-500);"></div>
+                            <div class="color-label">Success</div>
+                        </div>
+                        <div class="color-swatch">
+                            <div class="color-box" style="background: var(--warning-500);"></div>
+                            <div class="color-label">Warning</div>
+                        </div>
+                        <div class="color-swatch">
+                            <div class="color-box" style="background: var(--error-500);"></div>
+                            <div class="color-label">Error</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 演示通知功能
+        setTimeout(() => {
+            showNotification('欢迎体验现代化设计！', 'success');
+        }, 2000);
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <i class="notification-icon fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                    <div class="notification-text">
+                        <div class="notification-title">${type === 'success' ? '成功' : type === 'error' ? '错误' : '提示'}</div>
+                        <div class="notification-message">${message}</div>
+                    </div>
+                    <button class="notification-close">&times;</button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            notification.querySelector('.notification-close').addEventListener('click', () => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            });
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

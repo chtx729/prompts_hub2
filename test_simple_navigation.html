@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单导航测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-ok { background: #22c55e; }
+        .status-error { background: #ef4444; }
+        .status-warning { background: #f59e0b; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <h1>🔄 简单导航测试</h1>
+    <p>此工具用于快速测试导航返回功能的修复效果。</p>
+
+    <div class="test-section">
+        <h3>📊 系统状态</h3>
+        <div>
+            <span class="status-indicator" id="auth-indicator"></span>
+            <strong>认证状态：</strong>
+            <span id="auth-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <span class="status-indicator" id="manager-indicator"></span>
+            <strong>提示词管理器：</strong>
+            <span id="manager-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>当前记录的来源页面：</strong>
+            <span id="previous-page">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 快速测试</h3>
+        <p>点击下面的按钮进行快速测试：</p>
+        
+        <button onclick="testWithFirstPrompt()" id="test-btn">
+            <i class="fas fa-play"></i>
+            开始测试
+        </button>
+        
+        <button onclick="clearResults()">
+            <i class="fas fa-trash"></i>
+            清空结果
+        </button>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 测试步骤</h3>
+        <ol>
+            <li><strong>获取提示词数据</strong>：从数据库获取第一个可用的提示词</li>
+            <li><strong>模拟我的空间导航</strong>：设置来源页面为"我的空间"</li>
+            <li><strong>查看详情</strong>：调用showPromptDetail方法</li>
+            <li><strong>验证返回</strong>：检查返回按钮是否正确设置</li>
+        </ol>
+    </div>
+
+    <script>
+        function addResult(type, title, content) {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        function updateStatus() {
+            const authIndicator = document.getElementById('auth-indicator');
+            const authStatus = document.getElementById('auth-status');
+            const managerIndicator = document.getElementById('manager-indicator');
+            const managerStatus = document.getElementById('manager-status');
+            const previousPage = document.getElementById('previous-page');
+            
+            // 检查认证状态
+            if (window.authManager && authManager.isAuthenticated()) {
+                authIndicator.className = 'status-indicator status-ok';
+                authStatus.textContent = '已登录';
+            } else {
+                authIndicator.className = 'status-indicator status-warning';
+                authStatus.textContent = '未登录';
+            }
+            
+            // 检查提示词管理器
+            if (window.promptsManager) {
+                managerIndicator.className = 'status-indicator status-ok';
+                managerStatus.textContent = '已初始化';
+                previousPage.textContent = promptsManager.previousPage || '未设置';
+            } else {
+                managerIndicator.className = 'status-indicator status-error';
+                managerStatus.textContent = '未初始化';
+                previousPage.textContent = '管理器未初始化';
+            }
+        }
+
+        async function testWithFirstPrompt() {
+            const btn = document.getElementById('test-btn');
+            if (btn.disabled) return;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 测试中...';
+            
+            clearResults();
+            
+            try {
+                addResult('info', '步骤 1/4', '检查系统状态...');
+                
+                if (!window.promptsManager) {
+                    addResult('error', '测试失败', '提示词管理器未初始化');
+                    return;
+                }
+                
+                addResult('success', '步骤 1/4', '系统状态正常');
+                addResult('info', '步骤 2/4', '获取提示词数据...');
+                
+                // 获取第一个提示词
+                const result = await apiManager.getPrompts({ page: 1, limit: 1 });
+                
+                if (!result.success || !result.data.length) {
+                    addResult('warning', '测试跳过', '没有找到提示词数据，请先添加一些提示词');
+                    return;
+                }
+                
+                const firstPrompt = result.data[0];
+                addResult('success', '步骤 2/4', `获取到提示词: ${firstPrompt.title} (ID: ${firstPrompt.prompt_id})`);
+                
+                addResult('info', '步骤 3/4', '模拟从我的空间查看详情...');
+                
+                // 设置来源页面
+                promptsManager.previousPage = 'my-space-page';
+                
+                // 查看详情
+                await promptsManager.showPromptDetail(firstPrompt.prompt_id, 'my-space-page');
+                
+                addResult('success', '步骤 3/4', '已进入详情页面');
+                addResult('info', '步骤 4/4', '验证返回功能...');
+                
+                // 检查当前页面
+                const currentPage = document.querySelector('.page.active');
+                if (currentPage && currentPage.id === 'prompt-detail-page') {
+                    addResult('success', '步骤 4/4', '详情页面显示正常');
+                    
+                    // 检查返回按钮
+                    const returnBtn = document.querySelector('.prompt-detail-header button');
+                    if (returnBtn) {
+                        addResult('success', '测试完成', '返回按钮已正确设置，点击返回按钮应该返回到"我的空间"页面');
+                        
+                        // 添加一个测试返回的按钮
+                        const testReturnBtn = document.createElement('button');
+                        testReturnBtn.innerHTML = '<i class="fas fa-arrow-left"></i> 测试返回功能';
+                        testReturnBtn.onclick = () => {
+                            addResult('info', '测试返回', '执行返回操作...');
+                            promptsManager.goBack();
+                            
+                            setTimeout(() => {
+                                const activePage = document.querySelector('.page.active');
+                                if (activePage && activePage.id === 'my-space-page') {
+                                    addResult('success', '返回测试', '成功返回到"我的空间"页面！');
+                                } else {
+                                    addResult('error', '返回测试', `返回到了错误的页面: ${activePage?.id || '未知'}`);
+                                }
+                            }, 100);
+                        };
+                        
+                        document.getElementById('test-results').appendChild(testReturnBtn);
+                    } else {
+                        addResult('error', '测试失败', '未找到返回按钮');
+                    }
+                } else {
+                    addResult('error', '测试失败', '详情页面未正确显示');
+                }
+                
+            } catch (error) {
+                addResult('error', '测试失败', `错误: ${error.message}`);
+                console.error('测试失败:', error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> 开始测试';
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                
+                // 初始化管理器
+                if (!window.promptsManager) {
+                    window.promptsManager = new PromptsManager();
+                }
+                
+                // 定期更新状态
+                setInterval(updateStatus, 3000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

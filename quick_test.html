@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快速测试 - AI提示词宝库</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .log-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #22c55e; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+        .info { color: #3b82f6; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+        }
+        button:hover { background: #4338ca; }
+        h2 { color: #1f2937; margin-top: 2rem; }
+        h3 { color: #374151; }
+        .status {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            font-weight: bold;
+        }
+        .status.success { background: #f0fdf4; color: #166534; border: 1px solid #22c55e; }
+        .status.error { background: #fef2f2; color: #dc2626; border: 1px solid #ef4444; }
+        .status.warning { background: #fffbeb; color: #d97706; border: 1px solid #f59e0b; }
+        .status.info { background: #f0f9ff; color: #1d4ed8; border: 1px solid #3b82f6; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+</head>
+<body>
+    <h1>🧪 快速测试页面</h1>
+    <p>此页面用于快速测试修复后的功能。</p>
+
+    <div class="test-section">
+        <h3>🔍 基础测试</h3>
+        <button onclick="runBasicTests()">运行基础测试</button>
+        <button onclick="clearLog()">清除日志</button>
+        <div id="basic-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 应用初始化测试</h3>
+        <button onclick="testAppInit()">测试应用初始化</button>
+        <button onclick="openMainApp()">打开主应用</button>
+        <div id="init-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 控制台日志</h3>
+        <div id="console-log" class="log-output">等待测试...</div>
+    </div>
+
+    <script>
+        let logOutput = '';
+        
+        function addLog(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logOutput += logEntry;
+            
+            const logElement = document.getElementById('console-log');
+            logElement.textContent = logOutput;
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+        
+        function clearLog() {
+            logOutput = '';
+            document.getElementById('console-log').textContent = '日志已清除...';
+        }
+        
+        function setStatus(containerId, type, message) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        async function runBasicTests() {
+            addLog('info', '开始运行基础测试...');
+            setStatus('basic-status', 'info', '正在运行基础测试...');
+            
+            try {
+                // 测试 Supabase 连接
+                addLog('info', '测试 Supabase 连接...');
+                if (!supabase) {
+                    throw new Error('Supabase 客户端未初始化');
+                }
+                addLog('success', 'Supabase 连接正常');
+                
+                // 测试数据库查询
+                addLog('info', '测试数据库查询...');
+                const { data: categories, error: catError } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .limit(1);
+                
+                if (catError) {
+                    throw new Error(`分类查询失败: ${catError.message}`);
+                }
+                addLog('success', `分类查询成功，找到 ${categories.length} 条记录`);
+                
+                // 测试提示词查询
+                addLog('info', '测试提示词查询...');
+                const { data: prompts, error: promptError } = await supabase
+                    .from('prompts')
+                    .select('prompt_id, title, author_name, category_name')
+                    .limit(3);
+                
+                if (promptError) {
+                    throw new Error(`提示词查询失败: ${promptError.message}`);
+                }
+                addLog('success', `提示词查询成功，找到 ${prompts.length} 条记录`);
+                
+                // 检查数据完整性
+                addLog('info', '检查数据完整性...');
+                const issues = [];
+                prompts.forEach(p => {
+                    if (!p.author_name) issues.push(`提示词 ${p.prompt_id} 缺少作者信息`);
+                    if (!p.category_name) issues.push(`提示词 ${p.prompt_id} 缺少分类信息`);
+                });
+                
+                if (issues.length > 0) {
+                    addLog('warning', `发现数据完整性问题: ${issues.join(', ')}`);
+                    setStatus('basic-status', 'warning', '基础测试完成，但发现数据完整性问题');
+                } else {
+                    addLog('success', '数据完整性检查通过');
+                    setStatus('basic-status', 'success', '所有基础测试通过！');
+                }
+                
+            } catch (error) {
+                addLog('error', `基础测试失败: ${error.message}`);
+                setStatus('basic-status', 'error', `基础测试失败: ${error.message}`);
+            }
+        }
+        
+        async function testAppInit() {
+            addLog('info', '开始测试应用初始化...');
+            setStatus('init-status', 'info', '正在测试应用初始化...');
+            
+            try {
+                // 模拟应用初始化过程
+                addLog('info', '检查必要的脚本文件...');
+                
+                const scripts = [
+                    'js/config.js',
+                    'js/ui.js', 
+                    'js/auth.js',
+                    'js/api.js',
+                    'js/prompts.js',
+                    'js/main.js'
+                ];
+                
+                for (const script of scripts) {
+                    try {
+                        const response = await fetch(script);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        addLog('success', `脚本文件 ${script} 可访问`);
+                    } catch (error) {
+                        addLog('error', `脚本文件 ${script} 无法访问: ${error.message}`);
+                    }
+                }
+                
+                // 检查全局变量
+                addLog('info', '检查全局变量...');
+                const globalVars = [
+                    { name: 'supabase', value: window.supabase },
+                    { name: 'SUPABASE_CONFIG', value: window.SUPABASE_CONFIG },
+                    { name: 'APP_CONFIG', value: window.APP_CONFIG }
+                ];
+                
+                globalVars.forEach(gvar => {
+                    if (gvar.value !== undefined) {
+                        addLog('success', `全局变量 ${gvar.name} 已定义`);
+                    } else {
+                        addLog('error', `全局变量 ${gvar.name} 未定义`);
+                    }
+                });
+                
+                setStatus('init-status', 'success', '应用初始化测试完成');
+                
+            } catch (error) {
+                addLog('error', `应用初始化测试失败: ${error.message}`);
+                setStatus('init-status', 'error', `应用初始化测试失败: ${error.message}`);
+            }
+        }
+        
+        function openMainApp() {
+            addLog('info', '打开主应用...');
+            window.open('index.html', '_blank');
+        }
+        
+        // 拦截控制台输出
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn
+        };
+        
+        console.log = function(...args) {
+            originalConsole.log.apply(console, args);
+            addLog('info', args.join(' '));
+        };
+        
+        console.error = function(...args) {
+            originalConsole.error.apply(console, args);
+            addLog('error', args.join(' '));
+        };
+        
+        console.warn = function(...args) {
+            originalConsole.warn.apply(console, args);
+            addLog('warning', args.join(' '));
+        };
+        
+        // 页面加载完成后自动运行基础测试
+        window.addEventListener('load', () => {
+            addLog('info', '页面加载完成，准备运行测试...');
+            setTimeout(runBasicTests, 1000);
+        });
+        
+        // 捕获错误
+        window.addEventListener('error', (e) => {
+            addLog('error', `页面错误: ${e.message} (${e.filename}:${e.lineno})`);
+        });
+        
+        window.addEventListener('unhandledrejection', (e) => {
+            addLog('error', `未处理的Promise拒绝: ${e.reason?.message || e.reason}`);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通知修复验证 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            margin: var(--space-4) 0;
+            box-shadow: var(--shadow-sm);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: var(--space-2);
+        }
+        .status-indicator.success { background: #10b981; }
+        .status-indicator.error { background: #ef4444; }
+        .status-indicator.warning { background: #f59e0b; }
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: var(--space-3) 0;
+        }
+        .log-entry {
+            margin: var(--space-1) 0;
+            padding: var(--space-1);
+            border-radius: var(--radius-sm);
+        }
+        .log-entry.auth { background: rgba(139, 92, 246, 0.2); }
+        .log-entry.notification { background: rgba(34, 197, 94, 0.2); }
+        .log-entry.warning { background: rgba(245, 158, 11, 0.2); }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-1);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        .test-instructions {
+            background: var(--primary-50);
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .test-instructions h3 {
+            color: var(--primary-700);
+            margin-bottom: var(--space-2);
+        }
+        .test-instructions ol {
+            color: var(--primary-600);
+            margin-left: var(--space-4);
+        }
+        .test-instructions li {
+            margin: var(--space-1) 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>🔧 通知修复验证</h1>
+    <p>此页面用于验证"登录成功"通知修复是否生效。</p>
+
+    <div class="test-instructions">
+        <h3>📋 测试步骤</h3>
+        <ol>
+            <li><strong>确保已登录</strong>：如果未登录，请先登录</li>
+            <li><strong>切换标签页</strong>：切换到其他网页标签页，然后切换回来</li>
+            <li><strong>最小化窗口</strong>：最小化浏览器窗口，然后恢复</li>
+            <li><strong>刷新页面</strong>：按F5刷新页面</li>
+            <li><strong>观察结果</strong>：以上操作都不应该显示"登录成功"通知</li>
+        </ol>
+    </div>
+
+    <div class="test-card">
+        <h3>📊 当前状态</h3>
+        <div>
+            <span class="status-indicator success"></span>
+            <strong>认证状态：</strong>
+            <span id="auth-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>用户信息：</strong>
+            <span id="user-info">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>页面可见性：</strong>
+            <span id="visibility-status">可见</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>认证管理器初始化：</strong>
+            <span id="init-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-card">
+        <h3>📝 事件日志</h3>
+        <button onclick="clearLog()">清空日志</button>
+        <button onclick="toggleAutoScroll()">切换自动滚动</button>
+        <div id="log-container" class="log-container">等待事件...</div>
+    </div>
+
+    <div class="test-card">
+        <h3>🧪 手动测试</h3>
+        <button onclick="simulatePageHidden()">模拟页面隐藏</button>
+        <button onclick="simulatePageVisible()">模拟页面显示</button>
+        <button onclick="simulateFocusChange()">模拟焦点变化</button>
+        <button onclick="checkAuthState()">检查认证状态</button>
+        <div id="test-results" style="margin-top: var(--space-3);"></div>
+    </div>
+
+    <script>
+        let eventLog = [];
+        let autoScroll = true;
+        let notificationCount = 0;
+
+        // 重写通知方法来监控
+        const originalShowNotification = UI.showNotification;
+        UI.showNotification = function(message, type, title) {
+            notificationCount++;
+            const timestamp = new Date().toLocaleTimeString();
+            
+            addLogEntry(`[${timestamp}] 🔔 通知: ${message} (${type})`, 'notification');
+            
+            // 特别标记"登录成功"通知
+            if (message === '登录成功') {
+                addLogEntry(`[${timestamp}] ⚠️ 检测到"登录成功"通知！`, 'warning');
+                console.warn('🚨 检测到"登录成功"通知:', { message, type, title });
+            }
+            
+            return originalShowNotification.call(this, message, type, title);
+        };
+
+        function addLogEntry(text, type = 'normal') {
+            const timestamp = new Date().toLocaleTimeString();
+            eventLog.push({
+                time: timestamp,
+                text: text,
+                type: type
+            });
+            
+            updateLogDisplay();
+        }
+
+        function updateLogDisplay() {
+            const container = document.getElementById('log-container');
+            
+            if (eventLog.length === 0) {
+                container.innerHTML = '等待事件...';
+                return;
+            }
+            
+            const logHtml = eventLog.map(entry => 
+                `<div class="log-entry ${entry.type}">${entry.text}</div>`
+            ).join('');
+            
+            container.innerHTML = logHtml;
+            
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function clearLog() {
+            eventLog = [];
+            notificationCount = 0;
+            updateLogDisplay();
+            addLogEntry('日志已清空');
+        }
+
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            addLogEntry(`自动滚动: ${autoScroll ? '开启' : '关闭'}`);
+        }
+
+        function updateStatus() {
+            const authStatus = document.getElementById('auth-status');
+            const userInfo = document.getElementById('user-info');
+            const initStatus = document.getElementById('init-status');
+            
+            if (window.authManager) {
+                const isAuth = authManager.isAuthenticated();
+                const user = authManager.getCurrentUser();
+                
+                authStatus.textContent = isAuth ? '已登录' : '未登录';
+                userInfo.textContent = user ? user.email : '无';
+                initStatus.textContent = authManager.isInitialized ? '已初始化' : '未初始化';
+            } else {
+                authStatus.textContent = '认证管理器未找到';
+                userInfo.textContent = '无';
+                initStatus.textContent = '未找到';
+            }
+        }
+
+        function simulatePageHidden() {
+            addLogEntry('🔄 模拟页面隐藏');
+            Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                addLogEntry('✅ 页面隐藏模拟完成');
+            }, 100);
+        }
+
+        function simulatePageVisible() {
+            addLogEntry('🔄 模拟页面显示');
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+            
+            setTimeout(() => {
+                addLogEntry('✅ 页面显示模拟完成');
+            }, 100);
+        }
+
+        function simulateFocusChange() {
+            addLogEntry('🔄 模拟焦点变化');
+            window.dispatchEvent(new Event('blur'));
+            
+            setTimeout(() => {
+                window.dispatchEvent(new Event('focus'));
+                addLogEntry('✅ 焦点变化模拟完成');
+            }, 500);
+        }
+
+        function checkAuthState() {
+            addLogEntry('🔍 手动检查认证状态');
+            
+            if (window.authManager) {
+                const user = authManager.getCurrentUser();
+                addLogEntry(`认证状态: ${user ? '已登录' : '未登录'}`);
+                addLogEntry(`用户: ${user ? user.email : '无'}`);
+                addLogEntry(`初始化: ${authManager.isInitialized ? '是' : '否'}`);
+            } else {
+                addLogEntry('❌ 认证管理器未找到');
+            }
+        }
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', function() {
+            const status = document.getElementById('visibility-status');
+            const isVisible = !document.hidden;
+            status.textContent = isVisible ? '可见' : '隐藏';
+            
+            addLogEntry(`📱 页面可见性变化: ${isVisible ? '可见' : '隐藏'}`);
+        });
+
+        // 监听窗口焦点变化
+        window.addEventListener('focus', function() {
+            addLogEntry('🎯 窗口获得焦点');
+        });
+
+        window.addEventListener('blur', function() {
+            addLogEntry('🎯 窗口失去焦点');
+        });
+
+        // 监听认证状态变化
+        if (window.authManager && authManager.onAuthStateChange) {
+            authManager.onAuthStateChange((event, user) => {
+                addLogEntry(`🔐 认证事件: ${event}, 用户: ${user ? user.email : 'null'}`, 'auth');
+            });
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addLogEntry('🚀 页面加载完成');
+                updateStatus();
+                
+                // 定期更新状态
+                setInterval(updateStatus, 3000);
+                
+                // 检查是否有现有的通知
+                setTimeout(() => {
+                    if (notificationCount === 0) {
+                        addLogEntry('✅ 页面加载时没有显示通知 - 修复生效！', 'notification');
+                    } else {
+                        addLogEntry(`⚠️ 页面加载时显示了 ${notificationCount} 个通知`, 'warning');
+                    }
+                }, 2000);
+            }, 500);
+        });
+
+        // 页面卸载前记录
+        window.addEventListener('beforeunload', () => {
+            addLogEntry('📤 页面即将卸载');
+        });
+
+        // 页面显示时记录（从其他页面返回）
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                addLogEntry('🔄 从缓存恢复页面');
+            } else {
+                addLogEntry('🔄 页面正常显示');
+            }
+        });
+    </script>
+</body>
+</html>
