@@ -473,7 +473,7 @@ body {
 
 .search-header {
     text-align: center;
-    margin-bottom: var(--space-10);
+    margin-bottom: var(--space-6);
     position: relative;
     z-index: 1;
 }
@@ -481,8 +481,8 @@ body {
 .search-header h1 {
     font-size: clamp(2.5rem, 5vw, 3.5rem);
     font-weight: 800;
-    margin-top: var(--space-4);
-    margin-bottom: var(--space-3);
+    margin-top: var(--space-8);
+    margin-bottom: var(--space-2);
     color: white;
     line-height: 1.05;
     letter-spacing: -0.02em;
@@ -498,7 +498,7 @@ body {
 
 .search-box {
     max-width: 680px;
-    margin: 0 auto var(--space-8);
+    margin: 0 auto var(--space-4);
     position: relative;
     z-index: 1;
 }
@@ -555,6 +555,7 @@ body {
     flex-wrap: wrap;
     position: relative;
     z-index: 1;
+    margin-bottom: var(--space-8);
 }
 
 .filter-group {
@@ -641,7 +642,7 @@ body {
 
 /* 现代化提示词列表区域 */
 .prompts-section {
-    padding: var(--space-24) 0 var(--space-16);
+    padding: var(--space-20) 0 var(--space-16);
     background: var(--background-color);
 }
 
@@ -900,6 +901,6 @@ body {
     }
 
     .prompts-section {
-        padding: var(--space-16) 0 var(--space-10);
+        padding: var(--space-12) 0 var(--space-10);
     }
 }
