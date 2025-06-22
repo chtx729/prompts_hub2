@@ -898,6 +898,62 @@
     cursor: pointer;
 }
 
+/* 热门搜索标签样式 */
+.popular-tags-section {
+    margin-top: var(--space-4);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.popular-tags-label {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    white-space: nowrap;
+    margin-right: var(--space-2);
+}
+
+.popular-tags-container {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.popular-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-3);
+    background: var(--gray-100);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    text-decoration: none;
+    transition: var(--transition-fast);
+    cursor: pointer;
+    user-select: none;
+}
+
+.popular-tag:hover {
+    background: var(--primary-50);
+    color: var(--primary-600);
+    border-color: var(--primary-200);
+    transform: translateY(-1px);
+}
+
+.popular-tag:active {
+    transform: translateY(0);
+}
+
+.popular-tag .tag-count {
+    margin-left: var(--space-1);
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .prompt-media .media-actions {
@@ -912,6 +968,21 @@
     }
 
     .prompt-card-header:hover {
+        transform: none; /* 移动端不使用transform效果 */
+    }
+
+    .popular-tags-section {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .popular-tags-label {
+        margin-right: 0;
+        margin-bottom: var(--space-1);
+    }
+
+    .popular-tag:hover {
         transform: none; /* 移动端不使用transform效果 */
     }
 }

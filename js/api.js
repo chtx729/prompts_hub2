@@ -2,7 +2,9 @@
 class APIManager {
     constructor() {
         this.cache = new Map();
-        this.cacheTimeout = 5 * 60 * 1000; // 5分钟缓存
+        this.cacheTimeout = 10 * 60 * 1000; // 10分钟缓存
+        this.longCacheTimeout = 30 * 60 * 1000; // 30分钟长缓存（用于分类等相对静态数据）
+        this.requestQueue = new Map(); // 请求队列，防止重复请求
     }
 
     // 获取缓存键
@@ -11,9 +13,10 @@ class APIManager {
     }
 
     // 检查缓存
-    getFromCache(key) {
+    getFromCache(key, isLongCache = false) {
         const cached = this.cache.get(key);
-        if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+        const timeout = isLongCache ? this.longCacheTimeout : this.cacheTimeout;
+        if (cached && Date.now() - cached.timestamp < timeout) {
             return cached.data;
         }
         this.cache.delete(key);
@@ -21,11 +24,29 @@ class APIManager {
     }
 
     // 设置缓存
-    setCache(key, data) {
+    setCache(key, data, isLongCache = false) {
         this.cache.set(key, {
             data,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isLongCache
         });
+    }
+
+    // 防重复请求
+    async dedupeRequest(key, requestFn) {
+        if (this.requestQueue.has(key)) {
+            return this.requestQueue.get(key);
+        }
+
+        const promise = requestFn();
+        this.requestQueue.set(key, promise);
+
+        try {
+            const result = await promise;
+            return result;
+        } finally {
+            this.requestQueue.delete(key);
+        }
     }
 
     // 清除缓存
@@ -44,24 +65,27 @@ class APIManager {
     // 获取分类列表
     async getCategories() {
         const cacheKey = this.getCacheKey('categories', {});
-        const cached = this.getFromCache(cacheKey);
+        const cached = this.getFromCache(cacheKey, true); // 使用长缓存
         if (cached) return cached;
 
-        try {
-            const { data, error } = await supabase
-                .from('categories')
-                .select('*')
-                .eq('is_active', true)
-                .order('sort_order');
+        return this.dedupeRequest(cacheKey, async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('category_id, name, slug, icon, color, sort_order') // 只选择需要的字段
+                    .eq('is_active', true)
+                    .order('sort_order');
 
-            if (error) throw error;
+                if (error) throw error;
 
-            this.setCache(cacheKey, { success: true, data });
-            return { success: true, data };
-        } catch (error) {
-            console.error('获取分类失败:', error);
-            return { success: false, error: error.message };
-        }
+                const result = { success: true, data };
+                this.setCache(cacheKey, result, true); // 使用长缓存
+                return result;
+            } catch (error) {
+                console.error('获取分类失败:', error);
+                return { success: false, error: error.message };
+            }
+        });
     }
 
     // 获取提示词列表
@@ -81,10 +105,28 @@ class APIManager {
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
 
-        try {
-            let query = supabase
-                .from('prompts')
-                .select('*', { count: 'exact' });
+        return this.dedupeRequest(cacheKey, async () => {
+            try {
+                // 使用简化查询，避免关联查询问题
+                let query = supabase
+                    .from('prompts')
+                    .select(`
+                        prompt_id,
+                        title,
+                        description,
+                        content,
+                        tags,
+                        status,
+                        is_public,
+                        created_at,
+                        updated_at,
+                        view_count,
+                        use_count,
+                        like_count,
+                        rating_average,
+                        category_id,
+                        user_id
+                    `, { count: 'exact' });
 
             // 基础过滤条件
             if (!userId) {
@@ -118,53 +160,97 @@ class APIManager {
             const to = from + pageSize - 1;
             query = query.range(from, to);
 
-            const { data, error, count } = await query;
-            console.log("data", data);
+                const { data, error, count } = await query;
 
-            if (error) throw error;
+                if (error) throw error;
 
-            // 手动关联分类信息
-            if (data && data.length > 0) {
-                const categoryIds = [...new Set(data.map(p => p.category_id).filter(id => id))];
-                if (categoryIds.length > 0) {
-                    const { data: categories } = await supabase
-                        .from('categories')
-                        .select('category_id, name, slug, icon, color')
-                        .in('category_id', categoryIds);
+                // 手动关联分类和用户信息
+                let processedData = data;
+                if (data && data.length > 0) {
+                    // 获取分类信息
+                    const categoryIds = [...new Set(data.map(p => p.category_id).filter(id => id))];
+                    let categoryMap = {};
 
-                    if (categories) {
-                        const categoryMap = {};
-                        categories.forEach(cat => {
-                            categoryMap[cat.category_id] = cat;
-                        });
+                    if (categoryIds.length > 0) {
+                        try {
+                            const { data: categories } = await supabase
+                                .from('categories')
+                                .select('category_id, name, slug, icon, color')
+                                .in('category_id', categoryIds);
 
-                        // 为每个提示词添加分类信息
-                        data.forEach(prompt => {
-                            if (prompt.category_id && categoryMap[prompt.category_id]) {
-                                prompt.categories = categoryMap[prompt.category_id];
+                            if (categories) {
+                                categories.forEach(cat => {
+                                    categoryMap[cat.category_id] = cat;
+                                });
                             }
-                        });
+                        } catch (catError) {
+                            console.warn('获取分类信息失败:', catError);
+                        }
                     }
+
+                    // 获取用户信息
+                    const userIds = [...new Set(data.map(p => p.user_id).filter(id => id))];
+                    let userMap = {};
+
+                    if (userIds.length > 0) {
+                        try {
+                            // 从users表获取用户信息
+                            const { data: users } = await supabase
+                                .from('users')
+                                .select('user_id, username, avatar_url')
+                                .in('user_id', userIds);
+
+                            if (users) {
+                                users.forEach(user => {
+                                    userMap[user.user_id] = user;
+                                });
+                            }
+                        } catch (userError) {
+                            console.warn('获取用户信息失败，使用默认值:', userError);
+                        }
+                    }
+
+                    // 处理关联数据
+                    processedData = data.map(item => {
+                        // 处理分类信息
+                        const category = categoryMap[item.category_id];
+                        if (category) {
+                            item.category_name = category.name;
+                            item.categories = category;
+                        }
+
+                        // 处理作者信息
+                        const user = userMap[item.user_id];
+                        if (user) {
+                            item.author_name = user.username;
+                            item.author_avatar = user.avatar_url;
+                        } else {
+                            item.author_name = '匿名用户';
+                            item.author_avatar = APP_CONFIG.defaultAvatar;
+                        }
+
+                        return item;
+                    });
                 }
+
+                const result = {
+                    success: true,
+                    data: processedData,
+                    pagination: {
+                        page,
+                        pageSize,
+                        total: count,
+                        totalPages: Math.ceil(count / pageSize)
+                    }
+                };
+
+                this.setCache(cacheKey, result);
+                return result;
+            } catch (error) {
+                console.error('获取提示词失败:', error);
+                return { success: false, error: error.message };
             }
-
-            const result = {
-                success: true,
-                data,
-                pagination: {
-                    page,
-                    pageSize,
-                    total: count,
-                    totalPages: Math.ceil(count / pageSize)
-                }
-            };
-
-            this.setCache(cacheKey, result);
-            return result;
-        } catch (error) {
-            console.error('获取提示词失败:', error);
-            return { success: false, error: error.message };
-        }
+        });
     }
 
     // 获取单个提示词详情
@@ -176,11 +262,7 @@ class APIManager {
         try {
             const { data, error } = await supabase
                 .from('prompts')
-                .select(`
-                    *,
-                    categories(name, slug, icon, color),
-                    users(username, avatar_url)
-                `)
+                .select('*')
                 .eq('prompt_id', id)
                 .single();
 
@@ -188,15 +270,45 @@ class APIManager {
 
             // 处理数据格式
             if (data) {
-                // 处理作者信息
-                if (data.users) {
-                    data.author_name = data.users.username;
-                    data.author_avatar = data.users.avatar_url;
+                // 获取分类信息
+                if (data.category_id) {
+                    try {
+                        const { data: category } = await supabase
+                            .from('categories')
+                            .select('category_id, name, slug, icon, color')
+                            .eq('category_id', data.category_id)
+                            .single();
+
+                        if (category) {
+                            data.category_name = category.name;
+                            data.categories = category;
+                        }
+                    } catch (catError) {
+                        console.warn('获取分类信息失败:', catError);
+                    }
                 }
 
-                // 处理分类信息
-                if (data.categories) {
-                    data.category_name = data.categories.name;
+                // 获取用户信息
+                if (data.user_id) {
+                    try {
+                        const { data: user } = await supabase
+                            .from('users')
+                            .select('username, avatar_url')
+                            .eq('user_id', data.user_id)
+                            .single();
+
+                        if (user) {
+                            data.author_name = user.username;
+                            data.author_avatar = user.avatar_url;
+                        } else {
+                            data.author_name = '匿名用户';
+                            data.author_avatar = APP_CONFIG.defaultAvatar;
+                        }
+                    } catch (userError) {
+                        console.warn('获取用户信息失败:', userError);
+                        data.author_name = '匿名用户';
+                        data.author_avatar = APP_CONFIG.defaultAvatar;
+                    }
                 }
             }
 
@@ -231,11 +343,7 @@ class APIManager {
         try {
             let query = supabase
                 .from('prompts')
-                .select(`
-                    *,
-                    categories(name, slug, icon, color),
-                    users(username, avatar_url)
-                `, { count: 'exact' })
+                .select('*', { count: 'exact' })
                 .eq('user_id', userId);
 
             // 搜索过滤
@@ -260,21 +368,64 @@ class APIManager {
 
             if (error) throw error;
 
-            // 处理数据格式
-            const processedData = data.map(item => {
-                // 处理作者信息
-                if (item.users) {
-                    item.author_name = item.users.username;
-                    item.author_avatar = item.users.avatar_url;
+            // 手动关联分类和用户信息
+            let processedData = data;
+            if (data && data.length > 0) {
+                // 获取分类信息
+                const categoryIds = [...new Set(data.map(p => p.category_id).filter(id => id))];
+                let categoryMap = {};
+
+                if (categoryIds.length > 0) {
+                    try {
+                        const { data: categories } = await supabase
+                            .from('categories')
+                            .select('category_id, name, slug, icon, color')
+                            .in('category_id', categoryIds);
+
+                        if (categories) {
+                            categories.forEach(cat => {
+                                categoryMap[cat.category_id] = cat;
+                            });
+                        }
+                    } catch (catError) {
+                        console.warn('获取分类信息失败:', catError);
+                    }
                 }
 
-                // 处理分类信息
-                if (item.categories) {
-                    item.category_name = item.categories.name;
+                // 获取当前用户信息
+                let currentUser = null;
+                try {
+                    const { data: user } = await supabase
+                        .from('users')
+                        .select('username, avatar_url')
+                        .eq('user_id', userId)
+                        .single();
+                    currentUser = user;
+                } catch (userError) {
+                    console.warn('获取当前用户信息失败:', userError);
                 }
 
-                return item;
-            });
+                // 处理数据格式
+                processedData = data.map(item => {
+                    // 处理分类信息
+                    const category = categoryMap[item.category_id];
+                    if (category) {
+                        item.category_name = category.name;
+                        item.categories = category;
+                    }
+
+                    // 处理作者信息（我的提示词，作者就是当前用户）
+                    if (currentUser) {
+                        item.author_name = currentUser.username;
+                        item.author_avatar = currentUser.avatar_url;
+                    } else {
+                        item.author_name = '我';
+                        item.author_avatar = APP_CONFIG.defaultAvatar;
+                    }
+
+                    return item;
+                });
+            }
 
             const result = {
                 success: true,
@@ -519,41 +670,141 @@ class APIManager {
             return { success: true, data: { likes: [], favorites: [] } };
         }
 
+        const cacheKey = this.getCacheKey('user-interactions', { userId, promptIds: promptIds.sort() });
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        return this.dedupeRequest(cacheKey, async () => {
+            try {
+                const [likesResult, favoritesResult] = await Promise.all([
+                    supabase
+                        .from('user_likes')
+                        .select('prompt_id')
+                        .eq('user_id', userId)
+                        .in('prompt_id', promptIds),
+                    supabase
+                        .from('user_favorites')
+                        .select('prompt_id')
+                        .eq('user_id', userId)
+                        .in('prompt_id', promptIds)
+                ]);
+
+                if (likesResult.error) {
+                    console.error('查询点赞状态失败:', likesResult.error);
+                    return { success: true, data: { likes: [], favorites: [] } };
+                }
+
+                if (favoritesResult.error) {
+                    console.error('查询收藏状态失败:', favoritesResult.error);
+                    return { success: true, data: { likes: [], favorites: [] } };
+                }
+
+                const result = {
+                    success: true,
+                    data: {
+                        likes: likesResult.data?.map(item => item.prompt_id) || [],
+                        favorites: favoritesResult.data?.map(item => item.prompt_id) || []
+                    }
+                };
+
+                this.setCache(cacheKey, result);
+                return result;
+            } catch (error) {
+                console.error('获取用户交互状态失败:', error);
+                // 即使获取交互状态失败，也不应该影响主要功能
+                return { success: true, data: { likes: [], favorites: [] } };
+            }
+        });
+    }
+
+    // 获取热门标签
+    async getPopularTags(limit = 10) {
+        const cacheKey = this.getCacheKey('popular-tags', { limit });
+        const cached = this.getFromCache(cacheKey, true); // 使用长缓存
+        if (cached) return cached;
+
+        return this.dedupeRequest(cacheKey, async () => {
+            try {
+                // 使用数据库函数来获取热门标签，避免在前端处理大量数据
+                const { data, error } = await supabase.rpc('get_popular_tags', {
+                    tag_limit: limit
+                });
+
+                if (error) {
+                    // 如果数据库函数不存在，回退到原始方法
+                    console.warn('数据库函数get_popular_tags不存在，使用备用方法');
+                    return this.getPopularTagsFallback(limit);
+                }
+
+                const result = {
+                    success: true,
+                    data: data || []
+                };
+
+                this.setCache(cacheKey, result, true); // 使用长缓存
+                return result;
+            } catch (error) {
+                console.error('获取热门标签失败:', error);
+                return this.getPopularTagsFallback(limit);
+            }
+        });
+    }
+
+    // 热门标签备用方法
+    async getPopularTagsFallback(limit = 10) {
         try {
-            const [likesResult, favoritesResult] = await Promise.all([
-                supabase
-                    .from('user_likes')
-                    .select('prompt_id')
-                    .eq('user_id', userId)
-                    .in('prompt_id', promptIds),
-                supabase
-                    .from('user_favorites')
-                    .select('prompt_id')
-                    .eq('user_id', userId)
-                    .in('prompt_id', promptIds)
-            ]);
+            // 只获取标签字段，减少数据传输
+            const { data, error } = await supabase
+                .from('prompts')
+                .select('tags')
+                .eq('status', 'published')
+                .eq('is_public', true)
+                .not('tags', 'is', null)
+                .limit(1000); // 限制查询数量
 
-            if (likesResult.error) {
-                console.error('查询点赞状态失败:', likesResult.error);
-                return { success: true, data: { likes: [], favorites: [] } };
-            }
+            if (error) throw error;
 
-            if (favoritesResult.error) {
-                console.error('查询收藏状态失败:', favoritesResult.error);
-                return { success: true, data: { likes: [], favorites: [] } };
-            }
+            // 统计标签使用频率
+            const tagCounts = {};
+            data.forEach(prompt => {
+                if (prompt.tags && Array.isArray(prompt.tags)) {
+                    prompt.tags.forEach(tag => {
+                        if (tag && tag.trim()) {
+                            const normalizedTag = tag.trim();
+                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
+                        }
+                    });
+                }
+            });
+
+            // 转换为数组并按使用频率排序
+            const popularTags = Object.entries(tagCounts)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, limit);
 
             return {
                 success: true,
-                data: {
-                    likes: likesResult.data?.map(item => item.prompt_id) || [],
-                    favorites: favoritesResult.data?.map(item => item.prompt_id) || []
-                }
+                data: popularTags.length > 0 ? popularTags : [
+                    { name: '写作', count: 0 },
+                    { name: '编程', count: 0 },
+                    { name: '营销', count: 0 },
+                    { name: 'AI', count: 0 },
+                    { name: '创意', count: 0 }
+                ]
             };
         } catch (error) {
-            console.error('获取用户交互状态失败:', error);
-            // 即使获取交互状态失败，也不应该影响主要功能
-            return { success: true, data: { likes: [], favorites: [] } };
+            console.error('获取热门标签备用方法失败:', error);
+            return {
+                success: true,
+                data: [
+                    { name: '写作', count: 0 },
+                    { name: '编程', count: 0 },
+                    { name: '营销', count: 0 },
+                    { name: 'AI', count: 0 },
+                    { name: '创意', count: 0 }
+                ]
+            };
         }
     }
 }

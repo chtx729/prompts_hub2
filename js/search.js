@@ -10,6 +10,7 @@ class SearchManager {
     async init() {
         this.bindEvents();
         await this.loadPopularTags();
+        this.renderPopularTags();
     }
 
     // 绑定事件
@@ -17,20 +18,8 @@ class SearchManager {
         // 搜索输入框事件
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
-            // 搜索建议
-            searchInput.addEventListener('focus', () => {
-                this.showSearchSuggestions();
-            });
-
-            searchInput.addEventListener('blur', () => {
-                // 延迟隐藏，允许点击建议项
-                setTimeout(() => this.hideSearchSuggestions(), 200);
-            });
-
-            // 键盘导航
-            searchInput.addEventListener('keydown', (e) => {
-                this.handleSearchKeydown(e);
-            });
+            // 移除搜索建议功能，只保留基本搜索
+            // 不再绑定focus、blur和keydown事件
         }
 
         // 回车搜索
@@ -56,235 +45,68 @@ class SearchManager {
             this.addToSearchHistory(searchQuery);
         }
 
-        // 触发搜索
+        // 触发搜索（全文搜索，清空标签过滤）
         if (window.promptsManager) {
             window.promptsManager.currentFilters.search = searchQuery;
+            window.promptsManager.currentFilters.tags = []; // 清空标签过滤
             window.promptsManager.currentPage = 1;
             window.promptsManager.loadPrompts();
         }
-
-        this.hideSearchSuggestions();
     }
 
-    // 显示搜索建议
-    showSearchSuggestions() {
-        const searchInput = document.getElementById('search-input');
-        if (!searchInput) return;
+    // 显示搜索建议 - 已禁用
+    // showSearchSuggestions() {
+    //     // 功能已移除，改为使用热门标签
+    // }
 
-        // 创建建议容器
-        let suggestionsContainer = document.getElementById('search-suggestions');
-        if (!suggestionsContainer) {
-            suggestionsContainer = document.createElement('div');
-            suggestionsContainer.id = 'search-suggestions';
-            suggestionsContainer.className = 'search-suggestions';
-            searchInput.parentNode.appendChild(suggestionsContainer);
-        }
+    // 隐藏搜索建议 - 已禁用
+    // hideSearchSuggestions() {
+    //     // 功能已移除，改为使用热门标签
+    // }
 
-        // 生成建议内容
-        const suggestions = this.generateSuggestions(searchInput.value);
-        if (suggestions.length === 0) {
-            this.hideSearchSuggestions();
-            return;
-        }
+    // 生成搜索建议 - 已禁用
+    // generateSuggestions(query) {
+    //     // 功能已移除，改为使用热门标签
+    //     return [];
+    // }
 
-        suggestionsContainer.innerHTML = suggestions.map(suggestion => `
-            <div class="suggestion-item" data-type="${suggestion.type}" data-value="${suggestion.value}">
-                <i class="${suggestion.icon}"></i>
-                <span class="suggestion-text">${UI.escapeHtml(suggestion.text)}</span>
-                ${suggestion.type === 'history' ? '<i class="fas fa-times suggestion-remove" data-value="' + suggestion.value + '"></i>' : ''}
-            </div>
-        `).join('');
+    // 绑定建议项事件 - 已禁用
+    // bindSuggestionEvents(container) {
+    //     // 功能已移除，改为使用热门标签
+    // }
 
-        // 绑定建议项事件
-        this.bindSuggestionEvents(suggestionsContainer);
+    // 处理搜索框键盘事件 - 已禁用
+    // handleSearchKeydown(e) {
+    //     // 功能已移除，改为使用热门标签
+    // }
 
-        suggestionsContainer.style.display = 'block';
-    }
-
-    // 隐藏搜索建议
-    hideSearchSuggestions() {
-        const suggestionsContainer = document.getElementById('search-suggestions');
-        if (suggestionsContainer) {
-            suggestionsContainer.style.display = 'none';
-        }
-    }
-
-    // 生成搜索建议
-    generateSuggestions(query) {
-        const suggestions = [];
-        const lowerQuery = query.toLowerCase();
-
-        // 搜索历史
-        if (this.searchHistory.length > 0) {
-            const historyMatches = this.searchHistory
-                .filter(item => item.toLowerCase().includes(lowerQuery))
-                .slice(0, 3);
-
-            historyMatches.forEach(item => {
-                suggestions.push({
-                    type: 'history',
-                    value: item,
-                    text: item,
-                    icon: 'fas fa-history'
-                });
-            });
-        }
-
-        // 热门标签
-        if (this.popularTags.length > 0) {
-            const tagMatches = this.popularTags
-                .filter(tag => tag.name.toLowerCase().includes(lowerQuery))
-                .slice(0, 3);
-
-            tagMatches.forEach(tag => {
-                suggestions.push({
-                    type: 'tag',
-                    value: tag.name,
-                    text: `标签: ${tag.name}`,
-                    icon: 'fas fa-tag'
-                });
-            });
-        }
-
-        // 如果没有匹配项且有输入，显示直接搜索选项
-        if (suggestions.length === 0 && query.trim()) {
-            suggestions.push({
-                type: 'direct',
-                value: query.trim(),
-                text: `搜索 "${query.trim()}"`,
-                icon: 'fas fa-search'
-            });
-        }
-
-        return suggestions;
-    }
-
-    // 绑定建议项事件
-    bindSuggestionEvents(container) {
-        // 点击建议项
-        container.querySelectorAll('.suggestion-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                if (e.target.classList.contains('suggestion-remove')) {
-                    // 删除历史记录
-                    const value = e.target.dataset.value;
-                    this.removeFromSearchHistory(value);
-                    this.showSearchSuggestions(); // 刷新建议
-                    e.stopPropagation();
-                } else {
-                    // 执行搜索
-                    const value = item.dataset.value;
-                    const searchInput = document.getElementById('search-input');
-                    if (searchInput) {
-                        searchInput.value = value;
-                    }
-                    this.performSearch(value);
-                }
-            });
-        });
-    }
-
-    // 处理搜索框键盘事件
-    handleSearchKeydown(e) {
-        const suggestionsContainer = document.getElementById('search-suggestions');
-        if (!suggestionsContainer || suggestionsContainer.style.display === 'none') {
-            return;
-        }
-
-        const suggestions = suggestionsContainer.querySelectorAll('.suggestion-item');
-        let currentIndex = -1;
-
-        // 找到当前选中的建议
-        suggestions.forEach((item, index) => {
-            if (item.classList.contains('active')) {
-                currentIndex = index;
-            }
-        });
-
-        switch (e.key) {
-            case 'ArrowDown':
-                e.preventDefault();
-                currentIndex = Math.min(currentIndex + 1, suggestions.length - 1);
-                this.highlightSuggestion(suggestions, currentIndex);
-                break;
-
-            case 'ArrowUp':
-                e.preventDefault();
-                currentIndex = Math.max(currentIndex - 1, -1);
-                this.highlightSuggestion(suggestions, currentIndex);
-                break;
-
-            case 'Enter':
-                e.preventDefault();
-                if (currentIndex >= 0 && suggestions[currentIndex]) {
-                    suggestions[currentIndex].click();
-                } else {
-                    this.performSearch();
-                }
-                break;
-
-            case 'Escape':
-                this.hideSearchSuggestions();
-                break;
-        }
-    }
-
-    // 高亮建议项
-    highlightSuggestion(suggestions, index) {
-        suggestions.forEach((item, i) => {
-            item.classList.toggle('active', i === index);
-        });
-
-        // 更新输入框内容
-        if (index >= 0 && suggestions[index]) {
-            const searchInput = document.getElementById('search-input');
-            if (searchInput) {
-                searchInput.value = suggestions[index].dataset.value;
-            }
-        }
-    }
+    // 高亮建议项 - 已禁用
+    // highlightSuggestion(suggestions, index) {
+    //     // 功能已移除，改为使用热门标签
+    // }
 
     // 加载热门标签
     async loadPopularTags() {
         try {
-            // 从数据库获取热门标签
-            const { data, error } = await supabase
-                .from('prompts')
-                .select('tags')
-                .eq('status', 'published')
-                .eq('is_public', true)
-                .not('tags', 'is', null);
+            // 使用优化的API方法获取热门标签
+            const result = await apiManager.getPopularTags(8); // 减少到8个标签
 
-            if (error) throw error;
-
-            // 统计标签使用频率
-            const tagCounts = {};
-            data.forEach(prompt => {
-                if (prompt.tags && Array.isArray(prompt.tags)) {
-                    prompt.tags.forEach(tag => {
-                        if (tag && tag.trim()) {
-                            const normalizedTag = tag.trim();
-                            tagCounts[normalizedTag] = (tagCounts[normalizedTag] || 0) + 1;
-                        }
-                    });
-                }
-            });
-
-            // 转换为数组并按使用频率排序
-            this.popularTags = Object.entries(tagCounts)
-                .map(([name, count]) => ({ name, count }))
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 10); // 只取前10个热门标签
-
-            // 如果没有标签数据，使用默认标签
-            if (this.popularTags.length === 0) {
+            if (result.success && result.data.length > 0) {
+                this.popularTags = result.data;
+            } else {
+                // 使用默认标签作为后备
                 this.popularTags = [
                     { name: '写作', count: 0 },
                     { name: '编程', count: 0 },
                     { name: '营销', count: 0 },
                     { name: 'AI', count: 0 },
-                    { name: '创意', count: 0 }
+                    { name: '创意', count: 0 },
+                    { name: '设计', count: 0 }
                 ];
             }
+
+            // 重新渲染标签
+            this.renderPopularTags();
         } catch (error) {
             console.error('加载热门标签失败:', error);
             // 使用默认标签作为后备
@@ -293,8 +115,75 @@ class SearchManager {
                 { name: '编程', count: 0 },
                 { name: '营销', count: 0 },
                 { name: 'AI', count: 0 },
-                { name: '创意', count: 0 }
+                { name: '创意', count: 0 },
+                { name: '设计', count: 0 }
             ];
+
+            // 重新渲染标签
+            this.renderPopularTags();
+        }
+    }
+
+    // 渲染热门标签
+    renderPopularTags() {
+        const container = document.getElementById('popular-tags-container');
+        if (!container || !this.popularTags.length) return;
+
+        container.innerHTML = this.popularTags.map(tag => `
+            <span class="popular-tag" data-tag="${UI.escapeHtml(tag.name)}" title="点击搜索 ${UI.escapeHtml(tag.name)} 相关提示词">
+                ${UI.escapeHtml(tag.name)}
+                ${tag.count > 0 ? `<span class="tag-count">(${tag.count})</span>` : ''}
+            </span>
+        `).join('');
+
+        // 绑定标签点击事件
+        this.bindPopularTagEvents(container);
+    }
+
+    // 绑定热门标签点击事件
+    bindPopularTagEvents(container) {
+        container.querySelectorAll('.popular-tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                const tagName = tag.dataset.tag;
+                this.searchByTag(tagName);
+            });
+        });
+    }
+
+    // 按标签搜索
+    searchByTag(tagName) {
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.value = tagName;
+        }
+
+        // 保存搜索历史
+        if (tagName) {
+            this.addToSearchHistory(tagName);
+        }
+
+        // 执行标签搜索（使用标签过滤而不是全文搜索）
+        if (window.promptsManager) {
+            // 清空其他搜索条件，专注于标签搜索
+            window.promptsManager.currentFilters.search = '';
+            window.promptsManager.currentFilters.tags = [tagName];
+            window.promptsManager.currentPage = 1;
+            window.promptsManager.loadPrompts();
+        }
+
+        // 添加视觉反馈
+        const tagElement = document.querySelector(`[data-tag="${tagName}"]`);
+        if (tagElement) {
+            tagElement.style.background = 'var(--primary-color)';
+            tagElement.style.color = 'white';
+            tagElement.style.borderColor = 'var(--primary-color)';
+
+            // 恢复原样式
+            setTimeout(() => {
+                tagElement.style.background = '';
+                tagElement.style.color = '';
+                tagElement.style.borderColor = '';
+            }, 300);
         }
     }
 
@@ -302,9 +191,11 @@ class SearchManager {
     loadSearchHistory() {
         try {
             const history = localStorage.getItem('search_history');
-            return history ? JSON.parse(history) : [];
+            this.searchHistory = history ? JSON.parse(history) : [];
+            return this.searchHistory;
         } catch (error) {
             console.error('加载搜索历史失败:', error);
+            this.searchHistory = [];
             return [];
         }
     }
@@ -352,78 +243,10 @@ class SearchManager {
         }
     }
 
-    // 搜索建议样式
-    injectSearchStyles() {
-        if (document.getElementById('search-styles')) return;
-
-        const styles = document.createElement('style');
-        styles.id = 'search-styles';
-        styles.textContent = `
-            .search-suggestions {
-                position: absolute;
-                top: 100%;
-                left: 0;
-                right: 0;
-                background: var(--surface-color);
-                border: 1px solid var(--border-color);
-                border-radius: var(--radius-md);
-                box-shadow: var(--shadow-lg);
-                z-index: 1000;
-                max-height: 300px;
-                overflow-y: auto;
-                display: none;
-            }
-
-            .suggestion-item {
-                display: flex;
-                align-items: center;
-                gap: 0.75rem;
-                padding: 0.75rem 1rem;
-                cursor: pointer;
-                transition: var(--transition);
-                border-bottom: 1px solid var(--border-color);
-            }
-
-            .suggestion-item:last-child {
-                border-bottom: none;
-            }
-
-            .suggestion-item:hover,
-            .suggestion-item.active {
-                background: var(--background-color);
-            }
-
-            .suggestion-item i {
-                color: var(--text-secondary);
-                width: 16px;
-                text-align: center;
-            }
-
-            .suggestion-text {
-                flex: 1;
-                color: var(--text-primary);
-            }
-
-            .suggestion-remove {
-                color: var(--text-secondary);
-                opacity: 0;
-                transition: var(--transition);
-            }
-
-            .suggestion-item:hover .suggestion-remove {
-                opacity: 1;
-            }
-
-            .suggestion-remove:hover {
-                color: var(--error-color);
-            }
-
-            .search-input-group {
-                position: relative;
-            }
-        `;
-        document.head.appendChild(styles);
-    }
+    // 搜索建议样式 - 已禁用
+    // injectSearchStyles() {
+    //     // 功能已移除，不再需要搜索建议样式
+    // }
 }
 
 // 创建全局搜索管理器实例
@@ -432,5 +255,5 @@ let searchManager;
 // 在DOM加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     searchManager = new SearchManager();
-    searchManager.injectSearchStyles();
+    // 不再需要注入搜索建议样式
 });

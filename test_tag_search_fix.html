@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>标签搜索修复测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: var(--space-4) 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid var(--border-color);
+            padding: var(--space-2);
+            text-align: left;
+        }
+        .comparison-table th {
+            background: var(--gray-100);
+            font-weight: 600;
+        }
+        .filter-display {
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            margin: var(--space-2) 0;
+            font-family: monospace;
+        }
+        .demo-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+            margin: var(--space-3) 0;
+        }
+        .demo-tag {
+            padding: var(--space-1) var(--space-3);
+            background: var(--primary-100);
+            color: var(--primary-700);
+            border: 1px solid var(--primary-200);
+            border-radius: var(--radius-full);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: var(--transition-fast);
+        }
+        .demo-tag:hover {
+            background: var(--primary-200);
+            transform: translateY(-1px);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/search.js"></script>
+</head>
+<body>
+    <h1>🏷️ 标签搜索修复测试</h1>
+    <p>此工具用于测试标签搜索功能的修复效果，确保点击标签时使用标签过滤而不是全文搜索。</p>
+
+    <div class="test-section">
+        <h3>🔍 搜索方式对比</h3>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>搜索方式</th>
+                    <th>API参数</th>
+                    <th>查询逻辑</th>
+                    <th>适用场景</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>全文搜索</strong></td>
+                    <td><code>search: "艺术创作"</code></td>
+                    <td>在标题、描述、内容中查找包含关键词的提示词</td>
+                    <td>用户在搜索框输入关键词</td>
+                </tr>
+                <tr>
+                    <td><strong>标签搜索</strong></td>
+                    <td><code>tags: ["艺术创作"]</code></td>
+                    <td>查找标签数组中包含指定标签的提示词</td>
+                    <td>用户点击热门标签</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 当前过滤状态</h3>
+        <div class="filter-display" id="current-filters">
+            等待加载...
+        </div>
+        <button onclick="refreshFilters()">刷新过滤状态</button>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 测试标签</h3>
+        <p>点击下面的测试标签，观察过滤参数的变化：</p>
+        <div class="demo-tags">
+            <span class="demo-tag" onclick="testTagSearch('艺术创作')">艺术创作</span>
+            <span class="demo-tag" onclick="testTagSearch('写作')">写作</span>
+            <span class="demo-tag" onclick="testTagSearch('编程')">编程</span>
+            <span class="demo-tag" onclick="testTagSearch('营销')">营销</span>
+            <span class="demo-tag" onclick="testTagSearch('AI')">AI</span>
+            <span class="demo-tag" onclick="testTagSearch('创意')">创意</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 功能测试</h3>
+        <button onclick="testFullTextSearch()" id="test-fulltext-btn">测试全文搜索</button>
+        <button onclick="testTagSearchFunction()" id="test-tag-btn">测试标签搜索</button>
+        <button onclick="testSearchCombination()" id="test-combo-btn">测试搜索组合</button>
+        <button onclick="testAPIDirectly()" id="test-api-btn">直接测试API</button>
+        <button onclick="clearResults()">清空结果</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 实际搜索测试</h3>
+        <p>使用真实的搜索框和热门标签进行测试：</p>
+        
+        <div class="search-box">
+            <div class="search-input-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="搜索提示词...">
+                <button class="btn btn-primary" id="search-btn">搜索</button>
+            </div>
+            
+            <!-- 热门搜索标签 -->
+            <div class="popular-tags-section">
+                <span class="popular-tags-label">热门搜索标签：</span>
+                <div class="popular-tags-container" id="popular-tags-container">
+                    <!-- 标签将通过JavaScript动态加载 -->
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: var(--space-4);">
+            <h4>测试步骤：</h4>
+            <ol>
+                <li><strong>点击热门标签</strong> - 观察过滤参数变化为tags数组</li>
+                <li><strong>在搜索框输入</strong> - 观察过滤参数变化为search字符串</li>
+                <li><strong>查看搜索结果</strong> - 确认结果数量正确</li>
+                <li><strong>切换搜索方式</strong> - 验证参数正确切换</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        function addResult(type, title, content) {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        function refreshFilters() {
+            const filtersDisplay = document.getElementById('current-filters');
+            if (window.promptsManager) {
+                const filters = window.promptsManager.currentFilters;
+                filtersDisplay.innerHTML = `当前过滤参数：
+search: "${filters.search}"
+tags: [${filters.tags.map(tag => `"${tag}"`).join(', ')}]
+category: "${filters.category}"
+sortBy: "${filters.sortBy}"
+sortOrder: "${filters.sortOrder}"`;
+            } else {
+                filtersDisplay.innerHTML = 'PromptsManager 未初始化';
+            }
+        }
+
+        function testTagSearch(tagName) {
+            addResult('info', '测试标签搜索', `点击标签: ${tagName}`);
+            
+            if (window.searchManager) {
+                searchManager.searchByTag(tagName);
+                
+                setTimeout(() => {
+                    refreshFilters();
+                    const filters = window.promptsManager.currentFilters;
+                    
+                    if (filters.tags.includes(tagName) && filters.search === '') {
+                        addResult('success', '标签搜索测试通过', 
+                            `标签: ${tagName}\n` +
+                            `tags参数: [${filters.tags.join(', ')}]\n` +
+                            `search参数: "${filters.search}"\n` +
+                            `✅ 使用了标签过滤`
+                        );
+                    } else {
+                        addResult('error', '标签搜索测试失败', 
+                            `标签: ${tagName}\n` +
+                            `tags参数: [${filters.tags.join(', ')}]\n` +
+                            `search参数: "${filters.search}"\n` +
+                            `❌ 未正确设置标签过滤`
+                        );
+                    }
+                }, 100);
+            } else {
+                addResult('error', '测试失败', 'SearchManager 未初始化');
+            }
+        }
+
+        async function testFullTextSearch() {
+            const btn = document.getElementById('test-fulltext-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试全文搜索', '模拟在搜索框输入关键词...');
+                
+                const searchInput = document.getElementById('search-input');
+                if (searchInput) {
+                    searchInput.value = '艺术创作';
+                    
+                    // 触发搜索
+                    if (window.searchManager) {
+                        searchManager.performSearch('艺术创作');
+                        
+                        setTimeout(() => {
+                            refreshFilters();
+                            const filters = window.promptsManager.currentFilters;
+                            
+                            if (filters.search === '艺术创作' && filters.tags.length === 0) {
+                                addResult('success', '全文搜索测试通过', 
+                                    `搜索关键词: 艺术创作\n` +
+                                    `search参数: "${filters.search}"\n` +
+                                    `tags参数: [${filters.tags.join(', ')}]\n` +
+                                    `✅ 使用了全文搜索`
+                                );
+                            } else {
+                                addResult('error', '全文搜索测试失败', 
+                                    `搜索关键词: 艺术创作\n` +
+                                    `search参数: "${filters.search}"\n` +
+                                    `tags参数: [${filters.tags.join(', ')}]\n` +
+                                    `❌ 未正确设置全文搜索`
+                                );
+                            }
+                        }, 100);
+                    }
+                }
+            } catch (error) {
+                addResult('error', '全文搜索测试异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试全文搜索';
+            }
+        }
+
+        async function testTagSearchFunction() {
+            const btn = document.getElementById('test-tag-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试标签搜索功能', '测试searchByTag方法...');
+                
+                if (window.searchManager) {
+                    // 测试标签搜索
+                    searchManager.searchByTag('艺术创作');
+                    
+                    setTimeout(() => {
+                        refreshFilters();
+                        const filters = window.promptsManager.currentFilters;
+                        
+                        addResult('success', '标签搜索功能测试完成', 
+                            `测试标签: 艺术创作\n` +
+                            `search参数: "${filters.search}"\n` +
+                            `tags参数: [${filters.tags.join(', ')}]\n` +
+                            `结果: ${filters.tags.includes('艺术创作') ? '✅ 正确' : '❌ 错误'}`
+                        );
+                    }, 100);
+                } else {
+                    addResult('error', '测试失败', 'SearchManager 未初始化');
+                }
+            } catch (error) {
+                addResult('error', '标签搜索测试异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试标签搜索';
+            }
+        }
+
+        async function testSearchCombination() {
+            const btn = document.getElementById('test-combo-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试搜索组合', '测试标签搜索和全文搜索的切换...');
+                
+                // 先进行标签搜索
+                searchManager.searchByTag('编程');
+                
+                setTimeout(() => {
+                    const filters1 = { ...window.promptsManager.currentFilters };
+                    
+                    // 再进行全文搜索
+                    searchManager.performSearch('写作技巧');
+                    
+                    setTimeout(() => {
+                        const filters2 = { ...window.promptsManager.currentFilters };
+                        
+                        addResult('success', '搜索组合测试完成', 
+                            `第一次（标签搜索）:\n` +
+                            `  search: "${filters1.search}"\n` +
+                            `  tags: [${filters1.tags.join(', ')}]\n\n` +
+                            `第二次（全文搜索）:\n` +
+                            `  search: "${filters2.search}"\n` +
+                            `  tags: [${filters2.tags.join(', ')}]\n\n` +
+                            `切换正确: ${filters2.search === '写作技巧' && filters2.tags.length === 0 ? '✅' : '❌'}`
+                        );
+                        
+                        refreshFilters();
+                    }, 100);
+                }, 100);
+                
+            } catch (error) {
+                addResult('error', '搜索组合测试异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试搜索组合';
+            }
+        }
+
+        async function testAPIDirectly() {
+            const btn = document.getElementById('test-api-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '直接测试API', '对比全文搜索和标签搜索的结果...');
+                
+                // 测试全文搜索
+                const fullTextResult = await apiManager.getPrompts({
+                    search: '艺术创作',
+                    page: 1,
+                    pageSize: 10
+                });
+                
+                // 测试标签搜索
+                const tagSearchResult = await apiManager.getPrompts({
+                    tags: ['艺术创作'],
+                    page: 1,
+                    pageSize: 10
+                });
+                
+                addResult('success', 'API测试完成', 
+                    `全文搜索 "艺术创作":\n` +
+                    `  成功: ${fullTextResult.success}\n` +
+                    `  结果数量: ${fullTextResult.success ? fullTextResult.data.length : 0}\n` +
+                    `  总数: ${fullTextResult.success ? fullTextResult.pagination.total : 0}\n\n` +
+                    `标签搜索 ["艺术创作"]:\n` +
+                    `  成功: ${tagSearchResult.success}\n` +
+                    `  结果数量: ${tagSearchResult.success ? tagSearchResult.data.length : 0}\n` +
+                    `  总数: ${tagSearchResult.success ? tagSearchResult.pagination.total : 0}\n\n` +
+                    `差异: ${tagSearchResult.success && fullTextResult.success ? 
+                        (tagSearchResult.pagination.total - fullTextResult.pagination.total) : '无法比较'}`
+                );
+                
+            } catch (error) {
+                addResult('error', 'API测试异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '直接测试API';
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                refreshFilters();
+                
+                // 定期更新过滤状态
+                setInterval(refreshFilters, 3000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

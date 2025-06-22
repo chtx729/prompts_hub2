@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>热门标签功能测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .demo-search-box {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .demo-search-input-group {
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-2) var(--space-3);
+            gap: var(--space-2);
+        }
+        .demo-search-input-group i {
+            color: var(--text-secondary);
+        }
+        .demo-search-input-group input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+        }
+        .demo-search-input-group button {
+            margin: 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/search.js"></script>
+</head>
+<body>
+    <h1>🏷️ 热门标签功能测试</h1>
+    <p>此工具用于测试热门搜索标签的显示和点击功能。</p>
+
+    <div class="test-section">
+        <h3>📊 系统状态</h3>
+        <div>
+            <strong>搜索管理器：</strong>
+            <span id="search-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>热门标签数量：</strong>
+            <span id="tags-count">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>标签容器：</strong>
+            <span id="container-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 搜索框演示</h3>
+        <p>这是修改后的搜索框样式，热门标签显示在搜索框下方：</p>
+        
+        <div class="demo-search-box">
+            <div class="demo-search-input-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="demo-search-input" placeholder="搜索提示词...">
+                <button class="btn btn-primary">搜索</button>
+            </div>
+            
+            <!-- 热门搜索标签 -->
+            <div class="popular-tags-section">
+                <span class="popular-tags-label">热门搜索标签：</span>
+                <div class="popular-tags-container" id="demo-popular-tags-container">
+                    <!-- 演示标签 -->
+                    <span class="popular-tag" data-tag="写作">写作 <span class="tag-count">(25)</span></span>
+                    <span class="popular-tag" data-tag="编程">编程 <span class="tag-count">(18)</span></span>
+                    <span class="popular-tag" data-tag="营销">营销 <span class="tag-count">(12)</span></span>
+                    <span class="popular-tag" data-tag="AI">AI <span class="tag-count">(30)</span></span>
+                    <span class="popular-tag" data-tag="创意">创意 <span class="tag-count">(8)</span></span>
+                    <span class="popular-tag" data-tag="设计">设计 <span class="tag-count">(15)</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 功能测试</h3>
+        <button onclick="testLoadTags()" id="test-load-btn">测试加载标签</button>
+        <button onclick="testRenderTags()" id="test-render-btn">测试渲染标签</button>
+        <button onclick="testTagClick()" id="test-click-btn">测试标签点击</button>
+        <button onclick="testSearchFunction()" id="test-search-btn">测试搜索功能</button>
+        <button onclick="runAllTests()" id="test-all-btn">运行所有测试</button>
+        <button onclick="clearResults()">清空结果</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 实际搜索框</h3>
+        <p>这是实际的搜索框，应该显示真实的热门标签：</p>
+        
+        <div class="search-box">
+            <div class="search-input-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="搜索提示词...">
+                <button class="btn btn-primary" id="search-btn">搜索</button>
+            </div>
+            
+            <!-- 热门搜索标签 -->
+            <div class="popular-tags-section">
+                <span class="popular-tags-label">热门搜索标签：</span>
+                <div class="popular-tags-container" id="popular-tags-container">
+                    <!-- 标签将通过JavaScript动态加载 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function addResult(type, title, content) {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        function updateStatus() {
+            const searchStatus = document.getElementById('search-status');
+            const tagsCount = document.getElementById('tags-count');
+            const containerStatus = document.getElementById('container-status');
+            
+            // 检查搜索管理器
+            if (window.searchManager) {
+                searchStatus.textContent = '已初始化';
+                searchStatus.style.color = 'var(--success-color)';
+                
+                // 检查标签数量
+                const tagCount = searchManager.popularTags ? searchManager.popularTags.length : 0;
+                tagsCount.textContent = `${tagCount} 个标签`;
+                tagsCount.style.color = tagCount > 0 ? 'var(--success-color)' : 'var(--warning-color)';
+            } else {
+                searchStatus.textContent = '未初始化';
+                searchStatus.style.color = 'var(--error-color)';
+                tagsCount.textContent = '无法检查';
+                tagsCount.style.color = 'var(--error-color)';
+            }
+            
+            // 检查标签容器
+            const container = document.getElementById('popular-tags-container');
+            if (container) {
+                const hasContent = container.innerHTML.trim().length > 0;
+                containerStatus.textContent = hasContent ? '已渲染内容' : '容器为空';
+                containerStatus.style.color = hasContent ? 'var(--success-color)' : 'var(--warning-color)';
+            } else {
+                containerStatus.textContent = '容器不存在';
+                containerStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        async function testLoadTags() {
+            const btn = document.getElementById('test-load-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试加载标签', '开始测试标签加载...');
+                
+                if (!window.searchManager) {
+                    addResult('error', '测试失败', '搜索管理器未初始化');
+                    return;
+                }
+
+                const startTime = performance.now();
+                await searchManager.loadPopularTags();
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+
+                const tagCount = searchManager.popularTags ? searchManager.popularTags.length : 0;
+                const sampleTags = searchManager.popularTags ? searchManager.popularTags.slice(0, 3) : [];
+
+                addResult('success', '标签加载成功', 
+                    `加载时间: ${duration.toFixed(2)}ms\n` +
+                    `标签数量: ${tagCount}\n` +
+                    `示例标签: ${JSON.stringify(sampleTags, null, 2)}`
+                );
+
+                updateStatus();
+            } catch (error) {
+                addResult('error', '标签加载失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试加载标签';
+            }
+        }
+
+        async function testRenderTags() {
+            const btn = document.getElementById('test-render-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试渲染标签', '开始测试标签渲染...');
+                
+                if (!window.searchManager) {
+                    addResult('error', '测试失败', '搜索管理器未初始化');
+                    return;
+                }
+
+                const container = document.getElementById('popular-tags-container');
+                if (!container) {
+                    addResult('error', '测试失败', '标签容器不存在');
+                    return;
+                }
+
+                const beforeContent = container.innerHTML;
+                searchManager.renderPopularTags();
+                const afterContent = container.innerHTML;
+
+                const tagElements = container.querySelectorAll('.popular-tag');
+
+                addResult('success', '标签渲染成功', 
+                    `渲染前内容长度: ${beforeContent.length}\n` +
+                    `渲染后内容长度: ${afterContent.length}\n` +
+                    `标签元素数量: ${tagElements.length}\n` +
+                    `第一个标签: ${tagElements[0] ? tagElements[0].textContent : '无'}`
+                );
+
+                updateStatus();
+            } catch (error) {
+                addResult('error', '标签渲染失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试渲染标签';
+            }
+        }
+
+        async function testTagClick() {
+            const btn = document.getElementById('test-click-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试标签点击', '开始测试标签点击功能...');
+                
+                const container = document.getElementById('popular-tags-container');
+                if (!container) {
+                    addResult('error', '测试失败', '标签容器不存在');
+                    return;
+                }
+
+                const tagElements = container.querySelectorAll('.popular-tag');
+                if (tagElements.length === 0) {
+                    addResult('warning', '测试跳过', '没有找到标签元素，请先运行标签渲染测试');
+                    return;
+                }
+
+                // 模拟点击第一个标签
+                const firstTag = tagElements[0];
+                const tagName = firstTag.dataset.tag;
+                
+                addResult('info', '模拟点击', `点击标签: ${tagName}`);
+                
+                // 触发点击事件
+                firstTag.click();
+                
+                // 检查搜索框是否更新
+                const searchInput = document.getElementById('search-input');
+                const inputValue = searchInput ? searchInput.value : '';
+                
+                addResult('success', '标签点击测试完成', 
+                    `点击的标签: ${tagName}\n` +
+                    `搜索框内容: ${inputValue}\n` +
+                    `内容匹配: ${inputValue === tagName ? '是' : '否'}`
+                );
+
+            } catch (error) {
+                addResult('error', '标签点击测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试标签点击';
+            }
+        }
+
+        async function testSearchFunction() {
+            const btn = document.getElementById('test-search-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试搜索功能', '开始测试搜索功能...');
+                
+                if (!window.searchManager) {
+                    addResult('error', '测试失败', '搜索管理器未初始化');
+                    return;
+                }
+
+                // 测试搜索方法
+                const testQuery = 'AI';
+                addResult('info', '执行搜索', `搜索关键词: ${testQuery}`);
+                
+                searchManager.performSearch(testQuery);
+                
+                // 检查搜索历史
+                const hasHistory = searchManager.searchHistory && searchManager.searchHistory.includes(testQuery);
+                
+                addResult('success', '搜索功能测试完成', 
+                    `搜索关键词: ${testQuery}\n` +
+                    `添加到历史: ${hasHistory ? '是' : '否'}\n` +
+                    `历史记录数量: ${searchManager.searchHistory ? searchManager.searchHistory.length : 0}`
+                );
+
+            } catch (error) {
+                addResult('error', '搜索功能测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试搜索功能';
+            }
+        }
+
+        async function runAllTests() {
+            const btn = document.getElementById('test-all-btn');
+            btn.disabled = true;
+            btn.textContent = '运行中...';
+
+            clearResults();
+            addResult('info', '开始全面测试', '运行所有热门标签测试...');
+
+            try {
+                await testLoadTags();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testRenderTags();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testTagClick();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testSearchFunction();
+
+                addResult('success', '全面测试完成', '所有热门标签测试已完成');
+            } catch (error) {
+                addResult('error', '全面测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '运行所有测试';
+            }
+        }
+
+        // 为演示标签添加点击事件
+        function bindDemoTagEvents() {
+            const demoContainer = document.getElementById('demo-popular-tags-container');
+            if (demoContainer) {
+                demoContainer.querySelectorAll('.popular-tag').forEach(tag => {
+                    tag.addEventListener('click', () => {
+                        const tagName = tag.dataset.tag;
+                        const demoInput = document.getElementById('demo-search-input');
+                        if (demoInput) {
+                            demoInput.value = tagName;
+                        }
+                        
+                        // 添加视觉反馈
+                        tag.style.background = 'var(--primary-color)';
+                        tag.style.color = 'white';
+                        tag.style.borderColor = 'var(--primary-color)';
+                        
+                        setTimeout(() => {
+                            tag.style.background = '';
+                            tag.style.color = '';
+                            tag.style.borderColor = '';
+                        }, 300);
+                        
+                        addResult('info', '演示标签点击', `点击了演示标签: ${tagName}`);
+                    });
+                });
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                bindDemoTagEvents();
+                
+                // 定期更新状态
+                setInterval(updateStatus, 3000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

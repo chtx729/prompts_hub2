@@ -457,7 +457,7 @@ body {
     background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-800) 50%, var(--primary-900) 100%);
     position: relative;
     overflow: hidden;
-    padding: var(--space-24) 0 var(--space-20);
+    padding: var(--space-16) 0 var(--space-13);
 }
 
 .search-section::before {
@@ -473,7 +473,7 @@ body {
 
 .search-header {
     text-align: center;
-    margin-bottom: var(--space-12);
+    margin-bottom: var(--space-10);
     position: relative;
     z-index: 1;
 }
@@ -481,9 +481,10 @@ body {
 .search-header h1 {
     font-size: clamp(2.5rem, 5vw, 3.5rem);
     font-weight: 800;
-    margin-bottom: var(--space-6);
+    margin-top: var(--space-4);
+    margin-bottom: var(--space-3);
     color: white;
-    line-height: 1.1;
+    line-height: 1.05;
     letter-spacing: -0.02em;
 }
 
@@ -492,12 +493,12 @@ body {
     color: rgba(255, 255, 255, 0.9);
     max-width: 600px;
     margin: 0 auto;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 .search-box {
     max-width: 680px;
-    margin: 0 auto var(--space-10);
+    margin: 0 auto var(--space-8);
     position: relative;
     z-index: 1;
 }
@@ -640,7 +641,7 @@ body {
 
 /* 现代化提示词列表区域 */
 .prompts-section {
-    padding: var(--space-20) 0 var(--space-16);
+    padding: var(--space-24) 0 var(--space-16);
     background: var(--background-color);
 }
 
@@ -808,7 +809,7 @@ body {
     }
 
     .search-section {
-        padding: var(--space-16) 0 var(--space-12);
+        padding: var(--space-10) 0 var(--space-8);
     }
 
     .search-header h1 {
@@ -849,7 +850,7 @@ body {
 
 @media (max-width: 640px) {
     .search-section {
-        padding: var(--space-12) 0 var(--space-10);
+        padding: var(--space-8) 0 var(--space-7);
     }
 
     .search-header h1 {
@@ -887,7 +888,7 @@ body {
     }
 
     .search-section {
-        padding: var(--space-10) 0 var(--space-8);
+        padding: var(--space-7) 0 var(--space-6);
     }
 
     .search-header h1 {
@@ -899,6 +900,6 @@ body {
     }
 
     .prompts-section {
-        padding: var(--space-12) 0 var(--space-10);
+        padding: var(--space-16) 0 var(--space-10);
     }
 }

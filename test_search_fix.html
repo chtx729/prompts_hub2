@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搜索功能修复测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .demo-container {
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            margin: var(--space-4) 0;
+        }
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin: var(--space-2) 0;
+            padding: var(--space-2);
+            background: white;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .check-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: white;
+        }
+        .check-icon.pass { background: var(--success-color); }
+        .check-icon.fail { background: var(--error-color); }
+        .check-icon.pending { background: var(--warning-color); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/search.js"></script>
+</head>
+<body>
+    <h1>🔧 搜索功能修复测试</h1>
+    <p>此工具用于验证搜索框下拉建议已移除，热门标签文字颜色已修复。</p>
+
+    <div class="test-section">
+        <h3>✅ 修复检查清单</h3>
+        <div id="check-list">
+            <div class="check-item">
+                <div class="check-icon pending" id="check-dropdown">?</div>
+                <div>
+                    <strong>搜索框下拉建议已移除</strong>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        点击搜索框不应该显示下拉建议
+                    </div>
+                </div>
+            </div>
+            
+            <div class="check-item">
+                <div class="check-icon pending" id="check-label-color">?</div>
+                <div>
+                    <strong>"热门搜索标签"文字颜色清晰</strong>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        标签标题文字应该使用主要文字颜色
+                    </div>
+                </div>
+            </div>
+            
+            <div class="check-item">
+                <div class="check-icon pending" id="check-tags-work">?</div>
+                <div>
+                    <strong>热门标签点击功能正常</strong>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        点击标签应该更新搜索框并执行搜索
+                    </div>
+                </div>
+            </div>
+            
+            <div class="check-item">
+                <div class="check-icon pending" id="check-no-suggestions">?</div>
+                <div>
+                    <strong>搜索建议容器不存在</strong>
+                    <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                        页面中不应该有搜索建议相关的DOM元素
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 修复后的搜索框</h3>
+        <p>这是修复后的搜索框，请测试以下功能：</p>
+        
+        <div class="demo-container">
+            <div class="search-box">
+                <div class="search-input-group">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="搜索提示词...">
+                    <button class="btn btn-primary" id="search-btn">搜索</button>
+                </div>
+                
+                <!-- 热门搜索标签 -->
+                <div class="popular-tags-section">
+                    <span class="popular-tags-label">热门搜索标签：</span>
+                    <div class="popular-tags-container" id="popular-tags-container">
+                        <!-- 标签将通过JavaScript动态加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: var(--space-4);">
+            <h4>测试步骤：</h4>
+            <ol>
+                <li><strong>点击搜索框</strong> - 确认没有下拉建议出现</li>
+                <li><strong>查看标签文字</strong> - 确认"热门搜索标签："文字清晰可见</li>
+                <li><strong>点击任意标签</strong> - 确认搜索框更新并执行搜索</li>
+                <li><strong>输入文字</strong> - 确认没有搜索建议弹出</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 自动检测</h3>
+        <button onclick="runAutoCheck()" id="auto-check-btn">运行自动检测</button>
+        <button onclick="testSearchInput()" id="test-input-btn">测试搜索框交互</button>
+        <button onclick="testTagsFunction()" id="test-tags-btn">测试标签功能</button>
+        <button onclick="clearResults()">清空结果</button>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        function addResult(type, title, content) {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        function updateCheckIcon(id, status, message = '') {
+            const icon = document.getElementById(id);
+            if (!icon) return;
+            
+            icon.className = `check-icon ${status}`;
+            icon.textContent = status === 'pass' ? '✓' : status === 'fail' ? '✗' : '?';
+            
+            if (message) {
+                const item = icon.closest('.check-item');
+                const desc = item.querySelector('div:last-child div:last-child');
+                if (desc) {
+                    desc.textContent = message;
+                }
+            }
+        }
+
+        function runAutoCheck() {
+            const btn = document.getElementById('auto-check-btn');
+            btn.disabled = true;
+            btn.textContent = '检测中...';
+
+            addResult('info', '开始自动检测', '检查搜索功能修复状态...');
+
+            try {
+                // 检查1: 搜索建议容器不存在
+                const suggestionsContainer = document.getElementById('search-suggestions');
+                if (!suggestionsContainer) {
+                    updateCheckIcon('check-no-suggestions', 'pass', '搜索建议容器已移除');
+                    addResult('success', '检查1通过', '搜索建议容器不存在');
+                } else {
+                    updateCheckIcon('check-no-suggestions', 'fail', '搜索建议容器仍然存在');
+                    addResult('error', '检查1失败', '搜索建议容器仍然存在');
+                }
+
+                // 检查2: 标签文字颜色
+                const labelElement = document.querySelector('.popular-tags-label');
+                if (labelElement) {
+                    const computedStyle = window.getComputedStyle(labelElement);
+                    const color = computedStyle.color;
+                    
+                    // 检查是否使用了主要文字颜色（通常是深色）
+                    const isGoodColor = color.includes('rgb(') && !color.includes('rgb(156') && !color.includes('rgb(107');
+                    
+                    if (isGoodColor) {
+                        updateCheckIcon('check-label-color', 'pass', `文字颜色: ${color}`);
+                        addResult('success', '检查2通过', `标签文字颜色正常: ${color}`);
+                    } else {
+                        updateCheckIcon('check-label-color', 'fail', `文字颜色可能太浅: ${color}`);
+                        addResult('warning', '检查2警告', `标签文字颜色: ${color}`);
+                    }
+                } else {
+                    updateCheckIcon('check-label-color', 'fail', '标签元素不存在');
+                    addResult('error', '检查2失败', '找不到标签文字元素');
+                }
+
+                // 检查3: 热门标签是否存在
+                const tagsContainer = document.getElementById('popular-tags-container');
+                if (tagsContainer) {
+                    const tags = tagsContainer.querySelectorAll('.popular-tag');
+                    if (tags.length > 0) {
+                        updateCheckIcon('check-tags-work', 'pass', `找到 ${tags.length} 个标签`);
+                        addResult('success', '检查3通过', `热门标签正常显示，共 ${tags.length} 个`);
+                    } else {
+                        updateCheckIcon('check-tags-work', 'fail', '没有找到标签');
+                        addResult('warning', '检查3警告', '标签容器存在但没有标签内容');
+                    }
+                } else {
+                    updateCheckIcon('check-tags-work', 'fail', '标签容器不存在');
+                    addResult('error', '检查3失败', '找不到标签容器');
+                }
+
+                addResult('success', '自动检测完成', '所有检查项已完成');
+
+            } catch (error) {
+                addResult('error', '自动检测失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '运行自动检测';
+            }
+        }
+
+        function testSearchInput() {
+            const btn = document.getElementById('test-input-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            addResult('info', '测试搜索框交互', '模拟用户操作...');
+
+            try {
+                const searchInput = document.getElementById('search-input');
+                if (!searchInput) {
+                    addResult('error', '测试失败', '找不到搜索框');
+                    return;
+                }
+
+                // 模拟点击搜索框
+                searchInput.focus();
+                
+                // 等待一下，看是否有下拉建议出现
+                setTimeout(() => {
+                    const suggestionsContainer = document.getElementById('search-suggestions');
+                    if (!suggestionsContainer || suggestionsContainer.style.display === 'none') {
+                        updateCheckIcon('check-dropdown', 'pass', '点击搜索框无下拉建议');
+                        addResult('success', '搜索框测试通过', '点击搜索框没有显示下拉建议');
+                    } else {
+                        updateCheckIcon('check-dropdown', 'fail', '仍有下拉建议出现');
+                        addResult('error', '搜索框测试失败', '点击搜索框仍然显示下拉建议');
+                    }
+
+                    // 模拟输入文字
+                    searchInput.value = 'test';
+                    searchInput.dispatchEvent(new Event('input'));
+                    
+                    // 再次检查
+                    setTimeout(() => {
+                        const suggestionsAfterInput = document.getElementById('search-suggestions');
+                        if (!suggestionsAfterInput || suggestionsAfterInput.style.display === 'none') {
+                            addResult('success', '输入测试通过', '输入文字后没有显示下拉建议');
+                        } else {
+                            addResult('error', '输入测试失败', '输入文字后仍然显示下拉建议');
+                        }
+                        
+                        // 清空输入框
+                        searchInput.value = '';
+                        searchInput.blur();
+                        
+                        btn.disabled = false;
+                        btn.textContent = '测试搜索框交互';
+                    }, 100);
+                }, 100);
+
+            } catch (error) {
+                addResult('error', '搜索框测试异常', error.message);
+                btn.disabled = false;
+                btn.textContent = '测试搜索框交互';
+            }
+        }
+
+        function testTagsFunction() {
+            const btn = document.getElementById('test-tags-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            addResult('info', '测试标签功能', '测试标签点击和搜索...');
+
+            try {
+                const tagsContainer = document.getElementById('popular-tags-container');
+                if (!tagsContainer) {
+                    addResult('error', '测试失败', '找不到标签容器');
+                    return;
+                }
+
+                const tags = tagsContainer.querySelectorAll('.popular-tag');
+                if (tags.length === 0) {
+                    addResult('warning', '测试跳过', '没有找到标签，请等待标签加载');
+                    return;
+                }
+
+                // 测试第一个标签
+                const firstTag = tags[0];
+                const tagName = firstTag.dataset.tag || firstTag.textContent.trim();
+                
+                addResult('info', '模拟点击标签', `点击标签: ${tagName}`);
+                
+                // 模拟点击
+                firstTag.click();
+                
+                // 检查搜索框是否更新
+                setTimeout(() => {
+                    const searchInput = document.getElementById('search-input');
+                    const inputValue = searchInput ? searchInput.value : '';
+                    
+                    if (inputValue.includes(tagName.split('(')[0].trim())) {
+                        updateCheckIcon('check-tags-work', 'pass', '标签点击功能正常');
+                        addResult('success', '标签测试通过', 
+                            `点击标签: ${tagName}\n` +
+                            `搜索框内容: ${inputValue}\n` +
+                            `功能正常`
+                        );
+                    } else {
+                        updateCheckIcon('check-tags-work', 'fail', '标签点击无效果');
+                        addResult('error', '标签测试失败', 
+                            `点击标签: ${tagName}\n` +
+                            `搜索框内容: ${inputValue}\n` +
+                            `内容不匹配`
+                        );
+                    }
+                    
+                    btn.disabled = false;
+                    btn.textContent = '测试标签功能';
+                }, 200);
+
+            } catch (error) {
+                addResult('error', '标签测试异常', error.message);
+                btn.disabled = false;
+                btn.textContent = '测试标签功能';
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                // 自动运行检测
+                runAutoCheck();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

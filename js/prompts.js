@@ -5,6 +5,7 @@ class PromptsManager {
         this.currentFilters = {
             search: '',
             category: '',
+            tags: [], // 添加标签过滤支持
             sortBy: 'created_at',
             sortOrder: 'desc'
         };
@@ -52,6 +53,7 @@ class PromptsManager {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     this.currentFilters.search = e.target.value;
+                    this.currentFilters.tags = []; // 清空标签过滤
                     this.currentPage = 1;
                     this.loadPrompts();
                 }, APP_CONFIG.search.debounceDelay);
@@ -61,6 +63,7 @@ class PromptsManager {
         if (searchBtn) {
             searchBtn.addEventListener('click', () => {
                 this.currentFilters.search = searchInput.value;
+                this.currentFilters.tags = []; // 清空标签过滤
                 this.currentPage = 1;
                 this.loadPrompts();
             });
@@ -71,6 +74,7 @@ class PromptsManager {
         if (categoryFilter) {
             categoryFilter.addEventListener('change', (e) => {
                 this.currentFilters.category = e.target.value;
+                this.currentFilters.tags = []; // 清空标签过滤
                 this.currentPage = 1;
                 this.loadPrompts();
             });
@@ -81,6 +85,7 @@ class PromptsManager {
         if (sortFilter) {
             sortFilter.addEventListener('change', (e) => {
                 this.currentFilters.sortBy = e.target.value;
+                // 排序不清空标签过滤，允许在标签搜索结果中排序
                 this.currentPage = 1;
                 this.loadPrompts();
             });
@@ -135,20 +140,17 @@ class PromptsManager {
             });
 
             if (result.success) {
-                // 获取用户交互状态
-                if (authManager.isAuthenticated() && result.data.length > 0) {
-                    const promptIds = result.data.map(p => p.prompt_id);
-                    const interactionsResult = await apiManager.getUserInteractions(promptIds);
-                    if (interactionsResult.success) {
-                        this.userInteractions = interactionsResult.data;
-                    }
-                }
-
+                // 先渲染提示词，提升用户体验
                 this.renderPrompts(result.data);
                 UI.createPagination(result.pagination, (page) => {
                     this.currentPage = page;
                     this.loadPrompts();
                 });
+
+                // 异步加载用户交互状态，不阻塞主要内容显示
+                if (authManager.isAuthenticated() && result.data.length > 0) {
+                    this.loadUserInteractionsAsync(result.data);
+                }
             } else {
                 UI.showNotification(result.error || '加载失败', 'error');
                 this.renderPrompts([]);
@@ -162,15 +164,62 @@ class PromptsManager {
         }
     }
 
+    // 异步加载用户交互状态
+    async loadUserInteractionsAsync(prompts) {
+        try {
+            const promptIds = prompts.map(p => p.prompt_id);
+            const interactionsResult = await apiManager.getUserInteractions(promptIds);
+
+            if (interactionsResult.success) {
+                this.userInteractions = interactionsResult.data;
+                // 更新已渲染的按钮状态
+                this.updateInteractionButtons();
+            }
+        } catch (error) {
+            console.error('加载用户交互状态失败:', error);
+            // 不显示错误通知，因为这不是关键功能
+        }
+    }
+
+    // 更新交互按钮状态
+    updateInteractionButtons() {
+        if (!this.userInteractions) return;
+
+        const { likes, favorites } = this.userInteractions;
+
+        // 更新点赞按钮
+        likes.forEach(promptId => {
+            const likeBtn = document.querySelector(`[data-prompt-id="${promptId}"] .like-btn`);
+            if (likeBtn) {
+                likeBtn.classList.add('active');
+                likeBtn.querySelector('i').className = 'fas fa-heart';
+            }
+        });
+
+        // 更新收藏按钮
+        favorites.forEach(promptId => {
+            const favoriteBtn = document.querySelector(`[data-prompt-id="${promptId}"] .favorite-btn`);
+            if (favoriteBtn) {
+                favoriteBtn.classList.add('active');
+                favoriteBtn.querySelector('i').className = 'fas fa-bookmark';
+            }
+        });
+    }
+
     // 渲染提示词列表
     renderPrompts(prompts) {
         const container = document.getElementById('prompts-container');
         if (!container) return;
 
         if (prompts.length === 0) {
-            container.innerHTML = UI.createEmptyState(
-                this.currentFilters.search ? '没有找到匹配的提示词' : '暂无提示词'
-            );
+            let emptyMessage = '暂无提示词';
+            if (this.currentFilters.search) {
+                emptyMessage = `没有找到包含"${this.currentFilters.search}"的提示词`;
+            } else if (this.currentFilters.tags.length > 0) {
+                emptyMessage = `没有找到标签为"${this.currentFilters.tags[0]}"的提示词`;
+            }
+
+            container.innerHTML = UI.createEmptyState(emptyMessage);
             return;
         }
 

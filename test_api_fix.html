@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API修复测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/performance.js"></script>
+</head>
+<body>
+    <h1>🔧 API修复测试</h1>
+    <p>此工具用于测试API关联查询修复的效果。</p>
+
+    <div class="test-section">
+        <h3>📊 系统状态</h3>
+        <div>
+            <strong>认证状态：</strong>
+            <span id="auth-status">检查中...</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>API管理器：</strong>
+            <span id="api-status">检查中...</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 API测试</h3>
+        <button onclick="testGetCategories()" id="test-categories-btn">测试获取分类</button>
+        <button onclick="testGetPrompts()" id="test-prompts-btn">测试获取提示词</button>
+        <button onclick="testGetPopularTags()" id="test-tags-btn">测试获取热门标签</button>
+        <button onclick="testGetMyPrompts()" id="test-my-prompts-btn">测试我的提示词</button>
+        <button onclick="runAllTests()" id="test-all-btn">运行所有测试</button>
+        <button onclick="clearResults()">清空结果</button>
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        function addResult(type, title, content) {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        function updateStatus() {
+            const authStatus = document.getElementById('auth-status');
+            const apiStatus = document.getElementById('api-status');
+            
+            // 检查认证状态
+            if (window.authManager && authManager.isAuthenticated()) {
+                authStatus.textContent = '已登录';
+                authStatus.style.color = 'var(--success-color)';
+            } else {
+                authStatus.textContent = '未登录';
+                authStatus.style.color = 'var(--warning-color)';
+            }
+            
+            // 检查API管理器
+            if (window.apiManager) {
+                apiStatus.textContent = '已初始化';
+                apiStatus.style.color = 'var(--success-color)';
+            } else {
+                apiStatus.textContent = '未初始化';
+                apiStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        async function testGetCategories() {
+            const btn = document.getElementById('test-categories-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试获取分类', '开始测试...');
+                
+                const startTime = performance.now();
+                const result = await apiManager.getCategories();
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+
+                if (result.success) {
+                    addResult('success', '获取分类成功', 
+                        `响应时间: ${duration.toFixed(2)}ms\n` +
+                        `分类数量: ${result.data.length}\n` +
+                        `数据示例: ${JSON.stringify(result.data[0] || {}, null, 2)}`
+                    );
+                } else {
+                    addResult('error', '获取分类失败', result.error);
+                }
+            } catch (error) {
+                addResult('error', '获取分类异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试获取分类';
+            }
+        }
+
+        async function testGetPrompts() {
+            const btn = document.getElementById('test-prompts-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试获取提示词', '开始测试...');
+                
+                const startTime = performance.now();
+                const result = await apiManager.getPrompts({ page: 1, limit: 3 });
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+
+                if (result.success) {
+                    const samplePrompt = result.data[0] || {};
+                    addResult('success', '获取提示词成功', 
+                        `响应时间: ${duration.toFixed(2)}ms\n` +
+                        `提示词数量: ${result.data.length}\n` +
+                        `总数: ${result.pagination.total}\n` +
+                        `数据示例:\n${JSON.stringify({
+                            prompt_id: samplePrompt.prompt_id,
+                            title: samplePrompt.title,
+                            category_name: samplePrompt.category_name,
+                            author_name: samplePrompt.author_name
+                        }, null, 2)}`
+                    );
+                } else {
+                    addResult('error', '获取提示词失败', result.error);
+                }
+            } catch (error) {
+                addResult('error', '获取提示词异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试获取提示词';
+            }
+        }
+
+        async function testGetPopularTags() {
+            const btn = document.getElementById('test-tags-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addResult('info', '测试获取热门标签', '开始测试...');
+                
+                const startTime = performance.now();
+                const result = await apiManager.getPopularTags(5);
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+
+                if (result.success) {
+                    addResult('success', '获取热门标签成功', 
+                        `响应时间: ${duration.toFixed(2)}ms\n` +
+                        `标签数量: ${result.data.length}\n` +
+                        `数据示例: ${JSON.stringify(result.data, null, 2)}`
+                    );
+                } else {
+                    addResult('error', '获取热门标签失败', result.error);
+                }
+            } catch (error) {
+                addResult('error', '获取热门标签异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试获取热门标签';
+            }
+        }
+
+        async function testGetMyPrompts() {
+            const btn = document.getElementById('test-my-prompts-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                if (!authManager.isAuthenticated()) {
+                    addResult('warning', '测试我的提示词', '需要登录才能测试此功能');
+                    return;
+                }
+
+                addResult('info', '测试我的提示词', '开始测试...');
+                
+                const startTime = performance.now();
+                const result = await apiManager.getMyPrompts({ page: 1, limit: 3 });
+                const endTime = performance.now();
+                const duration = endTime - startTime;
+
+                if (result.success) {
+                    const samplePrompt = result.data[0] || {};
+                    addResult('success', '获取我的提示词成功', 
+                        `响应时间: ${duration.toFixed(2)}ms\n` +
+                        `提示词数量: ${result.data.length}\n` +
+                        `总数: ${result.pagination.total}\n` +
+                        `数据示例:\n${JSON.stringify({
+                            prompt_id: samplePrompt.prompt_id,
+                            title: samplePrompt.title,
+                            category_name: samplePrompt.category_name,
+                            author_name: samplePrompt.author_name
+                        }, null, 2)}`
+                    );
+                } else {
+                    addResult('error', '获取我的提示词失败', result.error);
+                }
+            } catch (error) {
+                addResult('error', '获取我的提示词异常', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试我的提示词';
+            }
+        }
+
+        async function runAllTests() {
+            const btn = document.getElementById('test-all-btn');
+            btn.disabled = true;
+            btn.textContent = '运行中...';
+
+            clearResults();
+            addResult('info', '开始全面测试', '运行所有API测试...');
+
+            try {
+                await testGetCategories();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testGetPrompts();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testGetPopularTags();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testGetMyPrompts();
+
+                addResult('success', '全面测试完成', '所有API测试已完成');
+            } catch (error) {
+                addResult('error', '全面测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '运行所有测试';
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateStatus();
+                
+                // 定期更新状态
+                setInterval(updateStatus, 5000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

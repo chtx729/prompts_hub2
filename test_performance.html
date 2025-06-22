@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>性能优化测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .test-result {
+            margin: 1rem 0;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { background: #f0fdf4; border: 1px solid #22c55e; color: #166534; }
+        .error { background: #fef2f2; border: 1px solid #ef4444; color: #dc2626; }
+        .warning { background: #fffbeb; border: 1px solid #f59e0b; color: #d97706; }
+        .info { background: #f0f9ff; border: 1px solid #3b82f6; color: #1d4ed8; }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        h2 { color: var(--text-primary); margin-top: 2rem; }
+        h3 { color: var(--text-primary); }
+        .metric {
+            display: inline-block;
+            margin: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--gray-100);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        .metric-value {
+            font-weight: bold;
+            color: var(--primary-600);
+        }
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        .performance-chart {
+            width: 100%;
+            height: 200px;
+            background: var(--gray-50);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/search.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <h1>🚀 性能优化测试</h1>
+    <p>此工具用于测试前端性能优化的效果。</p>
+
+    <div class="test-section">
+        <h3>📊 性能指标</h3>
+        <div id="performance-metrics">
+            <div class="metric">
+                <div class="metric-value" id="page-load-time">-</div>
+                <div class="metric-label">页面加载时间 (ms)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="api-response-time">-</div>
+                <div class="metric-label">API响应时间 (ms)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="cache-hit-rate">-</div>
+                <div class="metric-label">缓存命中率 (%)</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="memory-usage">-</div>
+                <div class="metric-label">内存使用 (MB)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 性能测试</h3>
+        <button onclick="testAPIPerformance()" id="test-api-btn">测试API性能</button>
+        <button onclick="testCachePerformance()" id="test-cache-btn">测试缓存性能</button>
+        <button onclick="testLazyLoading()" id="test-lazy-btn">测试懒加载</button>
+        <button onclick="testBatchOperations()" id="test-batch-btn">测试批量操作</button>
+        <button onclick="runFullTest()" id="test-full-btn">完整性能测试</button>
+        <button onclick="clearResults()">清空结果</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 性能图表</h3>
+        <div class="performance-chart" id="performance-chart">
+            性能图表将在这里显示
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 优化建议</h3>
+        <div id="optimization-suggestions">
+            <div class="info">运行性能测试以获取优化建议</div>
+        </div>
+    </div>
+
+    <script>
+        let performanceData = {
+            apiTimes: [],
+            cacheHits: 0,
+            cacheMisses: 0,
+            loadTimes: []
+        };
+
+        function addResult(type, title, content) {
+            const container = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${title}</strong>\n${content}`;
+            container.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        function updateMetrics() {
+            // 页面加载时间
+            if (performance.timing) {
+                const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+                document.getElementById('page-load-time').textContent = loadTime;
+            }
+
+            // API响应时间平均值
+            if (performanceData.apiTimes.length > 0) {
+                const avgTime = performanceData.apiTimes.reduce((a, b) => a + b, 0) / performanceData.apiTimes.length;
+                document.getElementById('api-response-time').textContent = Math.round(avgTime);
+            }
+
+            // 缓存命中率
+            const totalRequests = performanceData.cacheHits + performanceData.cacheMisses;
+            if (totalRequests > 0) {
+                const hitRate = (performanceData.cacheHits / totalRequests * 100).toFixed(1);
+                document.getElementById('cache-hit-rate').textContent = hitRate;
+            }
+
+            // 内存使用
+            if (performance.memory) {
+                const memoryMB = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(1);
+                document.getElementById('memory-usage').textContent = memoryMB;
+            }
+        }
+
+        async function testAPIPerformance() {
+            const btn = document.getElementById('test-api-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            addResult('info', 'API性能测试', '开始测试API响应时间...');
+
+            try {
+                const tests = [
+                    { name: '获取分类', fn: () => apiManager.getCategories() },
+                    { name: '获取提示词', fn: () => apiManager.getPrompts({ page: 1, limit: 10 }) },
+                    { name: '获取热门标签', fn: () => apiManager.getPopularTags(5) }
+                ];
+
+                for (const test of tests) {
+                    const startTime = performance.now();
+                    const result = await test.fn();
+                    const endTime = performance.now();
+                    const duration = endTime - startTime;
+
+                    performanceData.apiTimes.push(duration);
+
+                    if (result.success) {
+                        addResult('success', test.name, `响应时间: ${duration.toFixed(2)}ms`);
+                    } else {
+                        addResult('error', test.name, `失败: ${result.error}`);
+                    }
+                }
+
+                updateMetrics();
+            } catch (error) {
+                addResult('error', 'API测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试API性能';
+            }
+        }
+
+        async function testCachePerformance() {
+            const btn = document.getElementById('test-cache-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            addResult('info', '缓存性能测试', '测试缓存命中率...');
+
+            try {
+                // 第一次请求（应该是缓存未命中）
+                const startTime1 = performance.now();
+                await apiManager.getCategories();
+                const endTime1 = performance.now();
+                const firstRequestTime = endTime1 - startTime1;
+                performanceData.cacheMisses++;
+
+                // 第二次请求（应该是缓存命中）
+                const startTime2 = performance.now();
+                await apiManager.getCategories();
+                const endTime2 = performance.now();
+                const secondRequestTime = endTime2 - startTime2;
+                performanceData.cacheHits++;
+
+                const speedup = ((firstRequestTime - secondRequestTime) / firstRequestTime * 100).toFixed(1);
+
+                addResult('success', '缓存测试结果', 
+                    `第一次请求: ${firstRequestTime.toFixed(2)}ms\n` +
+                    `第二次请求: ${secondRequestTime.toFixed(2)}ms\n` +
+                    `性能提升: ${speedup}%`
+                );
+
+                updateMetrics();
+            } catch (error) {
+                addResult('error', '缓存测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试缓存性能';
+            }
+        }
+
+        async function testLazyLoading() {
+            const btn = document.getElementById('test-lazy-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            addResult('info', '懒加载测试', '测试懒加载功能...');
+
+            try {
+                // 创建测试元素
+                const testElement = document.createElement('div');
+                testElement.dataset.src = APP_CONFIG.defaultAvatar;
+                testElement.dataset.load = 'lazy';
+                testElement.dataset.contentType = 'user-interactions';
+                testElement.dataset.promptId = '1';
+
+                // 测试懒加载观察器
+                if (window.performanceOptimizer) {
+                    performanceOptimizer.observe(testElement);
+                    addResult('success', '懒加载测试', '懒加载观察器工作正常');
+                } else {
+                    addResult('warning', '懒加载测试', '性能优化器未初始化');
+                }
+
+                // 测试图片预加载
+                const preloadStart = performance.now();
+                await performanceOptimizer.preloadImage(APP_CONFIG.defaultAvatar);
+                const preloadEnd = performance.now();
+                const preloadTime = preloadEnd - preloadStart;
+
+                addResult('success', '图片预加载', `预加载时间: ${preloadTime.toFixed(2)}ms`);
+
+            } catch (error) {
+                addResult('error', '懒加载测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试懒加载';
+            }
+        }
+
+        async function testBatchOperations() {
+            const btn = document.getElementById('test-batch-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            addResult('info', '批量操作测试', '测试批量DOM操作...');
+
+            try {
+                const operations = [];
+                for (let i = 0; i < 100; i++) {
+                    operations.push(() => {
+                        const div = document.createElement('div');
+                        div.textContent = `测试元素 ${i}`;
+                        return div;
+                    });
+                }
+
+                const startTime = performance.now();
+                await performanceOptimizer.batchDOMUpdates(operations);
+                const endTime = performance.now();
+                const batchTime = endTime - startTime;
+
+                addResult('success', '批量操作测试', `批量操作时间: ${batchTime.toFixed(2)}ms`);
+
+            } catch (error) {
+                addResult('error', '批量操作测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试批量操作';
+            }
+        }
+
+        async function runFullTest() {
+            const btn = document.getElementById('test-full-btn');
+            btn.disabled = true;
+            btn.textContent = '运行中...';
+
+            clearResults();
+            addResult('info', '完整性能测试', '开始运行完整性能测试...');
+
+            try {
+                await testAPIPerformance();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testCachePerformance();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testLazyLoading();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                await testBatchOperations();
+
+                // 生成优化建议
+                generateOptimizationSuggestions();
+
+                addResult('success', '完整测试完成', '所有性能测试已完成');
+
+            } catch (error) {
+                addResult('error', '完整测试失败', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '完整性能测试';
+            }
+        }
+
+        function generateOptimizationSuggestions() {
+            const container = document.getElementById('optimization-suggestions');
+            container.innerHTML = '';
+
+            const suggestions = [];
+
+            // 基于API响应时间的建议
+            const avgApiTime = performanceData.apiTimes.reduce((a, b) => a + b, 0) / performanceData.apiTimes.length;
+            if (avgApiTime > 1000) {
+                suggestions.push({
+                    type: 'warning',
+                    title: 'API响应时间较慢',
+                    content: '建议优化数据库查询或增加缓存策略'
+                });
+            } else if (avgApiTime < 200) {
+                suggestions.push({
+                    type: 'success',
+                    title: 'API响应时间优秀',
+                    content: 'API响应时间在最佳范围内'
+                });
+            }
+
+            // 基于缓存命中率的建议
+            const totalRequests = performanceData.cacheHits + performanceData.cacheMisses;
+            const hitRate = totalRequests > 0 ? (performanceData.cacheHits / totalRequests * 100) : 0;
+            if (hitRate < 50) {
+                suggestions.push({
+                    type: 'warning',
+                    title: '缓存命中率较低',
+                    content: '建议增加缓存时间或优化缓存策略'
+                });
+            } else if (hitRate > 80) {
+                suggestions.push({
+                    type: 'success',
+                    title: '缓存效果良好',
+                    content: '缓存命中率在理想范围内'
+                });
+            }
+
+            // 基于内存使用的建议
+            if (performance.memory) {
+                const memoryMB = performance.memory.usedJSHeapSize / 1024 / 1024;
+                if (memoryMB > 50) {
+                    suggestions.push({
+                        type: 'warning',
+                        title: '内存使用较高',
+                        content: '建议检查内存泄漏或优化数据结构'
+                    });
+                }
+            }
+
+            // 显示建议
+            suggestions.forEach(suggestion => {
+                const div = document.createElement('div');
+                div.className = `test-result ${suggestion.type}`;
+                div.innerHTML = `<strong>${suggestion.title}</strong>\n${suggestion.content}`;
+                container.appendChild(div);
+            });
+
+            if (suggestions.length === 0) {
+                const div = document.createElement('div');
+                div.className = 'test-result info';
+                div.innerHTML = '<strong>性能良好</strong>\n当前性能指标都在正常范围内';
+                container.appendChild(div);
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateMetrics();
+                
+                // 定期更新指标
+                setInterval(updateMetrics, 5000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
