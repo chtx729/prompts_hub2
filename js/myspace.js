@@ -82,9 +82,15 @@ class MySpaceManager {
                 </div>
                 <div class="modal-body" style="max-height: calc(85vh - 80px); overflow-y: auto;">
                     <form id="prompt-form">
-                        <div class="form-group">
-                            <label for="prompt-title">标题 *</label>
-                            <input type="text" id="prompt-title" required maxlength="200">
+                        <div class="form-row">
+                            <div class="form-group form-group-flex">
+                                <label for="prompt-title">标题 *</label>
+                                <input type="text" id="prompt-title" required maxlength="200">
+                            </div>
+                            <div class="form-group form-group-flex">
+                                <label for="prompt-orig-auth">原作者</label>
+                                <input type="text" id="prompt-orig-auth" maxlength="100" placeholder="选填">
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -202,6 +208,7 @@ class MySpaceManager {
         document.getElementById('prompt-tags').value = prompt.tags ? prompt.tags.join(', ') : '';
         document.getElementById('prompt-model').value = prompt.model_name || '';
         document.getElementById('prompt-output').value = prompt.output_text || '';
+        document.getElementById('prompt-orig-auth').value = prompt.orig_auth || '';
 
         // 处理现有媒体
         this.removeMedia(); // 先清空
@@ -246,7 +253,8 @@ class MySpaceManager {
                 .map(tag => tag.trim())
                 .filter(tag => tag.length > 0),
             model_name: document.getElementById('prompt-model').value.trim(),
-            output_text: document.getElementById('prompt-output').value.trim()
+            output_text: document.getElementById('prompt-output').value.trim(),
+            orig_auth: document.getElementById('prompt-orig-auth').value.trim()
         };
 
         // 验证必填字段
@@ -509,6 +517,21 @@ class MySpaceManager {
                 '请先登录查看您的提示词',
                 'fas fa-sign-in-alt'
             );
+        }
+
+        // 重置搜索状态
+        this.resetSearchState();
+    }
+
+    // 重置搜索状态
+    resetSearchState() {
+        this.currentPage = 1;
+        this.searchQuery = '';
+
+        // 清空搜索输入框
+        const searchInput = document.getElementById('my-search-input');
+        if (searchInput) {
+            searchInput.value = '';
         }
     }
 

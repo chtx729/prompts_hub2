@@ -34,6 +34,12 @@
     --error-50: #fef2f2;
     --error-500: #ef4444;
     --error-600: #dc2626;
+    --info-50: #eff6ff;
+    --info-500: #3b82f6;
+    --info-600: #2563eb;
+    --blue-50: #eff6ff;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
 
     /* 主要变量 */
     --primary-color: var(--primary-600);
@@ -43,6 +49,7 @@
     --success-color: var(--success-500);
     --warning-color: var(--warning-500);
     --error-color: var(--error-500);
+    --info-color: var(--blue-500);
 
     /* 背景色 */
     --background-color: var(--gray-50);

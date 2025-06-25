@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>网站标题测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .title-display {
+            background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-800) 50%, var(--primary-900) 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            text-align: center;
+            margin: 1rem 0;
+        }
+        .title-display h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+        .title-display p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+        }
+        .log-container {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-entry {
+            margin-bottom: var(--space-1);
+        }
+        .log-timestamp {
+            color: var(--gray-400);
+        }
+        .log-info { color: var(--blue-400); }
+        .log-success { color: var(--success-400); }
+        .log-warning { color: var(--warning-400); }
+        .log-error { color: var(--error-400); }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .data-table th {
+            background: var(--gray-100);
+            font-weight: 600;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <h1>🏷️ 网站标题动态加载测试</h1>
+    <p>此工具用于测试从web_title表动态加载首页标题的功能。</p>
+
+    <div class="test-section">
+        <h3>📊 当前标题显示</h3>
+        <div class="title-display">
+            <h1 id="main-title">发现最佳AI提示词</h1>
+            <p id="sub-title">让您的AI更智能、更高效</p>
+        </div>
+        <div>
+            <strong>页面标题：</strong>
+            <span id="page-title">AI提示词宝库 - 发现最佳AI提示词</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎛️ 控制面板</h3>
+        <button onclick="loadWebTitle()" id="load-btn">加载网站标题</button>
+        <button onclick="refreshTitle()" id="refresh-btn">刷新标题</button>
+        <button onclick="forceRefreshTitle()" id="force-refresh-btn">强制刷新</button>
+        <button onclick="debugCache()" id="debug-btn">调试缓存</button>
+        <button onclick="createDbFunction()" id="create-func-btn">创建数据库函数</button>
+        <button onclick="testDbFunction()" id="test-func-btn">测试数据库函数</button>
+        <button onclick="showWebTitleData()" id="show-data-btn">查看表数据</button>
+        <button onclick="insertTestData()" id="insert-btn">插入测试数据</button>
+        <button onclick="clearLogs()" id="clear-btn">清空日志</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 web_title表数据</h3>
+        <div id="table-data">
+            <p>点击"查看表数据"按钮加载数据</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 操作日志</h3>
+        <div class="log-container" id="log-container">
+            <div class="log-entry">
+                <span class="log-timestamp">[等待操作]</span>
+                <span class="log-info">准备测试网站标题动态加载功能...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 测试说明</h3>
+        <ol>
+            <li><strong>查看表数据</strong>：检查web_title表中的现有数据</li>
+            <li><strong>插入测试数据</strong>：如果表为空，插入一些测试标题</li>
+            <li><strong>创建数据库函数</strong>：创建随机获取标题的数据库函数（推荐）</li>
+            <li><strong>测试数据库函数</strong>：直接测试函数调用，查看返回数据结构</li>
+            <li><strong>加载网站标题</strong>：通过API管理器获取标题（会显示详细调试信息）</li>
+            <li><strong>刷新标题</strong>：清除缓存后重新获取标题</li>
+            <li><strong>强制刷新</strong>：绕过API缓存直接查询数据库</li>
+            <li><strong>调试缓存</strong>：查看缓存键和缓存状态</li>
+            <li><strong>验证效果</strong>：观察页面标题和meta描述的变化</li>
+        </ol>
+    </div>
+
+    <script>
+        let logContainer;
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            logContainer = document.getElementById('log-container');
+            addLog('info', '页面加载完成，准备测试网站标题功能');
+        });
+
+        function addLog(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-${type}">${message}</span>
+            `;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLogs() {
+            logContainer.innerHTML = '';
+            addLog('info', '日志已清空');
+        }
+
+        async function loadWebTitle() {
+            const btn = document.getElementById('load-btn');
+            btn.disabled = true;
+            btn.textContent = '加载中...';
+
+            try {
+                addLog('info', '开始加载网站标题...');
+
+                // 检查Supabase连接
+                if (!window.supabase) {
+                    addLog('error', 'Supabase未初始化');
+                    return;
+                }
+
+                const result = await apiManager.getWebTitle();
+
+                // 添加详细的调试信息
+                addLog('info', `API返回结果: ${JSON.stringify(result)}`);
+
+                if (result.success && result.data) {
+                    addLog('info', `解析的数据: main_title="${result.data.main_title}", sub_title="${result.data.sub_title}"`);
+                    updateTitleDisplay(result.data);
+                    addLog('success', `标题加载成功: ${result.data.main_title} | ${result.data.sub_title}`);
+                } else {
+                    addLog('error', `标题加载失败: ${result.error || '未知错误'}`);
+                }
+
+            } catch (error) {
+                addLog('error', `加载异常: ${error.message}`);
+                console.error('详细错误:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '加载网站标题';
+            }
+        }
+
+        async function refreshTitle() {
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            btn.textContent = '刷新中...';
+
+            try {
+                addLog('info', '清除缓存并刷新标题...');
+
+                if (window.apiManager) {
+                    // 获取实际的缓存键
+                    const cacheKey = apiManager.getCacheKey('web-title', {});
+                    addLog('info', `目标缓存键: ${cacheKey}`);
+
+                    // 清除缓存
+                    const beforeCount = apiManager.cache.size;
+                    apiManager.clearCache('web-title');
+                    const afterCount = apiManager.cache.size;
+                    addLog('info', `缓存清除: ${beforeCount} -> ${afterCount}`);
+
+                    // 同时清除请求队列
+                    if (apiManager.requestQueue.has(cacheKey)) {
+                        apiManager.requestQueue.delete(cacheKey);
+                        addLog('info', '请求队列已清除');
+                    }
+                }
+
+                // 重新加载标题
+                await loadWebTitle();
+
+            } catch (error) {
+                addLog('error', `刷新失败: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '刷新标题';
+            }
+        }
+
+        async function forceRefreshTitle() {
+            const btn = document.getElementById('force-refresh-btn');
+            btn.disabled = true;
+            btn.textContent = '强制刷新中...';
+
+            try {
+                addLog('info', '强制刷新标题（绕过缓存）...');
+
+                // 直接调用Supabase，绕过API管理器的缓存
+                // 先获取所有启用的标题，然后在前端随机选择
+                const { data: allTitles, error } = await supabase
+                    .from('web_title')
+                    .select('main_title, sub_title')
+                    .eq('is_active', true);
+
+                if (error) {
+                    addLog('error', `数据库查询失败: ${error.message}`);
+                    return;
+                }
+
+                if (!allTitles || allTitles.length === 0) {
+                    addLog('warning', '没有找到启用的标题数据');
+                    return;
+                }
+
+                // 随机选择一条
+                const randomIndex = Math.floor(Math.random() * allTitles.length);
+                const data = allTitles[randomIndex];
+
+                updateTitleDisplay(data);
+                addLog('success', `强制刷新成功: ${data.main_title} | ${data.sub_title}`);
+                addLog('info', `从 ${allTitles.length} 条记录中随机选择了第 ${randomIndex + 1} 条`);
+
+                // 清除API管理器的缓存
+                if (window.apiManager) {
+                    apiManager.clearCache('web-title');
+                    addLog('info', 'API缓存已清除');
+                }
+
+            } catch (error) {
+                addLog('error', `强制刷新异常: ${error.message}`);
+                console.error('详细错误:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '强制刷新';
+            }
+        }
+
+        function debugCache() {
+            addLog('info', '调试缓存信息...');
+
+            if (!window.apiManager) {
+                addLog('error', 'API管理器未初始化');
+                return;
+            }
+
+            // 获取缓存键
+            const cacheKey = apiManager.getCacheKey('web-title', {});
+            addLog('info', `缓存键: ${cacheKey}`);
+
+            // 检查缓存内容
+            const cached = apiManager.getFromCache(cacheKey, false);
+            if (cached) {
+                addLog('success', `缓存存在: ${JSON.stringify(cached.data)}`);
+            } else {
+                addLog('warning', '缓存不存在或已过期');
+            }
+
+            // 显示所有缓存键
+            const allKeys = Array.from(apiManager.cache.keys());
+            addLog('info', `所有缓存键 (${allKeys.length}个):`);
+            allKeys.forEach(key => {
+                addLog('info', `  - ${key}`);
+            });
+
+            // 清除特定缓存
+            const beforeCount = apiManager.cache.size;
+            apiManager.clearCache('web-title');
+            const afterCount = apiManager.cache.size;
+            addLog('info', `清除缓存: ${beforeCount} -> ${afterCount} (清除了 ${beforeCount - afterCount} 个)`);
+        }
+
+        async function createDbFunction() {
+            const btn = document.getElementById('create-func-btn');
+            btn.disabled = true;
+            btn.textContent = '创建中...';
+
+            try {
+                addLog('info', '创建数据库函数...');
+
+                // 创建随机获取标题的函数
+                const functionSQL = `
+                    CREATE OR REPLACE FUNCTION public.get_random_web_title()
+                    RETURNS TABLE(main_title TEXT, sub_title TEXT) AS $$
+                    BEGIN
+                        RETURN QUERY
+                        SELECT wt.main_title, wt.sub_title
+                        FROM public.web_title wt
+                        WHERE wt.is_active = true
+                        ORDER BY RANDOM()
+                        LIMIT 1;
+                    END;
+                    $$ LANGUAGE plpgsql SECURITY DEFINER;
+                `;
+
+                const { data, error } = await supabase.rpc('exec_sql', { sql: functionSQL });
+
+                if (error) {
+                    // 如果exec_sql不存在，尝试直接执行
+                    addLog('warning', 'exec_sql函数不存在，请手动在Supabase SQL编辑器中执行以下SQL:');
+                    addLog('info', functionSQL);
+                    addLog('info', '或者复制supabase_web_title.sql文件中的内容执行');
+                } else {
+                    addLog('success', '数据库函数创建成功');
+                }
+
+            } catch (error) {
+                addLog('error', `创建函数失败: ${error.message}`);
+                addLog('info', '请手动在Supabase SQL编辑器中执行supabase_web_title.sql文件');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '创建数据库函数';
+            }
+        }
+
+        async function testDbFunction() {
+            const btn = document.getElementById('test-func-btn');
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+
+            try {
+                addLog('info', '直接测试数据库函数...');
+
+                const { data, error } = await supabase.rpc('get_random_web_title');
+
+                if (error) {
+                    addLog('error', `数据库函数调用失败: ${error.message}`);
+                    addLog('info', '请确保已在Supabase中执行了SQL脚本创建函数');
+                    return;
+                }
+
+                addLog('info', `数据库函数返回原始数据: ${JSON.stringify(data)}`);
+
+                if (data && data.length > 0) {
+                    const titleData = data[0];
+                    addLog('success', `函数调用成功: ${titleData.main_title} | ${titleData.sub_title}`);
+                    updateTitleDisplay(titleData);
+                } else {
+                    addLog('warning', '数据库函数返回空结果');
+                }
+
+            } catch (error) {
+                addLog('error', `测试异常: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '测试数据库函数';
+            }
+        }
+
+        function updateTitleDisplay(titleData) {
+            const mainTitle = document.getElementById('main-title');
+            const subTitle = document.getElementById('sub-title');
+            const pageTitle = document.getElementById('page-title');
+
+            if (mainTitle && titleData.main_title) {
+                mainTitle.textContent = titleData.main_title;
+            }
+
+            if (subTitle && titleData.sub_title) {
+                subTitle.textContent = titleData.sub_title;
+            }
+
+            // 更新页面标题
+            if (titleData.main_title) {
+                document.title = `AI提示词宝库 - ${titleData.main_title}`;
+                pageTitle.textContent = document.title;
+            }
+
+            // 更新meta描述
+            const metaDescription = document.querySelector('meta[name="description"]');
+            if (metaDescription && titleData.sub_title) {
+                metaDescription.setAttribute('content', `${titleData.main_title}，${titleData.sub_title}`);
+            }
+
+            addLog('info', `页面标题已更新为: ${document.title}`);
+        }
+
+        async function showWebTitleData() {
+            const btn = document.getElementById('show-data-btn');
+            btn.disabled = true;
+            btn.textContent = '加载中...';
+
+            try {
+                addLog('info', '查询web_title表数据...');
+                
+                const { data, error } = await supabase
+                    .from('web_title')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    addLog('error', `查询失败: ${error.message}`);
+                    document.getElementById('table-data').innerHTML = `<p style="color: red;">查询失败: ${error.message}</p>`;
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    addLog('warning', 'web_title表为空');
+                    document.getElementById('table-data').innerHTML = '<p>表中暂无数据，请先插入测试数据</p>';
+                    return;
+                }
+
+                // 显示表格数据
+                let tableHTML = `
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>主标题</th>
+                                <th>副标题</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.forEach(row => {
+                    tableHTML += `
+                        <tr>
+                            <td>${row.id || 'N/A'}</td>
+                            <td>${row.main_title || 'N/A'}</td>
+                            <td>${row.sub_title || 'N/A'}</td>
+                            <td>${row.is_active ? '启用' : '禁用'}</td>
+                            <td>${row.created_at ? new Date(row.created_at).toLocaleString() : 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += '</tbody></table>';
+                document.getElementById('table-data').innerHTML = tableHTML;
+                
+                addLog('success', `查询成功，共 ${data.length} 条记录`);
+                
+            } catch (error) {
+                addLog('error', `查询异常: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '查看表数据';
+            }
+        }
+
+        async function insertTestData() {
+            const btn = document.getElementById('insert-btn');
+            btn.disabled = true;
+            btn.textContent = '插入中...';
+
+            try {
+                addLog('info', '插入测试数据...');
+                
+                const testData = [
+                    {
+                        main_title: '发现最佳AI提示词',
+                        sub_title: '让您的AI更智能、更高效',
+                        is_active: true
+                    },
+                    {
+                        main_title: '探索AI创意无限',
+                        sub_title: '释放人工智能的无限潜能',
+                        is_active: true
+                    },
+                    {
+                        main_title: '智能提示词宝库',
+                        sub_title: '提升AI对话质量的秘密武器',
+                        is_active: true
+                    },
+                    {
+                        main_title: 'AI提示词专家',
+                        sub_title: '专业、高效、智能的提示词解决方案',
+                        is_active: true
+                    }
+                ];
+
+                const { data, error } = await supabase
+                    .from('web_title')
+                    .insert(testData)
+                    .select();
+
+                if (error) {
+                    addLog('error', `插入失败: ${error.message}`);
+                    return;
+                }
+
+                addLog('success', `成功插入 ${data.length} 条测试数据`);
+                
+                // 自动刷新表数据显示
+                await showWebTitleData();
+                
+            } catch (error) {
+                addLog('error', `插入异常: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '插入测试数据';
+            }
+        }
+    </script>
+</body>
+</html>

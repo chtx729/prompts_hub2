@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模态框关闭测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 模态框关闭功能测试</h1>
+        <p>测试登出时是否能正确关闭所有模态框</p>
+
+        <div>
+            <h3>1. 打开模态框</h3>
+            <button class="test-button" onclick="showModal('prompt-modal')">显示提示词模态框</button>
+            <button class="test-button" onclick="showModal('profile-edit-modal')">显示个人资料模态框</button>
+            <button class="test-button" onclick="showModal('user-manual-modal')">显示使用手册模态框</button>
+        </div>
+
+        <div>
+            <h3>2. 测试关闭</h3>
+            <button class="test-button" onclick="testCloseAllModals()">关闭所有模态框</button>
+            <button class="test-button" onclick="updateModalStatus()">刷新模态框状态</button>
+        </div>
+
+        <div>
+            <h3>3. 模态框状态</h3>
+            <div id="modal-status" class="status-info">检查中...</div>
+        </div>
+    </div>
+
+    <!-- 测试用的模态框 -->
+    <div class="modal" id="prompt-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>提示词模态框</h3>
+                <button class="modal-close" onclick="hideModal('prompt-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>这是一个测试用的提示词模态框</p>
+                <p>用于测试登出时是否能正确关闭</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideModal('prompt-modal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="profile-edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>个人资料编辑</h3>
+                <button class="modal-close" onclick="hideModal('profile-edit-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>这是个人资料编辑模态框</p>
+                <form>
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" value="测试用户">
+                    </div>
+                    <div class="form-group">
+                        <label>个人简介</label>
+                        <textarea>测试简介</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="hideModal('profile-edit-modal')">取消</button>
+                <button class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="user-manual-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>使用手册</h3>
+                <button class="modal-close" onclick="hideModal('user-manual-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>这是使用手册模态框</p>
+                <p>包含详细的使用说明</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="hideModal('user-manual-modal')">我知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showModal(modalId) {
+            console.log(`显示模态框: ${modalId}`);
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active');
+                updateModalStatus();
+            } else {
+                console.error(`找不到模态框: ${modalId}`);
+            }
+        }
+
+        function hideModal(modalId) {
+            console.log(`隐藏模态框: ${modalId}`);
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('active');
+                updateModalStatus();
+            } else {
+                console.error(`找不到模态框: ${modalId}`);
+            }
+        }
+
+        function testCloseAllModals() {
+            console.log('测试关闭所有模态框');
+            
+            if (typeof authManager !== 'undefined' && typeof authManager.closeAllModals === 'function') {
+                // 使用真实的closeAllModals方法
+                authManager.closeAllModals();
+                console.log('✅ 使用authManager.closeAllModals()');
+            } else {
+                // 备用方案
+                console.log('使用备用关闭方法');
+                const activeModals = document.querySelectorAll('.modal.active');
+                activeModals.forEach(modal => {
+                    modal.classList.remove('active');
+                    console.log(`关闭模态框: ${modal.id}`);
+                });
+            }
+            
+            updateModalStatus();
+        }
+
+        function updateModalStatus() {
+            const statusDiv = document.getElementById('modal-status');
+            const modals = ['prompt-modal', 'profile-edit-modal', 'user-manual-modal'];
+            
+            let status = '模态框状态:\n';
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                const isActive = modal && modal.classList.contains('active');
+                status += `${modalId}: ${isActive ? '✅ 显示' : '❌ 隐藏'}\n`;
+            });
+            
+            // 检查authManager
+            if (typeof authManager !== 'undefined') {
+                status += `\nauthManager可用: ✅\n`;
+                status += `closeAllModals方法: ${typeof authManager.closeAllModals === 'function' ? '✅' : '❌'}\n`;
+            } else {
+                status += `\nauthManager可用: ❌\n`;
+            }
+            
+            statusDiv.textContent = status;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            updateModalStatus();
+            
+            // 绑定点击背景关闭模态框
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        hideModal(modal.id);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人简介显示演示</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--surface-color);
+            border-radius: var(--radius-xl);
+        }
+        .demo-section {
+            margin-bottom: 3rem;
+        }
+        .demo-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-200);
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .comparison-item {
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .comparison-header {
+            background: var(--gray-100);
+            padding: 1rem;
+            font-weight: 600;
+            text-align: center;
+            color: var(--text-primary);
+        }
+        .comparison-content {
+            padding: 0;
+        }
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>📝 个人简介显示功能演示</h1>
+            <p>展示提示词详情页面中作者个人简介的显示效果</p>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">功能说明</h2>
+            <div style="background: var(--info-50); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--info-200);">
+                <h3 style="color: var(--info-700); margin-top: 0;">✨ 新增功能</h3>
+                <ul style="color: var(--info-600); margin-bottom: 0;">
+                    <li><strong>显示位置</strong>：提示词详情页面右侧边栏的作者卡片中</li>
+                    <li><strong>显示条件</strong>：当作者有个人简介时显示，无简介时不显示</li>
+                    <li><strong>数据来源</strong>：从users表的bio字段获取</li>
+                    <li><strong>样式设计</strong>：与整体设计风格保持一致</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">显示效果对比</h2>
+            <div class="comparison-grid">
+                <div class="comparison-item">
+                    <div class="comparison-header">有个人简介的作者</div>
+                    <div class="comparison-content">
+                        <div class="prompt-detail">
+                            <div class="prompt-detail-sidebar" style="width: 100%;">
+                                <div class="author-card">
+                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=author1" alt="张三" class="author-avatar">
+                                    <div class="author-info">
+                                        <h4 class="author-name">张三</h4>
+                                        <p class="author-bio">我是一名AI提示词工程师，专注于创作高质量的AI提示词。拥有5年的人工智能应用经验，擅长自然语言处理和机器学习。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="comparison-item">
+                    <div class="comparison-header">无个人简介的作者</div>
+                    <div class="comparison-content">
+                        <div class="prompt-detail">
+                            <div class="prompt-detail-sidebar" style="width: 100%;">
+                                <div class="author-card">
+                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=author2" alt="李四" class="author-avatar">
+                                    <div class="author-info">
+                                        <h4 class="author-name">李四</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">不同长度简介的显示效果</h2>
+            <div class="comparison-grid">
+                <div class="comparison-item">
+                    <div class="comparison-header">短简介</div>
+                    <div class="comparison-content">
+                        <div class="prompt-detail">
+                            <div class="prompt-detail-sidebar" style="width: 100%;">
+                                <div class="author-card">
+                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=author3" alt="王五" class="author-avatar">
+                                    <div class="author-info">
+                                        <h4 class="author-name">王五</h4>
+                                        <p class="author-bio">AI爱好者，喜欢创作提示词。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="comparison-item">
+                    <div class="comparison-header">长简介</div>
+                    <div class="comparison-content">
+                        <div class="prompt-detail">
+                            <div class="prompt-detail-sidebar" style="width: 100%;">
+                                <div class="author-card">
+                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=author4" alt="赵六" class="author-avatar">
+                                    <div class="author-info">
+                                        <h4 class="author-name">赵六</h4>
+                                        <p class="author-bio">我是一名资深的AI研究员和提示词工程师，在人工智能领域有超过10年的研究和实践经验。专注于自然语言处理、机器学习和深度学习技术的应用。曾在多家知名科技公司担任AI算法工程师，参与过多个大型AI项目的开发。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">技术实现</h2>
+            <div style="background: var(--surface-color); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <h3 style="color: var(--text-primary); margin-top: 0;">🔧 实现步骤</h3>
+                <ol style="color: var(--text-secondary);">
+                    <li><strong>API修改</strong>：在getPrompt方法中添加bio字段的查询</li>
+                    <li><strong>数据传递</strong>：将author_bio添加到提示词数据中</li>
+                    <li><strong>渲染逻辑</strong>：在renderPromptDetail中使用author_bio数据</li>
+                    <li><strong>条件显示</strong>：只有当bio存在时才显示相关HTML</li>
+                    <li><strong>样式优化</strong>：使用现有的author-bio CSS类</li>
+                </ol>
+                
+                <h3 style="color: var(--text-primary);">📊 数据流程</h3>
+                <div style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-md); font-family: monospace; font-size: 0.875rem;">
+                    users.bio → API.getPrompt() → prompt.author_bio → renderPromptDetail() → HTML显示
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">使用场景</h2>
+            <div style="background: var(--success-50); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--success-200);">
+                <h3 style="color: var(--success-700); margin-top: 0;">✅ 适用场景</h3>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>首页浏览</strong>：用户在首页查看提示词详情时，可以了解作者背景</li>
+                    <li><strong>我的空间</strong>：在我的空间查看其他用户的提示词时，显示作者信息</li>
+                    <li><strong>作者展示</strong>：帮助作者展示专业背景，增加可信度</li>
+                    <li><strong>社区建设</strong>：促进用户之间的了解和交流</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

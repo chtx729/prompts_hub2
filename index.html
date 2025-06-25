@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI提示词宝库 - 发现最佳AI提示词</title>
-    <meta name="description" content="发现最佳AI提示词，让您的AI更智能、更高效">
+    <title id="page-title">AI提示词宝库 - 发现最佳AI提示词</title>
+    <meta name="description" content="发现最佳AI提示词，让您的AI更智能、更高效" id="page-description">
     
     <!-- CSS 文件 -->
     <link rel="stylesheet" href="css/main.css">
@@ -40,6 +40,12 @@
             </div>
             
             <div class="nav-auth">
+                <!-- 使用手册按钮 -->
+                <button class="btn btn-outline manual-btn" onclick="UI.showUserManual()">
+                    <i class="fas fa-book"></i>
+                    使用手册
+                </button>
+
                 <button class="btn btn-outline" id="login-btn">
                     <i class="fas fa-sign-in-alt"></i>
                     登录
@@ -49,9 +55,10 @@
                     注册
                 </button>
                 <div class="user-menu" id="user-menu" style="display: none;">
-                    <div class="user-info">
+                    <div class="user-info clickable" id="user-info-clickable">
                         <img src="" alt="头像" class="user-avatar" id="user-avatar">
                         <span class="username" id="username"></span>
+                        <i class="fas fa-edit edit-icon"></i>
                     </div>
                     <button class="btn btn-outline btn-sm" id="logout-btn">
                         <i class="fas fa-sign-out-alt"></i>
@@ -70,8 +77,8 @@
             <section class="search-section">
                 <div class="container">
                     <div class="search-header">
-                        <h1>发现最佳AI提示词</h1>
-                        <p>让您的AI更智能、更高效</p>
+                        <h1 id="main-title">发现最佳AI提示词</h1>
+                        <p id="sub-title">让您的AI更智能、更高效</p>
                     </div>
                     
                     <div class="search-box">
@@ -224,8 +231,207 @@
                         <label for="register-username">用户名</label>
                         <input type="text" id="register-username" required>
                     </div>
+                    <div class="form-group">
+                        <label for="register-bio">个人简介</label>
+                        <textarea id="register-bio" placeholder="简单介绍一下自己吧..." rows="3" maxlength="200"></textarea>
+                        <small class="form-help">选填，最多200字</small>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-full">注册</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用手册模态框 -->
+    <div class="modal" id="user-manual-modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3><i class="fas fa-book"></i> AI提示词宝库 - 使用手册</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="manual-content">
+                    <!-- 欢迎部分 -->
+                    <section class="manual-section">
+                        <div class="manual-hero">
+                            <div class="manual-hero-icon">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <h2>欢迎使用AI提示词宝库</h2>
+                            <p class="manual-subtitle">发现、创建、分享最优质的AI提示词，让您的AI更智能、更高效</p>
+                        </div>
+                    </section>
+
+                    <!-- 快速开始 -->
+                    <section class="manual-section">
+                        <h3><i class="fas fa-play-circle"></i> 快速开始</h3>
+                        <div class="manual-steps">
+                            <div class="manual-step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>浏览提示词</h4>
+                                    <p>在首页浏览各种类型的AI提示词，使用搜索和筛选功能找到您需要的内容</p>
+                                </div>
+                            </div>
+                            <div class="manual-step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>使用提示词</h4>
+                                    <p>点击提示词卡片查看详情，复制内容到您的AI工具中使用</p>
+                                </div>
+                            </div>
+                            <div class="manual-step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>注册账户</h4>
+                                    <p>注册账户后可以收藏喜欢的提示词，创建和分享您自己的提示词</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 主要功能 -->
+                    <section class="manual-section">
+                        <h3><i class="fas fa-star"></i> 主要功能</h3>
+                        <div class="manual-features">
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-search"></i>
+                                </div>
+                                <h4>智能搜索</h4>
+                                <p>支持关键词搜索、分类筛选、标签过滤，快速找到您需要的提示词</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-heart"></i>
+                                </div>
+                                <h4>收藏管理</h4>
+                                <p>收藏喜欢的提示词，建立个人专属的提示词库</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-edit"></i>
+                                </div>
+                                <h4>创建分享</h4>
+                                <p>创建您自己的提示词，与社区用户分享经验和创意</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="feature-icon">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <h4>数据统计</h4>
+                                <p>查看提示词的使用量、点赞数、评分等数据，了解热门趋势</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 使用技巧 -->
+                    <section class="manual-section">
+                        <h3><i class="fas fa-lightbulb"></i> 使用技巧</h3>
+                        <div class="manual-tips">
+                            <div class="tip-item">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>精确搜索：</strong>使用具体的关键词可以更快找到相关提示词
+                                </div>
+                            </div>
+                            <div class="tip-item">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>标签筛选：</strong>点击热门标签可以快速浏览相关主题的提示词
+                                </div>
+                            </div>
+                            <div class="tip-item">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>排序选择：</strong>根据需要选择按时间、热度、评分等不同方式排序
+                                </div>
+                            </div>
+                            <div class="tip-item">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>个性化定制：</strong>根据您的具体需求修改提示词内容，获得更好效果
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 常见问题 -->
+                    <section class="manual-section">
+                        <h3><i class="fas fa-question-circle"></i> 常见问题</h3>
+                        <div class="manual-faq">
+                            <div class="faq-item">
+                                <h4>如何创建高质量的提示词？</h4>
+                                <p>好的提示词应该清晰、具体、有针对性。建议包含明确的指令、背景信息和期望的输出格式。</p>
+                            </div>
+                            <div class="faq-item">
+                                <h4>可以修改别人的提示词吗？</h4>
+                                <p>您可以复制提示词内容并根据自己的需求进行修改，但请尊重原创者的版权。</p>
+                            </div>
+                            <div class="faq-item">
+                                <h4>如何提高提示词的曝光度？</h4>
+                                <p>创建高质量、实用的提示词，添加准确的标签和分类，积极与社区互动。</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 联系我们 -->
+                    <section class="manual-section">
+                        <h3><i class="fas fa-envelope"></i> 联系我们</h3>
+                        <div class="manual-contact">
+                            <p>如果您在使用过程中遇到问题或有任何建议，欢迎联系我们：</p>
+                            <div class="contact-info">
+                                <div class="contact-item">
+                                    <i class="fas fa-envelope"></i>
+                                    <span>邮箱：support@aiprompts.com</span>
+                                </div>
+                                <div class="contact-item">
+                                    <i class="fas fa-comments"></i>
+                                    <span>在线客服：工作日 9:00-18:00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="UI.hideModal('user-manual-modal')">
+                    <i class="fas fa-check"></i>
+                    我知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 个人资料编辑模态框 -->
+    <div class="modal" id="profile-edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> 编辑个人资料</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="profile-username">用户名</label>
+                        <input type="text" id="profile-username" required placeholder="请输入用户名">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profile-bio">个人简介</label>
+                        <textarea id="profile-bio" placeholder="简单介绍一下自己吧..." rows="3" maxlength="200"></textarea>
+                        <small class="form-help">选填，最多200字</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer justify-end">
+                <button type="button" class="btn btn-outline" onclick="hideProfileEditModal()">
+                    取消
+                </button>
+                <button type="submit" form="profile-edit-form" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    保存修改
+                </button>
             </div>
         </div>
     </div>
@@ -240,5 +446,84 @@
     <script src="js/search.js"></script>
     <script src="js/myspace.js"></script>
     <script src="js/main.js"></script>
+
+    <!-- 调试脚本和备用函数 -->
+    <script>
+        // 备用的showProfileEdit函数
+        function showProfileEdit() {
+            console.log('调用备用showProfileEdit函数');
+
+            // 等待UI对象加载
+            if (typeof UI !== 'undefined' && typeof UI.showProfileEdit === 'function') {
+                UI.showProfileEdit();
+                return;
+            }
+
+            // 如果UI对象还没加载，直接显示模态框
+            const modal = document.getElementById('profile-edit-modal');
+            if (modal) {
+                // 填充当前用户信息
+                if (typeof authManager !== 'undefined' && authManager.isAuthenticated()) {
+                    const currentUser = authManager.getCurrentUser();
+                    if (currentUser) {
+                        const usernameInput = document.getElementById('profile-username');
+                        const bioInput = document.getElementById('profile-bio');
+
+                        if (usernameInput) usernameInput.value = currentUser.username || '';
+                        if (bioInput) bioInput.value = currentUser.bio || '';
+                    }
+                }
+
+                modal.classList.add('active');
+                console.log('使用备用方法显示模态框');
+            } else {
+                console.error('找不到profile-edit-modal元素');
+                alert('编辑功能暂时不可用，请刷新页面重试');
+            }
+        }
+
+        // 备用的hideModal函数
+        function hideProfileEditModal() {
+            const modal = document.getElementById('profile-edit-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        // 绑定模态框关闭事件
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('profile-edit-modal');
+            if (modal) {
+                // 点击背景关闭
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        hideProfileEditModal();
+                    }
+                });
+
+                // 点击关闭按钮
+                const closeBtn = modal.querySelector('.modal-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', hideProfileEditModal);
+                }
+            }
+        });
+
+        window.addEventListener('load', () => {
+            console.log('页面加载完成，检查对象状态:');
+            console.log('UI对象:', typeof UI);
+            console.log('authManager对象:', typeof authManager);
+            console.log('UI.showProfileEdit:', typeof UI?.showProfileEdit);
+
+            // 如果UI对象不存在，尝试手动创建
+            if (typeof UI === 'undefined') {
+                console.error('UI对象未定义，可能js/ui.js加载失败');
+            }
+
+            if (typeof authManager === 'undefined') {
+                console.error('authManager对象未定义，可能js/auth.js加载失败');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>原作者字段功能测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .demo-card {
+            max-width: 400px;
+            margin: 1rem 0;
+        }
+        .demo-detail {
+            background: white;
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>👤 原作者字段功能测试</h1>
+        <p>测试提示词创建表单和显示中的原作者字段功能</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>1. 表单布局测试</h3>
+            <p>测试标题和原作者字段的并排布局</p>
+            
+            <form id="test-form">
+                <div class="form-row">
+                    <div class="form-group form-group-flex">
+                        <label for="test-title">标题 *</label>
+                        <input type="text" id="test-title" required maxlength="200" value="测试提示词标题">
+                    </div>
+                    <div class="form-group form-group-flex">
+                        <label for="test-orig-auth">原作者</label>
+                        <input type="text" id="test-orig-auth" maxlength="100" placeholder="选填" value="张三">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="test-description">描述</label>
+                    <textarea id="test-description" rows="3">这是一个测试提示词的描述</textarea>
+                </div>
+                
+                <button type="button" class="test-button" onclick="generatePreview()">生成预览</button>
+                <button type="button" class="test-button" onclick="clearForm()">清空表单</button>
+            </form>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 提示词卡片预览</h3>
+            <p>预览原作者信息在提示词卡片中的显示效果</p>
+            <div id="card-preview"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 提示词详情预览</h3>
+            <p>预览原作者信息在提示词详情页面中的显示效果</p>
+            <div id="detail-preview"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 响应式测试</h3>
+            <p>调整浏览器窗口大小，测试移动端的垂直布局</p>
+            <div style="background: var(--warning-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--warning-200);">
+                <p><strong>测试说明：</strong></p>
+                <ul>
+                    <li>桌面端：标题和原作者字段应该并排显示</li>
+                    <li>移动端（窗口宽度 < 768px）：字段应该垂直堆叠</li>
+                    <li>原作者字段为选填，可以为空</li>
+                    <li>原作者信息应该在卡片和详情中正确显示</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generatePreview() {
+            const title = document.getElementById('test-title').value;
+            const origAuth = document.getElementById('test-orig-auth').value;
+            const description = document.getElementById('test-description').value;
+
+            // 创建测试数据
+            const testPrompt = {
+                prompt_id: 1,
+                title: title,
+                orig_auth: origAuth,
+                description: description,
+                content: '这是测试提示词的内容...',
+                tags: ['测试', '示例'],
+                view_count: 123,
+                use_count: 45,
+                like_count: 12,
+                favorite_count: 8,
+                created_at: new Date().toISOString(),
+                categories: {
+                    name: '测试分类',
+                    color: '#4f46e5',
+                    icon: 'fas fa-test'
+                },
+                author_name: '测试用户',
+                author_avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=test'
+            };
+
+            // 生成卡片预览
+            if (typeof UI !== 'undefined' && typeof UI.createPromptCard === 'function') {
+                const cardPreview = document.getElementById('card-preview');
+                cardPreview.innerHTML = '';
+                const card = UI.createPromptCard(testPrompt);
+                card.classList.add('demo-card');
+                cardPreview.appendChild(card);
+            } else {
+                document.getElementById('card-preview').innerHTML = '<p style="color: var(--error-500);">UI.createPromptCard 方法不可用</p>';
+            }
+
+            // 生成详情预览
+            const detailPreview = document.getElementById('detail-preview');
+            detailPreview.innerHTML = `
+                <div class="demo-detail">
+                    <div class="prompt-detail-content">
+                        <div class="prompt-meta">
+                            <span class="prompt-category" style="background-color: #4f46e5">
+                                <i class="fas fa-tag"></i>
+                                测试分类
+                            </span>
+                            <span class="prompt-date">${new Date().toLocaleDateString()}</span>
+                        </div>
+                        
+                        <h1 class="prompt-title">${escapeHtml(title)}</h1>
+                        
+                        ${origAuth ? `
+                            <div class="prompt-orig-auth">
+                                <i class="fas fa-user-edit"></i>
+                                <span>原作者：${escapeHtml(origAuth)}</span>
+                            </div>
+                        ` : ''}
+                        
+                        ${description ? `
+                            <p class="prompt-description">${escapeHtml(description)}</p>
+                        ` : ''}
+                        
+                        <div class="prompt-stats-detail">
+                            <div class="stat-item">
+                                <i class="fas fa-eye"></i>
+                                <span>浏览 123</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-copy"></i>
+                                <span>使用 45</span>
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-heart"></i>
+                                <span>点赞 12</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            console.log('预览已生成');
+            console.log('测试数据:', testPrompt);
+        }
+
+        function clearForm() {
+            document.getElementById('test-form').reset();
+            document.getElementById('card-preview').innerHTML = '';
+            document.getElementById('detail-preview').innerHTML = '';
+            console.log('表单已清空');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载完成后生成初始预览
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('原作者字段测试页面加载完成');
+            console.log('UI对象:', typeof UI);
+            console.log('UI.createPromptCard:', typeof UI?.createPromptCard);
+            
+            // 生成初始预览
+            generatePreview();
+        });
+    </script>
+</body>
+</html>

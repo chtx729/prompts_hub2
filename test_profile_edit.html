@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人资料编辑测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 2rem;
+        }
+        .test-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .test-header h1 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+        .test-header p {
+            color: var(--text-secondary);
+        }
+        .user-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--radius-lg);
+            margin-bottom: 2rem;
+        }
+        .current-user {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+        .current-user img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border-color);
+        }
+        .user-details h3 {
+            margin: 0;
+            color: var(--text-primary);
+        }
+        .user-details p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        .test-actions {
+            display: flex;
+            gap: var(--space-3);
+            flex-wrap: wrap;
+        }
+        .test-info {
+            background: var(--info-50);
+            border: 1px solid var(--info-200);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        .test-info h3 {
+            color: var(--info-700);
+            margin-bottom: 0.5rem;
+        }
+        .test-info ul {
+            color: var(--info-600);
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+        .login-prompt {
+            text-align: center;
+            padding: 2rem;
+            background: var(--warning-50);
+            border: 1px solid var(--warning-200);
+            border-radius: var(--radius-lg);
+            color: var(--warning-700);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1><i class="fas fa-user-edit"></i> 个人资料编辑测试</h1>
+            <p>测试用户登录后编辑个人资料的功能</p>
+        </div>
+
+        <div class="test-info">
+            <h3><i class="fas fa-info-circle"></i> 功能说明</h3>
+            <ul>
+                <li>用户登录后可以点击头像或用户名编辑资料</li>
+                <li>可以修改用户名和个人简介</li>
+                <li>个人简介最多200字符，实时显示剩余字符</li>
+                <li>修改后的信息会保存到数据库并更新UI</li>
+            </ul>
+        </div>
+
+        <div id="user-status-container">
+            <!-- 用户状态将在这里显示 -->
+        </div>
+    </div>
+
+    <!-- 登录模态框 -->
+    <div class="modal" id="login-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>用户登录</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-email">邮箱</label>
+                        <input type="email" id="login-email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">登录</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 个人资料编辑模态框 -->
+    <div class="modal" id="profile-edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> 编辑个人资料</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="profile-username">用户名</label>
+                        <input type="text" id="profile-username" required placeholder="请输入用户名">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profile-bio">个人简介</label>
+                        <textarea id="profile-bio" placeholder="简单介绍一下自己吧..." rows="3" maxlength="200"></textarea>
+                        <small class="form-help">选填，最多200字</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer justify-end">
+                <button type="button" class="btn btn-outline" onclick="UI.hideModal('profile-edit-modal')">
+                    取消
+                </button>
+                <button type="submit" form="profile-edit-form" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    保存修改
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('个人资料编辑测试页面加载完成');
+
+            // 检查必要的对象是否存在
+            console.log('UI对象:', typeof UI);
+            console.log('authManager对象:', typeof authManager);
+            console.log('UI.showProfileEdit方法:', typeof UI.showProfileEdit);
+
+            updateUserStatus();
+
+            // 监听认证状态变化
+            if (authManager && typeof authManager.onAuthStateChange === 'function') {
+                authManager.onAuthStateChange(() => {
+                    updateUserStatus();
+                });
+            } else {
+                console.error('authManager.onAuthStateChange 不可用');
+            }
+        });
+
+        function updateUserStatus() {
+            const container = document.getElementById('user-status-container');
+            const isAuthenticated = authManager.isAuthenticated();
+            const currentUser = authManager.getCurrentUser();
+
+            if (isAuthenticated && currentUser) {
+                // 显示已登录用户信息
+                container.innerHTML = `
+                    <div class="user-status">
+                        <div class="current-user">
+                            <img src="${currentUser.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + currentUser.username}" alt="头像">
+                            <div class="user-details">
+                                <h3>${currentUser.username || '未设置用户名'}</h3>
+                                <p>${currentUser.bio || '暂无个人简介'}</p>
+                                <p><small>邮箱: ${currentUser.email}</small></p>
+                            </div>
+                        </div>
+                        <div class="test-actions">
+                            <button class="btn btn-primary" onclick="testShowProfileEdit()">
+                                <i class="fas fa-edit"></i>
+                                编辑资料
+                            </button>
+                            <button class="btn btn-outline" onclick="testSignOut()">
+                                <i class="fas fa-sign-out-alt"></i>
+                                登出
+                            </button>
+                            <button class="btn btn-outline" onclick="debugObjects()">
+                                <i class="fas fa-bug"></i>
+                                调试信息
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // 显示未登录状态
+                container.innerHTML = `
+                    <div class="login-prompt">
+                        <h3><i class="fas fa-user-slash"></i> 未登录</h3>
+                        <p>请先登录以测试个人资料编辑功能</p>
+                        <button class="btn btn-primary" onclick="UI.showModal('login-modal')">
+                            <i class="fas fa-sign-in-alt"></i>
+                            立即登录
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function testShowProfileEdit() {
+            console.log('测试编辑资料按钮点击');
+            try {
+                if (typeof UI === 'undefined') {
+                    console.error('UI对象未定义');
+                    alert('UI对象未定义，请检查js/ui.js是否正确加载');
+                    return;
+                }
+
+                if (typeof UI.showProfileEdit !== 'function') {
+                    console.error('UI.showProfileEdit方法不存在');
+                    alert('UI.showProfileEdit方法不存在');
+                    return;
+                }
+
+                UI.showProfileEdit();
+            } catch (error) {
+                console.error('调用UI.showProfileEdit失败:', error);
+                alert('调用失败: ' + error.message);
+            }
+        }
+
+        function testSignOut() {
+            console.log('测试登出按钮点击');
+            try {
+                if (typeof authManager === 'undefined') {
+                    console.error('authManager对象未定义');
+                    alert('authManager对象未定义');
+                    return;
+                }
+
+                authManager.signOut();
+            } catch (error) {
+                console.error('登出失败:', error);
+                alert('登出失败: ' + error.message);
+            }
+        }
+
+        function debugObjects() {
+            const info = [
+                `UI对象: ${typeof UI}`,
+                `authManager对象: ${typeof authManager}`,
+                `UI.showProfileEdit: ${typeof UI?.showProfileEdit}`,
+                `authManager.isAuthenticated: ${typeof authManager?.isAuthenticated}`,
+                `当前用户: ${authManager?.getCurrentUser()?.username || '无'}`
+            ];
+
+            console.log('调试信息:', info);
+            alert('调试信息:\n' + info.join('\n'));
+        }
+    </script>
+</body>
+</html>

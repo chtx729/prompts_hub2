@@ -12,6 +12,8 @@ class PromptsManager {
         this.viewMode = 'card';
         this.userInteractions = { likes: [], favorites: [] };
         this.previousPage = 'home-page'; // 记录来源页面，默认为首页
+        this.subscription = null; // 实时订阅对象
+        this.currentPrompts = []; // 当前显示的提示词列表
         // init() 将由外部调用
     }
 
@@ -28,9 +30,17 @@ class PromptsManager {
             await this.loadCategories();
             console.log('✅ 分类数据加载完成');
 
+            console.log('🏷️ 加载网站标题...');
+            await this.loadWebTitle();
+            console.log('✅ 网站标题加载完成');
+
             console.log('📝 加载提示词数据...');
             await this.loadPrompts();
             console.log('✅ 提示词数据加载完成');
+
+            console.log('📡 设置实时订阅...');
+            this.setupRealtimeSubscription();
+            console.log('✅ 实时订阅设置完成');
 
             console.log('🎉 PromptsManager 初始化完成');
         } catch (error) {
@@ -129,6 +139,44 @@ class PromptsManager {
         });
     }
 
+    // 加载网站标题
+    async loadWebTitle() {
+        try {
+            const result = await apiManager.getWebTitle();
+            if (result.success && result.data) {
+                this.updateWebTitle(result.data);
+            }
+        } catch (error) {
+            console.error('加载网站标题失败:', error);
+            // 使用默认标题，不影响其他功能
+        }
+    }
+
+    // 更新网站标题
+    updateWebTitle(titleData) {
+        const mainTitle = document.getElementById('main-title');
+        const subTitle = document.getElementById('sub-title');
+
+        if (mainTitle && titleData.main_title) {
+            mainTitle.textContent = titleData.main_title;
+        }
+
+        if (subTitle && titleData.sub_title) {
+            subTitle.textContent = titleData.sub_title;
+        }
+
+        // 同时更新页面标题
+        if (titleData.main_title) {
+            document.title = `AI提示词宝库 - ${titleData.main_title}`;
+        }
+
+        // 更新meta描述
+        const metaDescription = document.querySelector('meta[name="description"]');
+        if (metaDescription && titleData.sub_title) {
+            metaDescription.setAttribute('content', `${titleData.main_title}，${titleData.sub_title}`);
+        }
+    }
+
     // 加载提示词
     async loadPrompts() {
         UI.showLoading();
@@ -211,6 +259,9 @@ class PromptsManager {
         const container = document.getElementById('prompts-container');
         if (!container) return;
 
+        // 保存当前提示词列表，用于实时更新
+        this.currentPrompts = prompts;
+
         if (prompts.length === 0) {
             let emptyMessage = '暂无提示词';
             if (this.currentFilters.search) {
@@ -261,6 +312,9 @@ class PromptsManager {
                 this.renderPromptDetail(result.data);
                 UI.showPage('prompt-detail-page');
 
+                // 确保页面滚动到顶部，聚焦显示标题
+                this.scrollToTop();
+
                 // 记录查看日志
                 await apiManager.logUsage(promptId, 'view');
             } else {
@@ -289,7 +343,7 @@ class PromptsManager {
         const categoryColor = '#4f46e5'; // 使用默认颜色
         const authorName = prompt.author_name || '匿名用户';
         const authorAvatar = prompt.author_avatar || APP_CONFIG.defaultAvatar;
-        const authorBio = ''; // 暂时不显示个人简介
+        const authorBio = prompt.author_bio || ''; // 显示用户的个人简介
 
         container.innerHTML = `
             <div class="prompt-detail">
@@ -311,7 +365,14 @@ class PromptsManager {
                         </div>
                         
                         <h1 class="prompt-title">${UI.escapeHtml(prompt.title)}</h1>
-                        
+
+                        ${prompt.orig_auth ? `
+                            <div class="prompt-orig-auth">
+                                <i class="fas fa-user-edit"></i>
+                                <span>原作者：${UI.escapeHtml(prompt.orig_auth)}</span>
+                            </div>
+                        ` : ''}
+
                         ${prompt.description ? `
                             <p class="prompt-description">${UI.escapeHtml(prompt.description)}</p>
                         ` : ''}
@@ -534,6 +595,322 @@ class PromptsManager {
         } catch (error) {
             console.error('下载图片失败:', error);
             UI.showNotification('下载失败', 'error');
+        }
+    }
+
+    // 返回到来源页面
+    goBack() {
+        UI.showPage(this.previousPage);
+    }
+
+    // 设置实时订阅
+    setupRealtimeSubscription() {
+        try {
+            console.log('🔄 开始设置实时订阅...');
+
+            // 检查Supabase是否可用
+            if (!window.supabase) {
+                console.error('❌ Supabase未初始化');
+                return;
+            }
+
+            // 如果已有订阅，先取消
+            if (this.subscription) {
+                console.log('🔄 取消现有订阅...');
+                this.subscription.unsubscribe();
+            }
+
+            // 订阅prompts表的变化
+            console.log('📡 创建新的订阅通道...');
+            this.subscription = supabase
+                .channel('prompts_changes')
+                .on('postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'prompts'
+                    },
+                    (payload) => {
+                        console.log('📡 收到实时更新:', payload);
+                        this.handleRealtimeUpdate(payload);
+                    }
+                )
+                .subscribe((status) => {
+                    console.log('📡 订阅状态变化:', status);
+                    if (status === 'SUBSCRIBED') {
+                        console.log('✅ Prompts实时订阅已建立');
+                    } else if (status === 'CHANNEL_ERROR') {
+                        console.error('❌ Prompts实时订阅失败');
+                    } else if (status === 'TIMED_OUT') {
+                        console.warn('⚠️ Prompts实时订阅超时，尝试重连...');
+                        // 延迟重试
+                        setTimeout(() => {
+                            this.setupRealtimeSubscription();
+                        }, 5000);
+                    } else if (status === 'CLOSED') {
+                        console.warn('⚠️ Prompts实时订阅已关闭');
+                    }
+                });
+
+            console.log('📡 订阅设置完成，等待连接...');
+
+        } catch (error) {
+            console.error('❌ 设置实时订阅失败:', error);
+        }
+    }
+
+    // 处理实时更新
+    handleRealtimeUpdate(payload) {
+        console.log('📡 收到实时更新:', payload);
+
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+
+        try {
+            switch (eventType) {
+                case 'INSERT':
+                    this.handlePromptInsert(newRecord);
+                    break;
+                case 'UPDATE':
+                    this.handlePromptUpdate(newRecord, oldRecord);
+                    break;
+                case 'DELETE':
+                    this.handlePromptDelete(oldRecord);
+                    break;
+                default:
+                    console.log('未知的事件类型:', eventType);
+            }
+        } catch (error) {
+            console.error('处理实时更新失败:', error);
+        }
+    }
+
+    // 处理新增提示词
+    handlePromptInsert(newPrompt) {
+        // 检查新提示词是否符合当前过滤条件
+        if (!this.shouldShowPrompt(newPrompt)) {
+            return;
+        }
+
+        // 如果是第一页且按创建时间排序，将新提示词添加到列表开头
+        if (this.currentPage === 1 && this.currentFilters.sortBy === 'created_at' && this.currentFilters.sortOrder === 'desc') {
+            // 获取完整的提示词数据（包含关联信息）
+            this.fetchAndPrependPrompt(newPrompt.prompt_id);
+        } else {
+            // 其他情况显示通知，让用户选择是否刷新
+            this.showUpdateNotification('有新的提示词发布', 'new');
+        }
+    }
+
+    // 处理提示词更新
+    handlePromptUpdate(updatedPrompt, oldPrompt) {
+        // 查找当前列表中的提示词
+        const promptIndex = this.currentPrompts.findIndex(p => p.prompt_id === updatedPrompt.prompt_id);
+
+        if (promptIndex !== -1) {
+            // 检查更新后的提示词是否仍符合过滤条件
+            if (this.shouldShowPrompt(updatedPrompt)) {
+                // 更新列表中的数据
+                this.updatePromptInList(updatedPrompt, promptIndex);
+            } else {
+                // 不再符合条件，从列表中移除
+                this.removePromptFromList(promptIndex);
+            }
+        } else {
+            // 当前列表中没有这个提示词，检查是否应该添加
+            if (this.shouldShowPrompt(updatedPrompt)) {
+                this.showUpdateNotification('有提示词更新可能影响当前列表', 'update');
+            }
+        }
+    }
+
+    // 处理提示词删除
+    handlePromptDelete(deletedPrompt) {
+        const promptIndex = this.currentPrompts.findIndex(p => p.prompt_id === deletedPrompt.prompt_id);
+
+        if (promptIndex !== -1) {
+            this.removePromptFromList(promptIndex);
+            this.showUpdateNotification('有提示词被删除', 'delete');
+        }
+    }
+
+    // 检查提示词是否应该显示在当前列表中
+    shouldShowPrompt(prompt) {
+        // 检查状态和可见性
+        if (prompt.status !== 'published' || !prompt.is_public) {
+            return false;
+        }
+
+        // 检查分类过滤
+        if (this.currentFilters.category && prompt.category_id !== parseInt(this.currentFilters.category)) {
+            return false;
+        }
+
+        // 检查标签过滤
+        if (this.currentFilters.tags.length > 0) {
+            const promptTags = prompt.tags || [];
+            const hasMatchingTag = this.currentFilters.tags.some(tag => promptTags.includes(tag));
+            if (!hasMatchingTag) {
+                return false;
+            }
+        }
+
+        // 检查搜索过滤（简单检查，实际的全文搜索在服务端进行）
+        if (this.currentFilters.search) {
+            const searchTerm = this.currentFilters.search.toLowerCase();
+            const title = (prompt.title || '').toLowerCase();
+            const description = (prompt.description || '').toLowerCase();
+            const content = (prompt.content || '').toLowerCase();
+
+            if (!title.includes(searchTerm) && !description.includes(searchTerm) && !content.includes(searchTerm)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 获取并添加新提示词到列表开头
+    async fetchAndPrependPrompt(promptId) {
+        try {
+            const result = await apiManager.getPrompt(promptId);
+            if (result.success && result.data) {
+                // 添加到当前列表开头
+                this.currentPrompts.unshift(result.data);
+
+                // 重新渲染列表
+                this.renderPrompts(this.currentPrompts);
+
+                // 显示通知
+                this.showUpdateNotification('新提示词已添加到列表', 'success');
+            }
+        } catch (error) {
+            console.error('获取新提示词失败:', error);
+        }
+    }
+
+    // 更新列表中的提示词
+    async updatePromptInList(updatedPrompt, index) {
+        try {
+            // 获取完整的提示词数据
+            const result = await apiManager.getPrompt(updatedPrompt.prompt_id);
+            if (result.success && result.data) {
+                // 更新列表中的数据
+                this.currentPrompts[index] = result.data;
+
+                // 重新渲染列表
+                this.renderPrompts(this.currentPrompts);
+
+                // 显示通知
+                this.showUpdateNotification('提示词已更新', 'info');
+            }
+        } catch (error) {
+            console.error('更新提示词失败:', error);
+        }
+    }
+
+    // 从列表中移除提示词
+    removePromptFromList(index) {
+        this.currentPrompts.splice(index, 1);
+        this.renderPrompts(this.currentPrompts);
+    }
+
+    // 显示更新通知
+    showUpdateNotification(message, type = 'info') {
+        // 创建带刷新按钮的通知
+        const notification = document.createElement('div');
+        notification.className = `notification ${type} realtime-notification`;
+        notification.innerHTML = `
+            <div class="notification-content">
+                <span>${message}</span>
+                <button class="btn btn-sm btn-outline" onclick="promptsManager.refreshPrompts()">
+                    <i class="fas fa-refresh"></i>
+                    刷新
+                </button>
+            </div>
+        `;
+
+        // 添加到页面顶部
+        const container = document.querySelector('.prompts-section') || document.body;
+        container.insertBefore(notification, container.firstChild);
+
+        // 5秒后自动移除
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+
+    // 刷新提示词列表
+    async refreshPrompts() {
+        // 移除所有实时通知
+        document.querySelectorAll('.realtime-notification').forEach(el => el.remove());
+
+        // 重新加载提示词
+        await this.loadPrompts();
+
+        UI.showNotification('列表已刷新', 'success');
+    }
+
+    // 清理订阅
+    cleanup() {
+        if (this.subscription) {
+            this.subscription.unsubscribe();
+            this.subscription = null;
+            console.log('✅ Prompts实时订阅已清理');
+        }
+    }
+
+    // 滚动到页面顶部，聚焦显示标题
+    scrollToTop() {
+        try {
+            // 立即滚动到页面顶部（无动画，确保快速响应）
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+
+            // 确保页面容器也滚动到顶部
+            const detailPage = document.getElementById('prompt-detail-page');
+            if (detailPage) {
+                detailPage.scrollTop = 0;
+            }
+
+            const detailContent = document.getElementById('prompt-detail-content');
+            if (detailContent) {
+                detailContent.scrollTop = 0;
+            }
+
+            // 延迟一点再次确保滚动到顶部并聚焦标题（处理DOM更新的情况）
+            setTimeout(() => {
+                // 再次确保滚动到顶部
+                window.scrollTo(0, 0);
+
+                // 尝试聚焦到标题元素
+                const titleElement = document.querySelector('.prompt-detail .prompt-title');
+                if (titleElement) {
+                    // 使用scrollIntoView确保标题可见
+                    titleElement.scrollIntoView({
+                        behavior: 'auto',  // 使用auto而不是smooth，确保立即显示
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+
+                    // 添加一个临时的高亮效果，让用户知道焦点在标题上
+                    titleElement.style.transition = 'background-color 0.3s ease';
+                    titleElement.style.backgroundColor = 'var(--primary-50)';
+                    setTimeout(() => {
+                        titleElement.style.backgroundColor = '';
+                    }, 1000);
+
+                    console.log('✅ 已聚焦到提示词标题');
+                } else {
+                    console.warn('未找到提示词标题元素');
+                }
+            }, 150);
+
+            console.log('✅ 提示词详情页面已滚动到顶部');
+        } catch (error) {
+            console.error('滚动到顶部失败:', error);
         }
     }
 }

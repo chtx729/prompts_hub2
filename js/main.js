@@ -188,6 +188,11 @@ class App {
         document.addEventListener('visibilitychange', () => {
             this.handleVisibilityChange();
         });
+
+        // 页面卸载时清理资源
+        window.addEventListener('beforeunload', () => {
+            this.cleanup();
+        });
     }
 
     // 设置路由
@@ -333,6 +338,23 @@ class App {
             isAuthenticated: authManager.isAuthenticated(),
             currentUser: authManager.getCurrentUser()
         };
+    }
+
+    // 清理资源
+    cleanup() {
+        console.log('🧹 清理应用资源...');
+
+        // 清理提示词管理器的订阅
+        if (window.promptsManager) {
+            window.promptsManager.cleanup();
+        }
+
+        // 清理性能优化器
+        if (window.performanceOptimizer) {
+            window.performanceOptimizer.cleanup();
+        }
+
+        console.log('✅ 应用资源清理完成');
     }
 }
 

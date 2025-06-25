@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登出重定向测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        .page {
+            display: none;
+            padding: 2rem;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            margin: 1rem 0;
+        }
+        .page.active {
+            display: block;
+            border-color: var(--primary-color);
+            background: var(--primary-50);
+        }
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            background: var(--gray-200);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .nav-link.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        .user-menu {
+            display: none;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: var(--gray-100);
+            border-radius: var(--radius-lg);
+            margin: 1rem 0;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔄 登出重定向功能测试</h1>
+        <p>测试在"我的空间"页面登出后是否正确返回首页</p>
+
+        <div class="test-section">
+            <h3>1. 当前状态</h3>
+            <div id="status-info" class="status-info">检查中...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 模拟导航</h3>
+            <div>
+                <span class="nav-link active" onclick="showPage('home-page')" data-page="home">首页</span>
+                <span class="nav-link" onclick="showPage('my-space-page')" data-page="my-space" id="my-space-link">我的空间</span>
+                <span class="nav-link" onclick="showPage('prompt-detail-page')" data-page="prompt-detail">提示词详情</span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 模拟用户菜单</h3>
+            <div class="user-menu" id="user-menu">
+                <div class="user-info">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=test" alt="头像" class="user-avatar" id="user-avatar">
+                    <span class="username" id="username">测试用户</span>
+                </div>
+                <button class="test-button" id="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    登出
+                </button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 测试操作</h3>
+            <button class="test-button" onclick="simulateLogin()">模拟登录</button>
+            <button class="test-button" onclick="goToMySpace()">进入我的空间</button>
+            <button class="test-button" onclick="goToPromptDetail()">查看提示词详情</button>
+            <button class="test-button" onclick="testLogout()">测试登出</button>
+            <button class="test-button" onclick="updateStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>5. 测试步骤</h3>
+            <h4>场景1：我的空间页面登出</h4>
+            <ol>
+                <li>点击"模拟登录" - 应该显示用户菜单和我的空间链接</li>
+                <li>点击"进入我的空间" - 应该切换到我的空间页面</li>
+                <li>点击"测试登出" - 应该自动返回首页并隐藏用户相关UI</li>
+                <li>检查状态信息确认页面切换成功</li>
+            </ol>
+
+            <h4>场景2：提示词详情页面登出</h4>
+            <ol>
+                <li>点击"模拟登录" - 应该显示用户菜单和我的空间链接</li>
+                <li>点击"查看提示词详情" - 应该切换到提示词详情页面</li>
+                <li>点击"测试登出" - 应该自动返回首页并隐藏用户相关UI</li>
+                <li>检查状态信息确认页面切换成功</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- 模拟页面 -->
+    <div class="test-container">
+        <h3>页面状态模拟</h3>
+        
+        <div id="home-page" class="page active">
+            <h4>🏠 首页</h4>
+            <p>这是首页内容</p>
+            <p>当前页面ID: home-page</p>
+        </div>
+
+        <div id="my-space-page" class="page">
+            <h4>👤 我的空间</h4>
+            <p>这是我的空间页面内容</p>
+            <p>当前页面ID: my-space-page</p>
+            <p><strong>测试场景：在此页面登出应该自动返回首页</strong></p>
+        </div>
+
+        <div id="prompt-detail-page" class="page">
+            <h4>📝 提示词详情</h4>
+            <p>这是提示词详情页面内容</p>
+            <p>当前页面ID: prompt-detail-page</p>
+            <p><strong>测试场景：从我的空间进入此页面后登出，应该自动返回首页</strong></p>
+            <p><em>注意：这个页面通常是从"我的空间"页面跳转过来的</em></p>
+        </div>
+    </div>
+
+    <script>
+        let isLoggedIn = false;
+
+        function updateStatus() {
+            const statusDiv = document.getElementById('status-info');
+            const currentPage = document.querySelector('.page.active');
+            const userMenu = document.getElementById('user-menu');
+            const mySpaceLink = document.getElementById('my-space-link');
+            
+            let status = `登录状态: ${isLoggedIn ? '✅ 已登录' : '❌ 未登录'}\n`;
+            status += `当前页面: ${currentPage ? currentPage.id : '无'}\n`;
+            status += `用户菜单显示: ${userMenu.style.display !== 'none' ? '✅ 显示' : '❌ 隐藏'}\n`;
+            status += `我的空间链接显示: ${mySpaceLink.style.display !== 'none' ? '✅ 显示' : '❌ 隐藏'}\n`;
+            
+            // 检查authManager状态
+            if (typeof authManager !== 'undefined') {
+                status += `authManager可用: ✅\n`;
+                status += `authManager.isAuthenticated(): ${authManager.isAuthenticated()}\n`;
+                const currentUser = authManager.getCurrentUser();
+                status += `当前用户: ${currentUser ? currentUser.username || currentUser.email : '无'}\n`;
+            } else {
+                status += `authManager可用: ❌\n`;
+            }
+            
+            statusDiv.textContent = status;
+        }
+
+        function showPage(pageId) {
+            console.log(`切换到页面: ${pageId}`);
+            
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            const targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+            
+            // 更新导航状态
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            const activeLink = document.querySelector(`[data-page="${pageId.replace('-page', '')}"]`);
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+            
+            updateStatus();
+        }
+
+        function simulateLogin() {
+            console.log('模拟登录');
+            isLoggedIn = true;
+            
+            // 显示用户菜单和我的空间链接
+            document.getElementById('user-menu').style.display = 'flex';
+            document.getElementById('my-space-link').style.display = 'inline-block';
+            
+            updateStatus();
+        }
+
+        function goToMySpace() {
+            if (!isLoggedIn) {
+                alert('请先模拟登录');
+                return;
+            }
+
+            console.log('进入我的空间');
+            showPage('my-space-page');
+        }
+
+        function goToPromptDetail() {
+            if (!isLoggedIn) {
+                alert('请先模拟登录');
+                return;
+            }
+
+            console.log('查看提示词详情（模拟从我的空间跳转）');
+            showPage('prompt-detail-page');
+        }
+
+        function testLogout() {
+            console.log('测试登出功能');
+            
+            if (typeof authManager !== 'undefined') {
+                // 使用真实的authManager
+                authManager.handleUserSignOut(true);
+            } else {
+                // 模拟登出逻辑
+                console.log('使用模拟登出逻辑');
+
+                // 检查当前页面
+                const currentPage = document.querySelector('.page.active');
+                const mySpaceRelatedPages = ['my-space-page', 'prompt-detail-page'];
+
+                if (currentPage && mySpaceRelatedPages.includes(currentPage.id)) {
+                    console.log(`检测到在${currentPage.id}页面，返回首页`);
+                    showPage('home-page');
+                }
+
+                // 隐藏用户相关UI
+                document.getElementById('user-menu').style.display = 'none';
+                document.getElementById('my-space-link').style.display = 'none';
+
+                isLoggedIn = false;
+            }
+            
+            updateStatus();
+        }
+
+        // 绑定真实的登出按钮
+        document.addEventListener('DOMContentLoaded', () => {
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', testLogout);
+            }
+            
+            // 初始状态更新
+            updateStatus();
+            
+            // 监听认证状态变化
+            if (typeof authManager !== 'undefined' && typeof authManager.onAuthStateChange === 'function') {
+                authManager.onAuthStateChange((event, user) => {
+                    console.log('认证状态变化:', event, user);
+                    isLoggedIn = !!user;
+                    updateStatus();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

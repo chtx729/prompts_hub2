@@ -119,6 +119,9 @@ class UI {
         if (activeLink) {
             activeLink.classList.add('active');
         }
+
+        // 页面切换后滚动到顶部
+        this.scrollToTop();
     }
 
     // 创建提示词卡片
@@ -142,6 +145,12 @@ class UI {
         card.innerHTML = `
             <div class="prompt-card-header">
                 <h3 class="prompt-card-title">${this.escapeHtml(prompt.title)}</h3>
+                ${prompt.orig_auth ? `
+                    <div class="prompt-card-orig-auth">
+                        <i class="fas fa-user-edit"></i>
+                        <span>原作者：${this.escapeHtml(prompt.orig_auth)}</span>
+                    </div>
+                ` : ''}
                 <p class="prompt-card-description">${this.escapeHtml(prompt.description || '')}</p>
                 <div class="prompt-card-meta">
                     <span class="prompt-card-category" style="background-color: ${categoryColor} !important">
@@ -394,4 +403,58 @@ class UI {
             </div>
         `;
     }
+
+    // 显示使用手册
+    static showUserManual() {
+        this.showModal('user-manual-modal');
+    }
+
+    // 显示个人资料编辑
+    static showProfileEdit() {
+        if (!authManager.isAuthenticated()) {
+            this.showNotification('请先登录', 'warning');
+            return;
+        }
+
+        // 获取当前用户信息并填充表单
+        const currentUser = authManager.getCurrentUser();
+        if (currentUser) {
+            document.getElementById('profile-username').value = currentUser.username || '';
+            document.getElementById('profile-bio').value = currentUser.bio || '';
+        }
+
+        this.showModal('profile-edit-modal');
+    }
+
+    // 滚动到页面顶部
+    static scrollToTop() {
+        try {
+            // 多种方式确保滚动到顶部
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+
+            // 如果有主内容区域，也滚动到顶部
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) {
+                mainContent.scrollTop = 0;
+            }
+
+            // 确保所有活动页面容器也滚动到顶部
+            const activePages = document.querySelectorAll('.page.active');
+            activePages.forEach(page => {
+                page.scrollTop = 0;
+            });
+
+            // 延迟再次确保滚动到顶部（处理异步内容加载）
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 50);
+
+            console.log('✅ 页面已滚动到顶部');
+        } catch (error) {
+            console.error('滚动到顶部失败:', error);
+        }
+    }
+
 }

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滚动到顶部功能测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            margin: 2rem auto;
+            max-width: 800px;
+            border-radius: var(--radius-xl);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .page {
+            display: none;
+            min-height: 200vh; /* 确保页面足够长，可以滚动 */
+            padding: 2rem;
+            background: var(--surface-color);
+            margin: 1rem;
+            border-radius: var(--radius-lg);
+        }
+        .page.active {
+            display: block;
+        }
+        .prompt-detail {
+            padding: 2rem;
+            background: white;
+            border-radius: var(--radius-lg);
+            margin: 1rem 0;
+        }
+        .prompt-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--primary-50);
+            border-radius: var(--radius-lg);
+            border-left: 4px solid var(--primary-500);
+        }
+        .content-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--radius-lg);
+        }
+        .scroll-indicator {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-lg);
+            font-size: 0.875rem;
+            z-index: 1000;
+        }
+        .nav-buttons {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            background: white;
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+</head>
+<body>
+    <div class="scroll-indicator" id="scroll-indicator">
+        滚动位置: <span id="scroll-position">0</span>px
+    </div>
+
+    <div class="test-container">
+        <h1>📜 滚动到顶部功能测试</h1>
+        <p>测试提示词详情页面打开时是否正确滚动到标题位置</p>
+        
+        <div>
+            <h3>测试说明</h3>
+            <ul>
+                <li>先滚动到页面底部</li>
+                <li>然后点击"显示提示词详情"按钮</li>
+                <li>检查页面是否自动滚动到顶部显示标题</li>
+            </ul>
+        </div>
+
+        <div>
+            <button class="test-button" onclick="scrollToBottom()">滚动到底部</button>
+            <button class="test-button" onclick="showPromptDetailPage()">显示提示词详情</button>
+            <button class="test-button" onclick="testScrollToTop()">测试滚动到顶部</button>
+            <button class="test-button" onclick="showHomePage()">返回首页</button>
+        </div>
+    </div>
+
+    <!-- 首页 -->
+    <div id="home-page" class="page active">
+        <h2>🏠 首页</h2>
+        <p>这是首页内容</p>
+        
+        <!-- 添加大量内容使页面可滚动 -->
+        <div class="content-section">
+            <h3>内容区域 1</h3>
+            <p>这里是一些内容...</p>
+        </div>
+        
+        <div class="content-section">
+            <h3>内容区域 2</h3>
+            <p>这里是更多内容...</p>
+        </div>
+        
+        <div class="content-section">
+            <h3>内容区域 3</h3>
+            <p>继续添加内容使页面足够长...</p>
+        </div>
+        
+        <div class="content-section">
+            <h3>内容区域 4</h3>
+            <p>更多内容...</p>
+        </div>
+        
+        <div class="content-section">
+            <h3>内容区域 5</h3>
+            <p>页面底部内容</p>
+        </div>
+    </div>
+
+    <!-- 提示词详情页面 -->
+    <div id="prompt-detail-page" class="page">
+        <div id="prompt-detail-content">
+            <div class="prompt-detail">
+                <div class="prompt-detail-header">
+                    <button class="btn btn-outline" onclick="goBack()">
+                        <i class="fas fa-arrow-left"></i>
+                        返回
+                    </button>
+                </div>
+                
+                <div class="prompt-detail-main">
+                    <div class="prompt-detail-content">
+                        <div class="prompt-meta">
+                            <span class="prompt-category" style="background-color: #4f46e5">
+                                <i class="fas fa-tag"></i>
+                                测试分类
+                            </span>
+                            <span class="prompt-date">2024-01-01</span>
+                        </div>
+                        
+                        <h1 class="prompt-title">🎯 这是提示词标题 - 应该在页面顶部显示</h1>
+                        
+                        <p class="prompt-description">这是提示词的描述信息</p>
+                        
+                        <!-- 添加大量内容 -->
+                        <div class="content-section">
+                            <h3>提示词内容</h3>
+                            <p>这里是提示词的详细内容...</p>
+                        </div>
+                        
+                        <div class="content-section">
+                            <h3>使用说明</h3>
+                            <p>这里是使用说明...</p>
+                        </div>
+                        
+                        <div class="content-section">
+                            <h3>示例输出</h3>
+                            <p>这里是示例输出...</p>
+                        </div>
+                        
+                        <div class="content-section">
+                            <h3>相关信息</h3>
+                            <p>这里是相关信息...</p>
+                        </div>
+                        
+                        <div class="content-section">
+                            <h3>页面底部</h3>
+                            <p>这是页面底部的内容</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-buttons">
+        <button class="test-button" onclick="scrollToBottom()">滚动到底部</button>
+        <button class="test-button" onclick="showPromptDetailPage()">查看详情</button>
+        <button class="test-button" onclick="showHomePage()">返回首页</button>
+    </div>
+
+    <script>
+        // 更新滚动位置指示器
+        function updateScrollIndicator() {
+            const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            document.getElementById('scroll-position').textContent = Math.round(scrollPosition);
+        }
+
+        // 滚动到页面底部
+        function scrollToBottom() {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+            console.log('滚动到页面底部');
+        }
+
+        // 显示提示词详情页面
+        function showPromptDetailPage() {
+            console.log('显示提示词详情页面');
+            
+            // 使用UI.showPage方法（会自动滚动到顶部）
+            if (typeof UI !== 'undefined' && typeof UI.showPage === 'function') {
+                UI.showPage('prompt-detail-page');
+            } else {
+                // 备用方案
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.remove('active');
+                });
+                document.getElementById('prompt-detail-page').classList.add('active');
+                
+                // 手动滚动到顶部
+                testScrollToTop();
+            }
+            
+            // 额外的滚动到标题
+            setTimeout(() => {
+                const titleElement = document.querySelector('.prompt-title');
+                if (titleElement) {
+                    titleElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                    console.log('✅ 滚动到提示词标题');
+                }
+            }, 200);
+        }
+
+        // 显示首页
+        function showHomePage() {
+            console.log('显示首页');
+            
+            if (typeof UI !== 'undefined' && typeof UI.showPage === 'function') {
+                UI.showPage('home-page');
+            } else {
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.remove('active');
+                });
+                document.getElementById('home-page').classList.add('active');
+                testScrollToTop();
+            }
+        }
+
+        // 返回上一页
+        function goBack() {
+            showHomePage();
+        }
+
+        // 测试滚动到顶部功能
+        function testScrollToTop() {
+            console.log('测试滚动到顶部');
+            
+            if (typeof UI !== 'undefined' && typeof UI.scrollToTop === 'function') {
+                UI.scrollToTop();
+                console.log('✅ 使用UI.scrollToTop()');
+            } else {
+                // 备用方案
+                window.scrollTo({
+                    top: 0,
+                    left: 0,
+                    behavior: 'smooth'
+                });
+                console.log('✅ 使用备用滚动方法');
+            }
+        }
+
+        // 页面加载完成后绑定事件
+        document.addEventListener('DOMContentLoaded', () => {
+            // 监听滚动事件
+            window.addEventListener('scroll', updateScrollIndicator);
+            updateScrollIndicator();
+            
+            console.log('滚动测试页面初始化完成');
+            console.log('UI对象:', typeof UI);
+            console.log('UI.showPage:', typeof UI?.showPage);
+            console.log('UI.scrollToTop:', typeof UI?.scrollToTop);
+        });
+    </script>
+</body>
+</html>

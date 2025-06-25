@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人资料编辑调试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .debug-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .debug-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .debug-section h3 {
+            margin-top: 0;
+            color: var(--text-primary);
+        }
+        .debug-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .test-button {
+            margin: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--primary-color);
+            background: var(--primary-color);
+            color: white;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .error {
+            color: var(--error-500);
+        }
+        .success {
+            color: var(--success-500);
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔧 个人资料编辑功能调试</h1>
+        
+        <div class="debug-section">
+            <h3>1. 脚本加载状态</h3>
+            <div id="script-status" class="debug-info">检查中...</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>2. 对象可用性检查</h3>
+            <div id="object-status" class="debug-info">检查中...</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>3. 功能测试</h3>
+            <button class="test-button" onclick="testShowModal()">测试显示模态框</button>
+            <button class="test-button" onclick="testShowProfileEdit()">测试显示编辑资料</button>
+            <button class="test-button" onclick="testAuthManager()">测试认证管理器</button>
+            <div id="test-results" class="debug-info">等待测试...</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>4. 模态框HTML检查</h3>
+            <div id="modal-status" class="debug-info">检查中...</div>
+        </div>
+    </div>
+
+    <!-- 个人资料编辑模态框 -->
+    <div class="modal" id="profile-edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> 编辑个人资料</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="profile-username">用户名</label>
+                        <input type="text" id="profile-username" required placeholder="请输入用户名">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profile-bio">个人简介</label>
+                        <textarea id="profile-bio" placeholder="简单介绍一下自己吧..." rows="3" maxlength="200"></textarea>
+                        <small class="form-help">选填，最多200字</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer justify-end">
+                <button type="button" class="btn btn-outline" onclick="hideModal()">
+                    取消
+                </button>
+                <button type="submit" form="profile-edit-form" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    保存修改
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 按正确顺序加载脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+            onload="console.log('✅ Supabase加载成功')"
+            onerror="console.error('❌ Supabase加载失败')"></script>
+    <script src="js/config.js"
+            onload="console.log('✅ Config加载成功')"
+            onerror="console.error('❌ Config加载失败')"></script>
+    <script src="js/auth.js"
+            onload="console.log('✅ Auth加载成功')"
+            onerror="console.error('❌ Auth加载失败')"></script>
+    <script src="js/ui.js"
+            onload="console.log('✅ UI加载成功')"
+            onerror="console.error('❌ UI加载失败')"></script>
+
+    <script>
+        let debugLog = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.push(`[${timestamp}] ${message}`);
+            console.log(message);
+            updateTestResults();
+        }
+
+        function updateTestResults() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.textContent = debugLog.join('\n');
+        }
+
+        function checkScriptStatus() {
+            const scripts = [
+                { name: 'Supabase', check: () => typeof supabase !== 'undefined' },
+                { name: 'Config', check: () => typeof APP_CONFIG !== 'undefined' },
+                { name: 'AuthManager Class', check: () => typeof AuthManager !== 'undefined' },
+                { name: 'UI Class', check: () => typeof UI !== 'undefined' },
+                { name: 'authManager Instance', check: () => typeof authManager !== 'undefined' },
+                { name: 'window.authManager', check: () => typeof window.authManager !== 'undefined' }
+            ];
+
+            let status = '脚本加载状态:\n';
+            scripts.forEach(script => {
+                const loaded = script.check();
+                status += `${script.name}: ${loaded ? '✅ 已加载' : '❌ 未加载'}\n`;
+            });
+
+            // 检查具体的错误
+            status += '\n详细检查:\n';
+            try {
+                status += `window.UI: ${typeof window.UI}\n`;
+                status += `window.AuthManager: ${typeof window.AuthManager}\n`;
+                status += `全局UI: ${typeof UI}\n`;
+                status += `全局AuthManager: ${typeof AuthManager}\n`;
+            } catch (e) {
+                status += `检查过程中出错: ${e.message}\n`;
+            }
+
+            document.getElementById('script-status').textContent = status;
+        }
+
+        function checkObjectStatus() {
+            let status = '对象可用性:\n';
+            
+            // 检查全局对象
+            status += `window.authManager: ${typeof window.authManager}\n`;
+            status += `window.UI: ${typeof window.UI}\n`;
+            status += `UI: ${typeof UI}\n`;
+            status += `authManager: ${typeof authManager}\n`;
+            
+            // 检查方法
+            if (typeof UI !== 'undefined') {
+                status += `UI.showModal: ${typeof UI.showModal}\n`;
+                status += `UI.showProfileEdit: ${typeof UI.showProfileEdit}\n`;
+                status += `UI.hideModal: ${typeof UI.hideModal}\n`;
+            }
+            
+            if (typeof authManager !== 'undefined') {
+                status += `authManager.isAuthenticated: ${typeof authManager.isAuthenticated}\n`;
+                status += `authManager.getCurrentUser: ${typeof authManager.getCurrentUser}\n`;
+            }
+
+            document.getElementById('object-status').textContent = status;
+        }
+
+        function checkModalStatus() {
+            const modal = document.getElementById('profile-edit-modal');
+            const form = document.getElementById('profile-edit-form');
+            const usernameInput = document.getElementById('profile-username');
+            
+            let status = '模态框HTML状态:\n';
+            status += `模态框元素: ${modal ? '✅ 存在' : '❌ 不存在'}\n`;
+            status += `表单元素: ${form ? '✅ 存在' : '❌ 不存在'}\n`;
+            status += `用户名输入框: ${usernameInput ? '✅ 存在' : '❌ 不存在'}\n`;
+            
+            document.getElementById('modal-status').textContent = status;
+        }
+
+        function testShowModal() {
+            log('测试显示模态框...');
+            try {
+                if (typeof UI === 'undefined') {
+                    log('❌ UI对象未定义', 'error');
+                    return;
+                }
+                
+                if (typeof UI.showModal !== 'function') {
+                    log('❌ UI.showModal方法不存在', 'error');
+                    return;
+                }
+                
+                UI.showModal('profile-edit-modal');
+                log('✅ 模态框显示成功', 'success');
+            } catch (error) {
+                log(`❌ 显示模态框失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testShowProfileEdit() {
+            log('测试显示编辑资料...');
+            try {
+                if (typeof UI === 'undefined') {
+                    log('❌ UI对象未定义', 'error');
+                    return;
+                }
+                
+                if (typeof UI.showProfileEdit !== 'function') {
+                    log('❌ UI.showProfileEdit方法不存在', 'error');
+                    return;
+                }
+                
+                UI.showProfileEdit();
+                log('✅ 编辑资料显示成功', 'success');
+            } catch (error) {
+                log(`❌ 显示编辑资料失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testAuthManager() {
+            log('测试认证管理器...');
+            try {
+                if (typeof authManager === 'undefined') {
+                    log('❌ authManager对象未定义', 'error');
+                    return;
+                }
+                
+                const isAuth = authManager.isAuthenticated();
+                const currentUser = authManager.getCurrentUser();
+                
+                log(`认证状态: ${isAuth}`, 'info');
+                log(`当前用户: ${currentUser ? currentUser.username || currentUser.email : '无'}`, 'info');
+                log('✅ 认证管理器测试完成', 'success');
+            } catch (error) {
+                log(`❌ 认证管理器测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function hideModal() {
+            console.log('尝试隐藏模态框');
+            try {
+                if (typeof UI !== 'undefined' && typeof UI.hideModal === 'function') {
+                    UI.hideModal('profile-edit-modal');
+                } else {
+                    const modal = document.getElementById('profile-edit-modal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        console.log('使用备用方法隐藏模态框');
+                    } else {
+                        console.error('找不到模态框元素');
+                    }
+                }
+            } catch (error) {
+                console.error('隐藏模态框失败:', error);
+            }
+        }
+
+        // 手动加载UI类（如果自动加载失败）
+        function manualLoadUI() {
+            if (typeof UI === 'undefined') {
+                console.log('尝试手动定义UI类...');
+
+                // 手动定义一个简化的UI类
+                window.UI = class UI {
+                    static showModal(modalId) {
+                        const modal = document.getElementById(modalId);
+                        if (modal) {
+                            modal.classList.add('active');
+                            console.log(`模态框 ${modalId} 已显示`);
+                        } else {
+                            console.error(`找不到模态框: ${modalId}`);
+                        }
+                    }
+
+                    static hideModal(modalId) {
+                        const modal = document.getElementById(modalId);
+                        if (modal) {
+                            modal.classList.remove('active');
+                            console.log(`模态框 ${modalId} 已隐藏`);
+                        }
+                    }
+
+                    static showProfileEdit() {
+                        console.log('显示个人资料编辑');
+
+                        // 填充当前用户信息
+                        if (typeof authManager !== 'undefined' && authManager.isAuthenticated()) {
+                            const currentUser = authManager.getCurrentUser();
+                            if (currentUser) {
+                                const usernameInput = document.getElementById('profile-username');
+                                const bioInput = document.getElementById('profile-bio');
+
+                                if (usernameInput) usernameInput.value = currentUser.username || '';
+                                if (bioInput) bioInput.value = currentUser.bio || '';
+                            }
+                        }
+
+                        this.showModal('profile-edit-modal');
+                    }
+
+                    static showNotification(message, type = 'info') {
+                        console.log(`通知 [${type}]: ${message}`);
+                        alert(`${type.toUpperCase()}: ${message}`);
+                    }
+                };
+
+                console.log('✅ 手动UI类定义完成');
+                return true;
+            }
+            return false;
+        }
+
+        // 页面加载完成后执行检查
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                // 先尝试手动加载UI
+                const manualLoaded = manualLoadUI();
+                if (manualLoaded) {
+                    log('使用手动定义的UI类');
+                }
+
+                checkScriptStatus();
+                checkObjectStatus();
+                checkModalStatus();
+                log('调试页面初始化完成');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -293,21 +293,24 @@ class APIManager {
                     try {
                         const { data: user } = await supabase
                             .from('users')
-                            .select('username, avatar_url')
+                            .select('username, avatar_url, bio')
                             .eq('user_id', data.user_id)
                             .single();
 
                         if (user) {
                             data.author_name = user.username;
                             data.author_avatar = user.avatar_url;
+                            data.author_bio = user.bio;
                         } else {
                             data.author_name = '匿名用户';
                             data.author_avatar = APP_CONFIG.defaultAvatar;
+                            data.author_bio = null;
                         }
                     } catch (userError) {
                         console.warn('获取用户信息失败:', userError);
                         data.author_name = '匿名用户';
                         data.author_avatar = APP_CONFIG.defaultAvatar;
+                        data.author_bio = null;
                     }
                 }
             }
@@ -805,6 +808,102 @@ class APIManager {
                     { name: '创意', count: 0 }
                 ]
             };
+        }
+    }
+
+    // 获取网站标题
+    async getWebTitle() {
+        const cacheKey = this.getCacheKey('web-title', {});
+        const cached = this.getFromCache(cacheKey, false); // 使用短缓存
+        if (cached) return cached;
+
+        return this.dedupeRequest(cacheKey, async () => {
+            try {
+                // 从web_title表随机获取一条记录
+                // 使用PostgreSQL的随机函数
+                const { data, error } = await supabase
+                    .rpc('get_random_web_title');
+
+                if (error) {
+                    // 如果数据库函数不存在，使用备用方法
+                    console.warn('数据库函数不存在，使用备用方法:', error);
+                    return this.getWebTitleFallback();
+                }
+
+                // 数据库函数返回的是数组，需要取第一个元素
+                const titleData = data && data.length > 0 ? data[0] : null;
+
+                if (!titleData) {
+                    console.warn('数据库函数返回空结果，使用备用方法');
+                    return this.getWebTitleFallback();
+                }
+
+                const result = {
+                    success: true,
+                    data: titleData
+                };
+
+                // 使用较短的缓存时间，让标题有一定的变化频率
+                this.setCache(cacheKey, result, false); // 5分钟缓存
+                return result;
+
+            } catch (error) {
+                console.error('获取网站标题失败:', error);
+                return this.getWebTitleFallback();
+            }
+        });
+    }
+
+    // 网站标题备用方法
+    async getWebTitleFallback() {
+        const cacheKey = this.getCacheKey('web-title-fallback', {});
+
+        try {
+            // 获取所有启用的标题
+            const { data, error } = await supabase
+                .from('web_title')
+                .select('main_title, sub_title')
+                .eq('is_active', true);
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                // 如果没有数据，返回默认值
+                const defaultResult = {
+                    success: true,
+                    data: {
+                        main_title: '发现最佳AI提示词',
+                        sub_title: '让您的AI更智能、更高效'
+                    }
+                };
+                this.setCache(cacheKey, defaultResult, false);
+                return defaultResult;
+            }
+
+            // 在前端随机选择一条
+            const randomIndex = Math.floor(Math.random() * data.length);
+            const selectedTitle = data[randomIndex];
+
+            const result = {
+                success: true,
+                data: selectedTitle
+            };
+
+            // 使用短缓存
+            this.setCache(cacheKey, result, false);
+            return result;
+
+        } catch (error) {
+            console.error('备用方法也失败:', error);
+            const defaultResult = {
+                success: true,
+                data: {
+                    main_title: '发现最佳AI提示词',
+                    sub_title: '让您的AI更智能、更高效'
+                }
+            };
+            this.setCache(cacheKey, defaultResult, false);
+            return defaultResult;
         }
     }
 }

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模态框按钮布局测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            text-align: center;
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 1rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 模态框按钮布局测试</h1>
+        <p>测试个人资料编辑模态框的按钮是否正确右对齐</p>
+        
+        <button class="test-button" onclick="showModal()">
+            <i class="fas fa-user-edit"></i>
+            显示编辑资料模态框
+        </button>
+        
+        <div style="margin-top: 2rem;">
+            <h3>预期效果：</h3>
+            <p>✅ 按钮应该在模态框底部右侧对齐</p>
+            <p>✅ "取消"按钮在左，"保存修改"按钮在右</p>
+        </div>
+    </div>
+
+    <!-- 个人资料编辑模态框 -->
+    <div class="modal" id="profile-edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-edit"></i> 编辑个人资料</h3>
+                <button class="modal-close" onclick="hideModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profile-edit-form">
+                    <div class="form-group">
+                        <label for="profile-username">用户名</label>
+                        <input type="text" id="profile-username" required placeholder="请输入用户名" value="测试用户">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="profile-bio">个人简介</label>
+                        <textarea id="profile-bio" placeholder="简单介绍一下自己吧..." rows="3" maxlength="200">这是一个测试的个人简介</textarea>
+                        <small class="form-help">选填，最多200字</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer justify-end">
+                <button type="button" class="btn btn-outline" onclick="hideModal()">
+                    取消
+                </button>
+                <button type="submit" form="profile-edit-form" class="btn btn-primary" onclick="saveProfile()">
+                    <i class="fas fa-save"></i>
+                    保存修改
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showModal() {
+            console.log('显示模态框');
+            const modal = document.getElementById('profile-edit-modal');
+            if (modal) {
+                modal.classList.add('active');
+                console.log('✅ 模态框已显示');
+            } else {
+                console.error('❌ 找不到模态框元素');
+            }
+        }
+
+        function hideModal() {
+            console.log('隐藏模态框');
+            const modal = document.getElementById('profile-edit-modal');
+            if (modal) {
+                modal.classList.remove('active');
+                console.log('✅ 模态框已隐藏');
+            } else {
+                console.error('❌ 找不到模态框元素');
+            }
+        }
+
+        function saveProfile() {
+            console.log('保存个人资料');
+            const username = document.getElementById('profile-username').value;
+            const bio = document.getElementById('profile-bio').value;
+            
+            console.log('用户名:', username);
+            console.log('个人简介:', bio);
+            
+            alert(`保存成功！\n用户名: ${username}\n个人简介: ${bio}`);
+            hideModal();
+        }
+
+        // 点击背景关闭模态框
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('profile-edit-modal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        hideModal();
+                    }
+                });
+            }
+        });
+
+        // ESC键关闭模态框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideModal();
+            }
+        });
+    </script>
+</body>
+</html>

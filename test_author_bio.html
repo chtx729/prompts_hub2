@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作者个人简介显示测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .demo-detail {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .bio-input {
+            width: 100%;
+            min-height: 80px;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            font-family: inherit;
+            resize: vertical;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>👤 作者个人简介显示测试</h1>
+        <p>测试提示词详情页面中作者个人简介的显示效果</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>1. 个人简介内容设置</h3>
+            <p>设置不同的个人简介内容，测试显示效果</p>
+            
+            <div class="form-group">
+                <label for="author-name">作者姓名</label>
+                <input type="text" id="author-name" value="张三" placeholder="输入作者姓名">
+            </div>
+            
+            <div class="form-group">
+                <label for="author-bio">个人简介</label>
+                <textarea id="author-bio" class="bio-input" placeholder="输入个人简介内容...">我是一名AI提示词工程师，专注于创作高质量的AI提示词。拥有5年的人工智能应用经验，擅长自然语言处理和机器学习。</textarea>
+            </div>
+            
+            <div>
+                <button class="test-button" onclick="generatePreview()">生成预览</button>
+                <button class="test-button" onclick="testEmptyBio()">测试空简介</button>
+                <button class="test-button" onclick="testLongBio()">测试长简介</button>
+                <button class="test-button" onclick="testShortBio()">测试短简介</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 提示词详情预览</h3>
+            <p>预览个人简介在提示词详情页面中的显示效果</p>
+            <div id="detail-preview"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 测试场景说明</h3>
+            <div style="background: var(--info-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--info-200);">
+                <h4>测试要点：</h4>
+                <ul>
+                    <li><strong>有简介时</strong>：在作者头像和姓名下方显示个人简介</li>
+                    <li><strong>无简介时</strong>：不显示简介区域，保持布局简洁</li>
+                    <li><strong>长简介</strong>：自动换行，保持良好的可读性</li>
+                    <li><strong>样式一致</strong>：与整体设计风格保持一致</li>
+                </ul>
+                
+                <h4>显示位置：</h4>
+                <p>个人简介显示在提示词详情页面右侧边栏的作者卡片中，位于作者姓名下方。</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generatePreview() {
+            const authorName = document.getElementById('author-name').value || '匿名用户';
+            const authorBio = document.getElementById('author-bio').value;
+            
+            const previewHtml = createDetailPreview(authorName, authorBio);
+            document.getElementById('detail-preview').innerHTML = previewHtml;
+            
+            console.log('预览已生成');
+            console.log('作者:', authorName);
+            console.log('简介:', authorBio || '(无)');
+        }
+
+        function testEmptyBio() {
+            document.getElementById('author-name').value = '李四';
+            document.getElementById('author-bio').value = '';
+            generatePreview();
+        }
+
+        function testLongBio() {
+            document.getElementById('author-name').value = '王五';
+            document.getElementById('author-bio').value = '我是一名资深的AI研究员和提示词工程师，在人工智能领域有超过10年的研究和实践经验。专注于自然语言处理、机器学习和深度学习技术的应用。曾在多家知名科技公司担任AI算法工程师，参与过多个大型AI项目的开发。热衷于分享AI知识，帮助更多人了解和使用AI技术。擅长创作各种类型的AI提示词，包括文本生成、图像生成、代码生成等多个领域。';
+            generatePreview();
+        }
+
+        function testShortBio() {
+            document.getElementById('author-name').value = '赵六';
+            document.getElementById('author-bio').value = 'AI爱好者，喜欢创作提示词。';
+            generatePreview();
+        }
+
+        function createDetailPreview(authorName, authorBio) {
+            const authorAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + encodeURIComponent(authorName);
+            
+            return `
+                <div class="demo-detail">
+                    <div class="prompt-detail">
+                        <div class="prompt-detail-main" style="display: flex; gap: 2rem;">
+                            <div style="flex: 1;">
+                                <div class="prompt-detail-content">
+                                    <div class="prompt-meta">
+                                        <span class="prompt-category" style="background-color: #4f46e5">
+                                            <i class="fas fa-tag"></i>
+                                            示例分类
+                                        </span>
+                                        <span class="prompt-date">${new Date().toLocaleDateString()}</span>
+                                    </div>
+                                    
+                                    <h1 class="prompt-title">示例提示词标题</h1>
+                                    
+                                    <p class="prompt-description">这是一个示例提示词的描述信息，用于展示个人简介的显示效果。</p>
+                                    
+                                    <div class="prompt-stats-detail">
+                                        <div class="stat-item">
+                                            <i class="fas fa-eye"></i>
+                                            <span>浏览 123</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <i class="fas fa-copy"></i>
+                                            <span>使用 45</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <i class="fas fa-heart"></i>
+                                            <span>点赞 12</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="prompt-detail-sidebar" style="width: 300px;">
+                                <div class="author-card">
+                                    <img src="${authorAvatar}" alt="${escapeHtml(authorName)}" class="author-avatar">
+                                    <div class="author-info">
+                                        <h4 class="author-name">${escapeHtml(authorName)}</h4>
+                                        ${authorBio ? `<p class="author-bio">${escapeHtml(authorBio)}</p>` : ''}
+                                    </div>
+                                </div>
+                                
+                                <div class="prompt-actions">
+                                    <button class="btn btn-primary btn-full">
+                                        <i class="fas fa-heart"></i>
+                                        点赞
+                                    </button>
+                                    <button class="btn btn-outline btn-full">
+                                        <i class="fas fa-star"></i>
+                                        收藏
+                                    </button>
+                                    <button class="btn btn-primary btn-full">
+                                        <i class="fas fa-copy"></i>
+                                        复制提示词
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载完成后生成初始预览
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('作者个人简介测试页面加载完成');
+            generatePreview();
+        });
+    </script>
+</body>
+</html>

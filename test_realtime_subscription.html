@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实时订阅测试 - AI提示词宝库</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+            background: var(--background-color);
+        }
+        .test-section {
+            margin: 2rem 0;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            background: var(--surface-color);
+        }
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .status-connected {
+            background: var(--success-50);
+            color: var(--success-600);
+            border: 1px solid var(--success-200);
+        }
+        .status-disconnected {
+            background: var(--error-50);
+            color: var(--error-600);
+            border: 1px solid var(--error-200);
+        }
+        .status-connecting {
+            background: var(--warning-50);
+            color: var(--warning-600);
+            border: 1px solid var(--warning-200);
+        }
+        .log-container {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .log-entry {
+            margin-bottom: var(--space-1);
+        }
+        .log-timestamp {
+            color: var(--gray-400);
+        }
+        .log-info { color: var(--blue-400); }
+        .log-success { color: var(--success-400); }
+        .log-warning { color: var(--warning-400); }
+        .log-error { color: var(--error-400); }
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: var(--space-2);
+            transition: var(--transition-fast);
+        }
+        button:hover { 
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/performance.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/prompts.js"></script>
+</head>
+<body>
+    <h1>📡 实时订阅功能测试</h1>
+    <p>此工具用于测试prompts表的实时订阅功能。</p>
+
+    <div class="test-section">
+        <h3>📊 订阅状态</h3>
+        <div>
+            <strong>连接状态：</strong>
+            <span class="status-indicator status-connecting" id="connection-status">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                检查中...
+            </span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>PromptsManager：</strong>
+            <span id="manager-status">未初始化</span>
+        </div>
+        <div style="margin-top: var(--space-2);">
+            <strong>当前提示词数量：</strong>
+            <span id="prompts-count">0</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎛️ 控制面板</h3>
+        <button onclick="checkSupabase()" id="check-btn">检查Supabase</button>
+        <button onclick="initializeManager()" id="init-btn">初始化PromptsManager</button>
+        <button onclick="testSubscription()" id="test-btn">测试订阅</button>
+        <button onclick="simulateUpdate()" id="simulate-btn">模拟数据更新</button>
+        <button onclick="clearLogs()" id="clear-btn">清空日志</button>
+        <button onclick="refreshStatus()" id="refresh-btn">刷新状态</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 实时日志</h3>
+        <div class="log-container" id="log-container">
+            <div class="log-entry">
+                <span class="log-timestamp">[等待初始化]</span>
+                <span class="log-info">准备开始实时订阅测试...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 测试说明</h3>
+        <ol>
+            <li><strong>检查Supabase</strong>：点击"检查Supabase"按钮验证配置</li>
+            <li><strong>初始化管理器</strong>：点击"初始化PromptsManager"按钮</li>
+            <li><strong>检查订阅状态</strong>：观察连接状态指示器</li>
+            <li><strong>监控日志</strong>：查看实时日志中的订阅事件</li>
+            <li><strong>测试更新</strong>：在另一个窗口修改prompts表数据</li>
+            <li><strong>验证响应</strong>：确认页面收到实时更新通知</li>
+        </ol>
+    </div>
+
+    <script>
+        let logContainer;
+        let connectionStatus;
+        let managerStatus;
+        let promptsCount;
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            logContainer = document.getElementById('log-container');
+            connectionStatus = document.getElementById('connection-status');
+            managerStatus = document.getElementById('manager-status');
+            promptsCount = document.getElementById('prompts-count');
+
+            // 拦截console.log来显示在页面上
+            interceptConsoleLog();
+            
+            // 定期更新状态
+            setInterval(refreshStatus, 3000);
+            
+            addLog('info', '页面加载完成，准备测试实时订阅功能');
+        });
+
+        function addLog(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-${type}">${message}</span>
+            `;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLogs() {
+            logContainer.innerHTML = '';
+            addLog('info', '日志已清空');
+        }
+
+        function interceptConsoleLog() {
+            const originalLog = console.log;
+            const originalError = console.error;
+            const originalWarn = console.warn;
+
+            console.log = function(...args) {
+                originalLog.apply(console, args);
+                if (args[0] && typeof args[0] === 'string') {
+                    if (args[0].includes('实时订阅') || args[0].includes('📡') || args[0].includes('✅') || args[0].includes('❌')) {
+                        addLog('info', args.join(' '));
+                    }
+                }
+            };
+
+            console.error = function(...args) {
+                originalError.apply(console, args);
+                if (args[0] && typeof args[0] === 'string') {
+                    addLog('error', args.join(' '));
+                }
+            };
+
+            console.warn = function(...args) {
+                originalWarn.apply(console, args);
+                if (args[0] && typeof args[0] === 'string') {
+                    addLog('warning', args.join(' '));
+                }
+            };
+        }
+
+        function checkSupabase() {
+            addLog('info', '检查Supabase配置...');
+
+            // 检查Supabase是否加载
+            if (!window.supabase) {
+                addLog('error', 'Supabase未加载');
+                return;
+            }
+
+            addLog('success', 'Supabase已加载');
+
+            // 检查配置
+            if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
+                addLog('error', 'Supabase配置缺失');
+                return;
+            }
+
+            addLog('success', `Supabase URL: ${window.SUPABASE_URL}`);
+            addLog('info', 'Supabase配置正常');
+
+            // 测试连接
+            supabase.from('prompts').select('count', { count: 'exact', head: true })
+                .then(({ error, count }) => {
+                    if (error) {
+                        addLog('error', `Supabase连接测试失败: ${error.message}`);
+                    } else {
+                        addLog('success', `Supabase连接正常，prompts表有 ${count} 条记录`);
+                    }
+                })
+                .catch(err => {
+                    addLog('error', `连接测试异常: ${err.message}`);
+                });
+        }
+
+        async function initializeManager() {
+            const btn = document.getElementById('init-btn');
+            btn.disabled = true;
+            btn.textContent = '初始化中...';
+
+            try {
+                addLog('info', '开始初始化PromptsManager...');
+                
+                // 创建PromptsManager实例
+                if (!window.promptsManager) {
+                    window.promptsManager = new PromptsManager();
+                }
+
+                // 初始化
+                await window.promptsManager.init();
+                
+                addLog('success', 'PromptsManager初始化完成');
+                refreshStatus();
+                
+            } catch (error) {
+                addLog('error', `初始化失败: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '初始化PromptsManager';
+            }
+        }
+
+        function testSubscription() {
+            addLog('info', '测试订阅功能...');
+            
+            if (!window.promptsManager) {
+                addLog('error', 'PromptsManager未初始化');
+                return;
+            }
+
+            if (!window.promptsManager.subscription) {
+                addLog('error', '订阅未建立');
+                return;
+            }
+
+            addLog('success', '订阅功能正常，等待数据变化...');
+            addLog('info', '请在另一个窗口修改prompts表数据来测试实时更新');
+        }
+
+        function simulateUpdate() {
+            addLog('info', '模拟数据更新...');
+            
+            // 模拟收到实时更新
+            const mockPayload = {
+                eventType: 'INSERT',
+                new: {
+                    prompt_id: 999,
+                    title: '测试提示词',
+                    status: 'published',
+                    is_public: true,
+                    created_at: new Date().toISOString()
+                }
+            };
+
+            if (window.promptsManager && window.promptsManager.handleRealtimeUpdate) {
+                window.promptsManager.handleRealtimeUpdate(mockPayload);
+                addLog('success', '模拟更新已发送');
+            } else {
+                addLog('error', 'PromptsManager未准备好');
+            }
+        }
+
+        function refreshStatus() {
+            // 检查Supabase
+            if (!window.supabase) {
+                addLog('error', 'Supabase未初始化');
+                connectionStatus.className = 'status-indicator status-disconnected';
+                connectionStatus.innerHTML = '<i class="fas fa-times-circle"></i> Supabase未初始化';
+                return;
+            }
+
+            // 更新连接状态
+            if (window.promptsManager && window.promptsManager.subscription) {
+                // 检查订阅状态
+                const subscription = window.promptsManager.subscription;
+                if (subscription.state === 'joined') {
+                    connectionStatus.className = 'status-indicator status-connected';
+                    connectionStatus.innerHTML = '<i class="fas fa-check-circle"></i> 已连接';
+                } else {
+                    connectionStatus.className = 'status-indicator status-connecting';
+                    connectionStatus.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> 连接中...';
+                }
+            } else if (window.promptsManager) {
+                connectionStatus.className = 'status-indicator status-disconnected';
+                connectionStatus.innerHTML = '<i class="fas fa-times-circle"></i> 订阅未建立';
+            } else {
+                connectionStatus.className = 'status-indicator status-disconnected';
+                connectionStatus.innerHTML = '<i class="fas fa-times-circle"></i> 管理器未初始化';
+            }
+
+            // 更新管理器状态
+            if (window.promptsManager) {
+                managerStatus.textContent = '已初始化';
+                managerStatus.style.color = 'var(--success-color)';
+
+                // 更新提示词数量
+                if (window.promptsManager.currentPrompts) {
+                    promptsCount.textContent = window.promptsManager.currentPrompts.length;
+                }
+            } else {
+                managerStatus.textContent = '未初始化';
+                managerStatus.style.color = 'var(--error-color)';
+            }
+        }
+
+        // 监听页面卸载
+        window.addEventListener('beforeunload', () => {
+            if (window.promptsManager) {
+                window.promptsManager.cleanup();
+                addLog('info', '页面卸载，清理订阅资源');
+            }
+        });
+    </script>
+</body>
+</html>

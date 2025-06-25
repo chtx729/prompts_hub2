@@ -132,12 +132,71 @@ class AuthManager {
     // 处理用户登出
     handleUserSignOut(showNotification = true) {
         this.currentUser = null;
+
+        // 检查当前是否在"我的空间"相关页面，如果是则返回首页
+        const currentPage = document.querySelector('.page.active');
+        const mySpaceRelatedPages = ['my-space-page', 'prompt-detail-page'];
+
+        if (currentPage && mySpaceRelatedPages.includes(currentPage.id)) {
+            console.log(`检测到在${currentPage.id}页面，登出后返回首页`);
+            // 关闭所有模态框
+            this.closeAllModals();
+            // 返回首页
+            if (typeof UI !== 'undefined' && typeof UI.showPage === 'function') {
+                UI.showPage('home-page');
+            } else {
+                // 备用方案：直接操作DOM
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.remove('active');
+                });
+                const homePage = document.getElementById('home-page');
+                if (homePage) {
+                    homePage.classList.add('active');
+                }
+            }
+        }
+
         this.updateUI();
         this.notifyAuthCallbacks('signOut', null);
 
         // 只有在明确指定显示通知时才显示
         if (showNotification) {
             UI.showNotification('已登出', 'success');
+        }
+    }
+
+    // 关闭所有模态框
+    closeAllModals() {
+        try {
+            // 关闭所有活动的模态框
+            const activeModals = document.querySelectorAll('.modal.active');
+            activeModals.forEach(modal => {
+                modal.classList.remove('active');
+                console.log(`关闭模态框: ${modal.id}`);
+            });
+
+            // 如果UI类可用，也尝试使用UI的方法
+            if (typeof UI !== 'undefined' && typeof UI.hideModal === 'function') {
+                // 常见的模态框ID列表（包括我的空间相关的模态框）
+                const commonModals = [
+                    'prompt-modal',           // 我的空间创建/编辑提示词模态框
+                    'prompt-detail-modal',    // 提示词详情模态框（如果存在）
+                    'profile-edit-modal',     // 个人资料编辑模态框
+                    'login-modal',            // 登录模态框
+                    'register-modal',         // 注册模态框
+                    'user-manual-modal'       // 使用手册模态框
+                ];
+
+                commonModals.forEach(modalId => {
+                    const modal = document.getElementById(modalId);
+                    if (modal && modal.classList.contains('active')) {
+                        UI.hideModal(modalId);
+                        console.log(`通过UI.hideModal关闭模态框: ${modalId}`);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('关闭模态框时出错:', error);
         }
     }
 
@@ -150,10 +209,10 @@ class AuthManager {
 
         if (this.currentUser) {
             // 已登录状态
-            loginBtn.style.display = 'none';
-            registerBtn.style.display = 'none';
-            userMenu.style.display = 'flex';
-            mySpaceLink.style.display = 'flex';
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (registerBtn) registerBtn.style.display = 'none';
+            if (userMenu) userMenu.style.display = 'flex';
+            if (mySpaceLink) mySpaceLink.style.display = 'flex';
 
             // 更新用户信息
             const userAvatar = document.getElementById('user-avatar');
@@ -175,10 +234,10 @@ class AuthManager {
             if (username) username.textContent = this.currentUser.username;
         } else {
             // 未登录状态
-            loginBtn.style.display = 'inline-flex';
-            registerBtn.style.display = 'inline-flex';
-            userMenu.style.display = 'none';
-            mySpaceLink.style.display = 'none';
+            if (loginBtn) loginBtn.style.display = 'inline-flex';
+            if (registerBtn) registerBtn.style.display = 'inline-flex';
+            if (userMenu) userMenu.style.display = 'none';
+            if (mySpaceLink) mySpaceLink.style.display = 'none';
         }
     }
 
@@ -200,7 +259,7 @@ class AuthManager {
     }
 
     // 用户注册
-    async signUp(email, password, username) {
+    async signUp(email, password, username, bio = '') {
         try {
             const { data, error } = await supabase.auth.signUp({
                 email,
@@ -214,20 +273,31 @@ class AuthManager {
                 // 等待一下让触发器创建用户记录
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
+                // 准备更新的数据
+                const updateData = { username };
+                if (bio && bio.trim()) {
+                    updateData.bio = bio.trim();
+                }
+
                 const { error: profileError } = await supabase
                     .from('users')
-                    .update({ username })
+                    .update(updateData)
                     .eq('user_id', data.user.id);
 
                 if (profileError) {
-                    console.warn('更新用户名失败:', profileError);
+                    console.warn('更新用户资料失败:', profileError);
                     // 如果更新失败，可能是用户记录还没创建，尝试插入
+                    const insertData = {
+                        user_id: data.user.id,
+                        username: username
+                    };
+                    if (bio && bio.trim()) {
+                        insertData.bio = bio.trim();
+                    }
+
                     const { error: insertError } = await supabase
                         .from('users')
-                        .insert([{
-                            user_id: data.user.id,
-                            username: username
-                        }]);
+                        .insert([insertData]);
 
                     if (insertError) {
                         console.warn('插入用户记录失败:', insertError);
@@ -238,6 +308,47 @@ class AuthManager {
             return { success: true, data };
         } catch (error) {
             console.error('注册失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 更新用户资料
+    async updateProfile(profileData) {
+        try {
+            if (!this.currentUser) {
+                throw new Error('用户未登录');
+            }
+
+            const { username, bio } = profileData;
+
+            // 准备更新数据
+            const updateData = {};
+            if (username && username.trim()) {
+                updateData.username = username.trim();
+            }
+            if (bio !== undefined) {
+                updateData.bio = bio.trim() || null;
+            }
+
+            // 更新数据库中的用户信息
+            const { data, error } = await supabase
+                .from('users')
+                .update(updateData)
+                .eq('user_id', this.currentUser.id)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // 更新本地用户信息
+            if (data) {
+                this.currentUser = { ...this.currentUser, ...data };
+                this.updateUI();
+            }
+
+            return { success: true, data };
+        } catch (error) {
+            console.error('更新用户资料失败:', error);
             return { success: false, error: error.message };
         }
     }
@@ -364,8 +475,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
             const username = document.getElementById('register-username').value;
+            const bio = document.getElementById('register-bio').value;
 
-            const result = await authManager.signUp(email, password, username);
+            // 验证个人简介长度
+            if (bio && bio.length > 200) {
+                UI.showNotification('个人简介不能超过200字符', 'error');
+                return;
+            }
+
+            const result = await authManager.signUp(email, password, username, bio);
             
             if (result.success) {
                 UI.hideModal('register-modal');
@@ -373,6 +491,119 @@ document.addEventListener('DOMContentLoaded', () => {
                 UI.showNotification('注册成功，请检查邮箱验证链接', 'success');
             } else {
                 UI.showNotification(result.error, 'error');
+            }
+        });
+    }
+
+    // 个人简介字符计数
+    const bioTextarea = document.getElementById('register-bio');
+    if (bioTextarea) {
+        const helpText = bioTextarea.parentNode.querySelector('.form-help');
+
+        bioTextarea.addEventListener('input', () => {
+            const currentLength = bioTextarea.value.length;
+            const maxLength = 200;
+            const remaining = maxLength - currentLength;
+
+            if (helpText) {
+                if (remaining >= 0) {
+                    helpText.textContent = `选填，还可输入${remaining}字`;
+                    helpText.style.color = 'var(--text-secondary)';
+                } else {
+                    helpText.textContent = `超出${Math.abs(remaining)}字，请删减内容`;
+                    helpText.style.color = 'var(--error-500)';
+                }
+            }
+
+            // 添加错误样式
+            const formGroup = bioTextarea.parentNode;
+            if (remaining < 0) {
+                formGroup.classList.add('error');
+            } else {
+                formGroup.classList.remove('error');
+            }
+        });
+    }
+
+    // 个人资料编辑表单
+    const profileEditForm = document.getElementById('profile-edit-form');
+    if (profileEditForm) {
+        profileEditForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('profile-username').value;
+            const bio = document.getElementById('profile-bio').value;
+
+            // 验证个人简介长度
+            if (bio && bio.length > 200) {
+                UI.showNotification('个人简介不能超过200字符', 'error');
+                return;
+            }
+
+            const result = await authManager.updateProfile({
+                username,
+                bio
+            });
+
+            if (result.success) {
+                UI.hideModal('profile-edit-modal');
+                UI.showNotification('个人资料更新成功', 'success');
+            } else {
+                UI.showNotification(result.error || '更新失败', 'error');
+            }
+        });
+    }
+
+    // 个人资料编辑页面的个人简介字符计数
+    const profileBioTextarea = document.getElementById('profile-bio');
+    if (profileBioTextarea) {
+        const helpText = profileBioTextarea.parentNode.querySelector('.form-help');
+
+        profileBioTextarea.addEventListener('input', () => {
+            const currentLength = profileBioTextarea.value.length;
+            const maxLength = 200;
+            const remaining = maxLength - currentLength;
+
+            if (helpText) {
+                if (remaining >= 0) {
+                    helpText.textContent = `选填，还可输入${remaining}字`;
+                    helpText.style.color = 'var(--text-secondary)';
+                } else {
+                    helpText.textContent = `超出${Math.abs(remaining)}字，请删减内容`;
+                    helpText.style.color = 'var(--error-500)';
+                }
+            }
+
+            // 添加错误样式
+            const formGroup = profileBioTextarea.parentNode;
+            if (remaining < 0) {
+                formGroup.classList.add('error');
+            } else {
+                formGroup.classList.remove('error');
+            }
+        });
+    }
+
+
+
+    // 绑定用户信息点击事件
+    const userInfoClickable = document.getElementById('user-info-clickable');
+    if (userInfoClickable) {
+        userInfoClickable.addEventListener('click', () => {
+            console.log('用户信息被点击');
+            try {
+                // 优先使用UI.showProfileEdit，如果不可用则使用全局备用函数
+                if (typeof UI !== 'undefined' && typeof UI.showProfileEdit === 'function') {
+                    UI.showProfileEdit();
+                } else if (typeof showProfileEdit === 'function') {
+                    showProfileEdit();
+                } else {
+                    console.error('所有编辑方法都不可用');
+                    alert('编辑功能暂时不可用，请刷新页面重试');
+                }
+            } catch (error) {
+                console.error('显示编辑资料失败:', error);
+                alert('显示编辑资料失败: ' + error.message);
             }
         });
     }
