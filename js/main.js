@@ -137,6 +137,10 @@ class App {
             // 等待PromptsManager完全初始化
             await window.promptsManager.init();
 
+            // 初始化我的空间管理器
+            window.mySpaceManager = new MySpaceManager();
+            window.mySpaceManager.init();
+
             console.log('所有管理器初始化完成');
         } catch (error) {
             console.error('管理器初始化失败:', error);
@@ -449,4 +453,5 @@ document.head.appendChild(configStyles);
 // 应用启动
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
+    window.app.init();
 });

@@ -151,7 +151,10 @@
         <div id="my-space-page" class="page">
             <div class="container">
                 <div class="page-header">
-                    <h2>我的空间</h2>
+                    <div class="page-title-section">
+                        <h2>我的空间</h2>
+                        <p class="prompt-count-display" id="my-prompt-count">我创建的提示词数量：加载中...</p>
+                    </div>
                     <button class="btn btn-primary" id="create-prompt-btn">
                         <i class="fas fa-plus"></i>
                         创建提示词
@@ -171,6 +174,10 @@
                     
                     <div class="my-prompts-grid" id="my-prompts-container">
                         <!-- 用户的提示词将在这里显示 -->
+                    </div>
+
+                    <div class="pagination" id="my-pagination">
+                        <!-- 我的空间分页控件将在这里动态生成 -->
                     </div>
                 </div>
             </div>

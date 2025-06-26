@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录功能修复验证</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 登录功能修复验证</h1>
+        <p>验证登录后自动跳转和用户切换数据刷新的修复效果</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>修复1：登录后自动跳转到我的空间</h3>
+            <div style="background: var(--info-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--info-200);">
+                <h4 style="color: var(--info-700); margin-top: 0;">✨ 修复内容</h4>
+                <ul style="color: var(--info-600); margin-bottom: 0;">
+                    <li><strong>问题</strong>：用户登录后停留在当前页面，需要手动切换到我的空间</li>
+                    <li><strong>解决</strong>：在handleUserSignIn中添加自动跳转逻辑</li>
+                    <li><strong>效果</strong>：登录成功后自动跳转到我的空间页面</li>
+                </ul>
+            </div>
+            
+            <div id="auto-navigate-status" class="status-info">等待检查...</div>
+            <button class="test-button" onclick="checkAutoNavigate()">检查自动跳转功能</button>
+        </div>
+
+        <div class="test-section">
+            <h3>修复2：用户切换时数据刷新</h3>
+            <div style="background: var(--success-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--success-200);">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 修复内容</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>问题</strong>：用户切换后数据仍然是上一个用户的，需要手动刷新</li>
+                    <li><strong>原因</strong>：API缓存没有在用户切换时清除</li>
+                    <li><strong>解决</strong>：在用户登出和切换时清除相关缓存</li>
+                    <li><strong>效果</strong>：用户切换后自动显示新用户的数据</li>
+                </ul>
+            </div>
+            
+            <div id="cache-clear-status" class="status-info">等待检查...</div>
+            <button class="test-button" onclick="checkCacheClear()">检查缓存清理功能</button>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="updateCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>测试操作</h3>
+            <button class="test-button" onclick="testNavigateToMySpace()">测试跳转到我的空间</button>
+            <button class="test-button" onclick="testCacheClear()">测试缓存清理</button>
+            <button class="test-button" onclick="simulateUserSwitch()">模拟用户切换</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkAutoNavigate() {
+            const statusDiv = document.getElementById('auto-navigate-status');
+            let status = '';
+
+            // 检查认证管理器
+            status += `authManager可用: ${typeof authManager !== 'undefined' ? '✅' : '❌'}\n`;
+            
+            if (typeof authManager !== 'undefined') {
+                // 检查navigateToMySpace方法
+                status += `navigateToMySpace方法: ${typeof authManager.navigateToMySpace === 'function' ? '✅' : '❌'}\n`;
+                
+                // 检查UI.showPage方法
+                status += `UI.showPage方法: ${typeof UI !== 'undefined' && typeof UI.showPage === 'function' ? '✅' : '❌'}\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('检查自动跳转功能完成');
+        }
+
+        function checkCacheClear() {
+            const statusDiv = document.getElementById('cache-clear-status');
+            let status = '';
+
+            // 检查API管理器
+            status += `apiManager可用: ${typeof apiManager !== 'undefined' ? '✅' : '❌'}\n`;
+            
+            if (typeof apiManager !== 'undefined') {
+                // 检查clearCache方法
+                status += `clearCache方法: ${typeof apiManager.clearCache === 'function' ? '✅' : '❌'}\n`;
+                
+                // 检查缓存状态
+                if (typeof apiManager.cache !== 'undefined') {
+                    status += `当前缓存数量: ${apiManager.cache.size}\n`;
+                }
+            }
+
+            // 检查MySpaceManager的缓存清理
+            if (typeof mySpaceManager !== 'undefined') {
+                status += `mySpaceManager可用: ✅\n`;
+                status += `resetPageState方法: ${typeof mySpaceManager.resetPageState === 'function' ? '✅' : '❌'}\n`;
+            } else {
+                status += `mySpaceManager可用: ❌\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('检查缓存清理功能完成');
+        }
+
+        function updateCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            
+            // 认证状态
+            if (typeof authManager !== 'undefined') {
+                const isAuth = authManager.isAuthenticated();
+                const user = authManager.getCurrentUser();
+                status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+                status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+            }
+
+            // 当前页面
+            const currentPage = document.querySelector('.page.active');
+            status += `当前页面: ${currentPage ? currentPage.id : '未知'}\n`;
+
+            // 缓存状态
+            if (typeof apiManager !== 'undefined' && apiManager.cache) {
+                status += `API缓存数量: ${apiManager.cache.size}\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('状态更新完成');
+        }
+
+        function testNavigateToMySpace() {
+            log('=== 测试跳转到我的空间 ===');
+            
+            if (typeof authManager !== 'undefined' && typeof authManager.navigateToMySpace === 'function') {
+                try {
+                    authManager.navigateToMySpace();
+                    log('✅ navigateToMySpace调用成功');
+                } catch (error) {
+                    log(`❌ navigateToMySpace调用失败: ${error.message}`);
+                }
+            } else {
+                log('❌ navigateToMySpace方法不可用');
+            }
+            
+            updateCurrentStatus();
+        }
+
+        function testCacheClear() {
+            log('=== 测试缓存清理 ===');
+            
+            if (typeof apiManager !== 'undefined' && typeof apiManager.clearCache === 'function') {
+                const beforeCount = apiManager.cache ? apiManager.cache.size : 0;
+                log(`清理前缓存数量: ${beforeCount}`);
+                
+                try {
+                    apiManager.clearCache();
+                    const afterCount = apiManager.cache ? apiManager.cache.size : 0;
+                    log(`清理后缓存数量: ${afterCount}`);
+                    log('✅ 缓存清理成功');
+                } catch (error) {
+                    log(`❌ 缓存清理失败: ${error.message}`);
+                }
+            } else {
+                log('❌ clearCache方法不可用');
+            }
+            
+            updateCurrentStatus();
+        }
+
+        function simulateUserSwitch() {
+            log('=== 模拟用户切换 ===');
+            
+            if (typeof mySpaceManager !== 'undefined' && typeof mySpaceManager.resetPageState === 'function') {
+                try {
+                    log('调用resetPageState...');
+                    mySpaceManager.resetPageState();
+                    log('✅ resetPageState调用成功');
+                } catch (error) {
+                    log(`❌ resetPageState调用失败: ${error.message}`);
+                }
+            } else {
+                log('❌ resetPageState方法不可用');
+            }
+            
+            updateCurrentStatus();
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('登录功能修复验证页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            // 等待应用初始化
+            if (typeof App !== 'undefined') {
+                const app = new App();
+                app.init().then(() => {
+                    log('✅ 应用初始化完成');
+                    setTimeout(() => {
+                        checkAutoNavigate();
+                        checkCacheClear();
+                        updateCurrentStatus();
+                    }, 500);
+                }).catch(error => {
+                    log(`❌ 应用初始化失败: ${error.message}`);
+                    setTimeout(() => {
+                        checkAutoNavigate();
+                        checkCacheClear();
+                        updateCurrentStatus();
+                    }, 1000);
+                });
+            } else {
+                log('App类不可用，延迟检查');
+                setTimeout(() => {
+                    checkAutoNavigate();
+                    checkCacheClear();
+                    updateCurrentStatus();
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>

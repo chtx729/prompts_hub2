@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登出功能调试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .debug-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .debug-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .debug-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .debug-button:hover {
+            background: var(--primary-hover);
+        }
+        .debug-button.danger {
+            background: var(--error-color);
+        }
+        .debug-button.danger:hover {
+            background: var(--error-hover);
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>🔍 登出功能调试</h1>
+        <p>调试登出失败的问题</p>
+    </div>
+
+    <div class="debug-container">
+        <div class="debug-section">
+            <h3>当前状态</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="debug-button" onclick="updateStatus()">刷新状态</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>登出测试</h3>
+            <button class="debug-button danger" onclick="testLogout()">测试登出</button>
+            <button class="debug-button danger" onclick="testDirectSupabaseLogout()">直接调用Supabase登出</button>
+            <button class="debug-button" onclick="testAuthManagerLogout()">调用AuthManager登出</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>认证事件监听</h3>
+            <button class="debug-button" onclick="setupEventListener()">设置事件监听</button>
+            <button class="debug-button" onclick="clearEventLog()">清空日志</button>
+            <div id="event-log" class="log-output">等待事件...</div>
+        </div>
+
+        <div class="debug-section">
+            <h3>Supabase 状态检查</h3>
+            <button class="debug-button" onclick="checkSupabaseStatus()">检查Supabase状态</button>
+            <button class="debug-button" onclick="getSession()">获取当前会话</button>
+            <div id="supabase-status" class="status-info">等待检查...</div>
+        </div>
+    </div>
+
+    <script>
+        let eventLogElement;
+        let eventListener;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (eventLogElement) {
+                eventLogElement.textContent += logMessage;
+                eventLogElement.scrollTop = eventLogElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function updateStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 检查基础对象
+            status += `Supabase可用: ${typeof supabase !== 'undefined' ? '✅' : '❌'}\n`;
+            status += `authManager可用: ${typeof authManager !== 'undefined' ? '✅' : '❌'}\n`;
+            
+            // 检查认证状态
+            if (typeof authManager !== 'undefined') {
+                const isAuth = authManager.isAuthenticated();
+                const user = authManager.getCurrentUser();
+                status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+                status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+            }
+
+            statusDiv.textContent = status;
+        }
+
+        async function testLogout() {
+            log('=== 开始测试登出功能 ===');
+            
+            if (typeof authManager === 'undefined') {
+                log('❌ authManager不可用');
+                return;
+            }
+
+            if (!authManager.isAuthenticated()) {
+                log('❌ 用户未登录，无法测试登出');
+                return;
+            }
+
+            try {
+                log('调用 authManager.signOut()...');
+                const result = await authManager.signOut();
+                log(`登出结果: ${JSON.stringify(result, null, 2)}`);
+                
+                if (result.success) {
+                    log('✅ 登出成功');
+                } else {
+                    log(`❌ 登出失败: ${result.error}`);
+                }
+            } catch (error) {
+                log(`❌ 登出异常: ${error.message}`);
+                log(`异常堆栈: ${error.stack}`);
+            }
+            
+            updateStatus();
+        }
+
+        async function testDirectSupabaseLogout() {
+            log('=== 直接调用Supabase登出 ===');
+            
+            if (typeof supabase === 'undefined') {
+                log('❌ Supabase不可用');
+                return;
+            }
+
+            try {
+                log('调用 supabase.auth.signOut()...');
+                const { error } = await supabase.auth.signOut({ scope: 'global' });
+                
+                if (error) {
+                    log(`❌ Supabase登出错误: ${JSON.stringify(error, null, 2)}`);
+                } else {
+                    log('✅ Supabase登出成功');
+                }
+            } catch (error) {
+                log(`❌ Supabase登出异常: ${error.message}`);
+            }
+            
+            updateStatus();
+        }
+
+        async function testAuthManagerLogout() {
+            log('=== 测试AuthManager登出方法 ===');
+            
+            if (typeof authManager === 'undefined') {
+                log('❌ authManager不可用');
+                return;
+            }
+
+            try {
+                log('检查AuthManager方法...');
+                log(`signOut方法存在: ${typeof authManager.signOut === 'function' ? '✅' : '❌'}`);
+                
+                if (typeof authManager.signOut === 'function') {
+                    log('调用 authManager.signOut()...');
+                    const result = await authManager.signOut();
+                    log(`结果: ${JSON.stringify(result, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ 测试异常: ${error.message}`);
+            }
+        }
+
+        function setupEventListener() {
+            log('=== 设置认证事件监听 ===');
+            
+            if (typeof supabase === 'undefined') {
+                log('❌ Supabase不可用');
+                return;
+            }
+
+            // 清除之前的监听器
+            if (eventListener) {
+                eventListener.unsubscribe();
+            }
+
+            // 设置新的监听器
+            eventListener = supabase.auth.onAuthStateChange((event, session) => {
+                log(`🔔 认证事件: ${event}`);
+                log(`会话信息: ${session ? '有会话' : '无会话'}`);
+                log(`用户信息: ${session?.user ? session.user.email : '无用户'}`);
+                log(`完整事件数据: ${JSON.stringify({ event, session: session ? 'exists' : null }, null, 2)}`);
+            });
+
+            log('✅ 事件监听器已设置');
+        }
+
+        function clearEventLog() {
+            if (eventLogElement) {
+                eventLogElement.textContent = '';
+            }
+        }
+
+        async function checkSupabaseStatus() {
+            log('=== 检查Supabase状态 ===');
+            
+            const statusDiv = document.getElementById('supabase-status');
+            let status = '';
+
+            try {
+                if (typeof supabase === 'undefined') {
+                    status += '❌ Supabase客户端未初始化\n';
+                    log('❌ Supabase客户端未初始化');
+                } else {
+                    status += '✅ Supabase客户端已初始化\n';
+                    log('✅ Supabase客户端已初始化');
+                    
+                    // 检查认证方法
+                    status += `auth.signOut方法: ${typeof supabase.auth.signOut === 'function' ? '✅' : '❌'}\n`;
+                    status += `auth.getSession方法: ${typeof supabase.auth.getSession === 'function' ? '✅' : '❌'}\n`;
+                    status += `auth.onAuthStateChange方法: ${typeof supabase.auth.onAuthStateChange === 'function' ? '✅' : '❌'}\n`;
+                }
+            } catch (error) {
+                status += `❌ 检查过程中发生错误: ${error.message}\n`;
+                log(`❌ 检查过程中发生错误: ${error.message}`);
+            }
+
+            statusDiv.textContent = status;
+        }
+
+        async function getSession() {
+            log('=== 获取当前会话 ===');
+            
+            if (typeof supabase === 'undefined') {
+                log('❌ Supabase不可用');
+                return;
+            }
+
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    log(`❌ 获取会话错误: ${JSON.stringify(error, null, 2)}`);
+                } else {
+                    log(`会话信息: ${JSON.stringify(session ? {
+                        user: session.user?.email,
+                        expires_at: session.expires_at,
+                        access_token: session.access_token ? '存在' : '不存在'
+                    } : null, null, 2)}`);
+                }
+            } catch (error) {
+                log(`❌ 获取会话异常: ${error.message}`);
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('登出调试页面加载完成');
+            
+            eventLogElement = document.getElementById('event-log');
+            
+            setTimeout(() => {
+                updateStatus();
+                checkSupabaseStatus();
+                setupEventListener();
+                log('调试页面初始化完成');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -63,6 +63,15 @@ class AuthManager {
 
                 this.handleUserSignIn(session.user, isRealLogin);
             } else {
+                // 检查登出事件类型并添加详细日志
+                console.log(`登出事件详情:`, {
+                    event,
+                    isInitialized: this.isInitialized,
+                    currentUser: this.currentUser?.email || 'none',
+                    eventType: typeof event,
+                    eventValue: event
+                });
+
                 // 只有在用户主动登出时才显示通知
                 const showNotification = event === 'SIGNED_OUT' && this.isInitialized;
                 console.log(`处理登出事件: ${event}, 显示通知: ${showNotification}`);
@@ -89,6 +98,9 @@ class AuthManager {
     // 处理用户登录
     async handleUserSignIn(user, showNotification = true) {
         try {
+            // 检查是否是用户切换（已有用户但ID不同）
+            const isUserSwitch = this.currentUser && this.currentUser.id !== user.id;
+
             // 获取用户详细信息
             const { data: userProfile, error } = await supabase
                 .from('users')
@@ -115,11 +127,22 @@ class AuthManager {
             };
 
             this.updateUI();
-            this.notifyAuthCallbacks('signIn', this.currentUser);
 
-            // 只有在明确指定显示通知时才显示
-            if (showNotification) {
-                UI.showNotification('登录成功', 'success');
+            // 根据是否是用户切换发送不同的事件
+            if (isUserSwitch) {
+                this.notifyAuthCallbacks('userChanged', this.currentUser);
+                if (showNotification) {
+                    UI.showNotification(`已切换到用户：${this.currentUser.username}`, 'success');
+                }
+                // 用户切换时也跳转到我的空间
+                this.navigateToMySpace();
+            } else {
+                this.notifyAuthCallbacks('signIn', this.currentUser);
+                if (showNotification) {
+                    UI.showNotification('登录成功', 'success');
+                    // 登录成功后自动跳转到我的空间
+                    this.navigateToMySpace();
+                }
             }
         } catch (error) {
             console.error('处理用户登录失败:', error);
@@ -129,9 +152,43 @@ class AuthManager {
         }
     }
 
+    // 导航到我的空间页面
+    navigateToMySpace() {
+        // 延迟执行，确保UI更新完成
+        setTimeout(() => {
+            console.log('自动跳转到我的空间页面');
+
+            // 优先使用app实例的showPage方法，它会触发完整的页面切换流程
+            if (typeof window.app !== 'undefined' && typeof window.app.showPage === 'function') {
+                console.log('使用app.showPage方法跳转');
+                window.app.showPage('my-space');
+            } else {
+                // 备用方案：直接设置hash，触发路由处理
+                console.log('app实例不可用，使用hash跳转');
+                window.location.hash = '#my-space';
+
+                // 如果使用hash跳转，需要手动触发数据加载
+                setTimeout(() => {
+                    if (this.isAuthenticated() && typeof window.mySpaceManager !== 'undefined') {
+                        console.log('hash跳转后手动触发数据加载');
+                        window.mySpaceManager.loadMyPrompts();
+                    }
+                }, 200);
+            }
+        }, 100);
+    }
+
+
+
     // 处理用户登出
     handleUserSignOut(showNotification = true) {
         this.currentUser = null;
+
+        // 清除API缓存，确保下次登录时获取新数据
+        if (typeof apiManager !== 'undefined' && typeof apiManager.clearCache === 'function') {
+            console.log('用户登出，清除所有API缓存');
+            apiManager.clearCache(); // 清除所有缓存
+        }
 
         // 检查当前是否在"我的空间"相关页面，如果是则返回首页
         const currentPage = document.querySelector('.page.active');
@@ -356,9 +413,42 @@ class AuthManager {
     // 用户登出
     async signOut() {
         try {
-            const { error } = await supabase.auth.signOut();
-            if (error) throw error;
-            
+            console.log('开始执行登出操作...');
+
+            // 记录登出前的状态
+            const beforeLogout = {
+                isAuthenticated: this.isAuthenticated(),
+                currentUser: this.currentUser?.email || 'none'
+            };
+            console.log('登出前状态:', beforeLogout);
+
+            // 使用scope: 'global'确保完全登出
+            const { error } = await supabase.auth.signOut({ scope: 'global' });
+
+            console.log('Supabase signOut 结果:', { error });
+
+            if (error) {
+                console.error('Supabase signOut 错误:', error);
+                throw error;
+            }
+
+            // 等待一小段时间让事件处理完成
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // 检查登出后的状态
+            const afterLogout = {
+                isAuthenticated: this.isAuthenticated(),
+                currentUser: this.currentUser?.email || 'none'
+            };
+            console.log('登出后状态:', afterLogout);
+
+            // 如果Supabase事件没有正确触发，手动处理登出
+            if (this.currentUser) {
+                console.log('手动触发登出处理...');
+                this.handleUserSignOut(true);
+            }
+
+            console.log('登出操作成功完成');
             return { success: true };
         } catch (error) {
             console.error('登出失败:', error);
@@ -439,9 +529,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
-            const result = await authManager.signOut();
-            if (!result.success) {
-                UI.showNotification('登出失败', 'error');
+            console.log('用户点击登出按钮');
+            try {
+                const result = await authManager.signOut();
+                console.log('登出结果:', result);
+                if (!result.success) {
+                    console.error('登出失败:', result.error);
+                    UI.showNotification(`登出失败: ${result.error}`, 'error');
+                } else {
+                    console.log('登出成功');
+                    // 登出成功的通知将由认证状态监听器处理
+                }
+            } catch (error) {
+                console.error('登出过程中发生异常:', error);
+                UI.showNotification(`登出异常: ${error.message}`, 'error');
             }
         });
     }

@@ -1348,6 +1348,29 @@
     color: var(--info-500);
 }
 
+/* 我的空间页面标题区域 */
+.page-title-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.page-title-section h2 {
+    margin: 0;
+}
+
+.prompt-count-display {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    font-weight: 500;
+}
+
+.prompt-count-display .count-number {
+    color: var(--primary-600);
+    font-weight: 600;
+}
+
 /* 用户信息可点击样式 */
 .user-info.clickable {
     cursor: pointer;

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词数量统计演示</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .demo-header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: var(--surface-color);
+            border-radius: var(--radius-xl);
+        }
+        .demo-section {
+            margin-bottom: 3rem;
+        }
+        .demo-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary-200);
+        }
+        .myspace-demo {
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin: 2rem 0;
+        }
+        .myspace-header {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .myspace-content {
+            padding: 2rem;
+        }
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .state-demo {
+            background: var(--surface-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        .state-header {
+            background: var(--gray-100);
+            padding: 1rem;
+            font-weight: 600;
+            text-align: center;
+            color: var(--text-primary);
+        }
+        .state-content {
+            padding: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="demo-header">
+            <h1>📊 提示词数量统计功能演示</h1>
+            <p>展示"我的空间"页面中提示词数量统计的显示效果</p>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">功能说明</h2>
+            <div style="background: var(--info-50); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--info-200);">
+                <h3 style="color: var(--info-700); margin-top: 0;">✨ 新增功能</h3>
+                <ul style="color: var(--info-600); margin-bottom: 0;">
+                    <li><strong>显示位置</strong>：我的空间页面标题"我的空间"下方</li>
+                    <li><strong>显示格式</strong>："我创建的提示词数量：" + 数量</li>
+                    <li><strong>数据来源</strong>：API返回的分页信息中的total字段</li>
+                    <li><strong>实时更新</strong>：创建、删除、搜索提示词后自动更新</li>
+                    <li><strong>状态感知</strong>：根据登录状态显示不同内容</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">我的空间页面效果</h2>
+            <div class="myspace-demo">
+                <div class="myspace-header">我的空间页面预览</div>
+                <div class="myspace-content">
+                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div class="page-title-section">
+                            <h2 style="margin: 0; font-size: 1.75rem; color: var(--text-primary);">我的空间</h2>
+                            <p class="prompt-count-display" style="margin: 0.5rem 0 0 0;">我创建的提示词数量：<span class="count-number">15</span></p>
+                        </div>
+                        <button class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            创建提示词
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">不同状态的显示效果</h2>
+            <div class="comparison-grid">
+                <div class="state-demo">
+                    <div class="state-header">未登录状态</div>
+                    <div class="state-content">
+                        <div class="page-title-section">
+                            <h2 style="margin: 0;">我的空间</h2>
+                            <p class="prompt-count-display">我创建的提示词数量：请先登录</p>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 1rem;">
+                            用户未登录时显示提示信息
+                        </p>
+                    </div>
+                </div>
+
+                <div class="state-demo">
+                    <div class="state-header">加载中状态</div>
+                    <div class="state-content">
+                        <div class="page-title-section">
+                            <h2 style="margin: 0;">我的空间</h2>
+                            <p class="prompt-count-display">我创建的提示词数量：加载中...</p>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 1rem;">
+                            正在从服务器获取数据时显示
+                        </p>
+                    </div>
+                </div>
+
+                <div class="state-demo">
+                    <div class="state-header">有数据状态</div>
+                    <div class="state-content">
+                        <div class="page-title-section">
+                            <h2 style="margin: 0;">我的空间</h2>
+                            <p class="prompt-count-display">我创建的提示词数量：<span class="count-number">23</span></p>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 1rem;">
+                            用户有提示词时显示具体数量，数字高亮显示
+                        </p>
+                    </div>
+                </div>
+
+                <div class="state-demo">
+                    <div class="state-header">无数据状态</div>
+                    <div class="state-content">
+                        <div class="page-title-section">
+                            <h2 style="margin: 0;">我的空间</h2>
+                            <p class="prompt-count-display">我创建的提示词数量：<span class="count-number">0</span></p>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 1rem;">
+                            用户还没有创建任何提示词时显示0
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">技术实现</h2>
+            <div style="background: var(--surface-color); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <h3 style="color: var(--text-primary); margin-top: 0;">🔧 实现步骤</h3>
+                <ol style="color: var(--text-secondary);">
+                    <li><strong>HTML结构</strong>：在页面标题下方添加数量显示元素</li>
+                    <li><strong>CSS样式</strong>：设计美观的显示样式，数字高亮</li>
+                    <li><strong>数据获取</strong>：从API分页信息中获取total字段</li>
+                    <li><strong>状态管理</strong>：根据登录状态和数据状态显示不同内容</li>
+                    <li><strong>实时更新</strong>：在数据变化时自动更新显示</li>
+                </ol>
+                
+                <h3 style="color: var(--text-primary);">📊 更新时机</h3>
+                <ul style="color: var(--text-secondary); margin-bottom: 0;">
+                    <li><strong>页面加载</strong>：初始化时设置默认状态</li>
+                    <li><strong>用户登录</strong>：登录后加载真实数据</li>
+                    <li><strong>用户登出</strong>：登出后显示登录提示</li>
+                    <li><strong>创建提示词</strong>：创建成功后数量+1</li>
+                    <li><strong>删除提示词</strong>：删除成功后数量-1</li>
+                    <li><strong>搜索筛选</strong>：显示筛选后的数量</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2 class="demo-title">用户体验</h2>
+            <div style="background: var(--success-50); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--success-200);">
+                <h3 style="color: var(--success-700); margin-top: 0;">✅ 用户价值</h3>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>数据概览</strong>：用户可以快速了解自己的创作成果</li>
+                    <li><strong>成就感</strong>：数量的增长给用户带来成就感</li>
+                    <li><strong>状态清晰</strong>：不同状态下的提示信息清晰明确</li>
+                    <li><strong>实时反馈</strong>：操作后立即看到数量变化</li>
+                    <li><strong>视觉突出</strong>：数字高亮显示，易于识别</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词数量统计修复验证</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .fix-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .fix-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .fix-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .fix-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: var(--success-600);
+        }
+        .error {
+            color: var(--error-600);
+        }
+        .warning {
+            color: var(--warning-600);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="fix-container">
+        <h1>🔧 提示词数量统计修复验证</h1>
+        <p>验证和修复提示词数量统计功能的问题</p>
+    </div>
+
+    <div class="fix-container">
+        <div class="fix-section">
+            <h3>1. 问题诊断</h3>
+            <div id="diagnosis-info" class="status-info">正在诊断...</div>
+            <button class="fix-button" onclick="runDiagnosis()">重新诊断</button>
+        </div>
+
+        <div class="fix-section">
+            <h3>2. 修复操作</h3>
+            <button class="fix-button" onclick="fixManagerInitialization()">修复管理器初始化</button>
+            <button class="fix-button" onclick="fixDOMElements()">检查DOM元素</button>
+            <button class="fix-button" onclick="testAPICall()">测试API调用</button>
+            <button class="fix-button" onclick="forceUpdate()">强制更新数量</button>
+        </div>
+
+        <div class="fix-section">
+            <h3>3. 实时状态</h3>
+            <div id="realtime-status" class="status-info">等待检查...</div>
+        </div>
+
+        <div class="fix-section">
+            <h3>4. 模拟我的空间页面</h3>
+            <div style="background: var(--gray-50); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="page-title-section">
+                        <h2 style="margin: 0;">我的空间</h2>
+                        <p class="prompt-count-display" id="my-prompt-count">我创建的提示词数量：加载中...</p>
+                    </div>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        创建提示词
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let app;
+
+        function runDiagnosis() {
+            const diagnosisDiv = document.getElementById('diagnosis-info');
+            let diagnosis = '';
+
+            // 检查应用初始化
+            diagnosis += `App实例: ${typeof app !== 'undefined' ? '✅ 存在' : '❌ 不存在'}\n`;
+            
+            // 检查管理器
+            diagnosis += `authManager: ${typeof authManager !== 'undefined' ? '✅ 存在' : '❌ 不存在'}\n`;
+            diagnosis += `apiManager: ${typeof apiManager !== 'undefined' ? '✅ 存在' : '❌ 不存在'}\n`;
+            diagnosis += `mySpaceManager: ${typeof mySpaceManager !== 'undefined' ? '✅ 存在' : '❌ 不存在'}\n`;
+            
+            // 检查DOM元素
+            const countElement = document.getElementById('my-prompt-count');
+            diagnosis += `my-prompt-count元素: ${countElement ? '✅ 存在' : '❌ 不存在'}\n`;
+            diagnosis += `当前显示内容: ${countElement ? countElement.textContent : '无'}\n`;
+            
+            // 检查方法
+            if (typeof mySpaceManager !== 'undefined') {
+                diagnosis += `updatePromptCount方法: ${typeof mySpaceManager.updatePromptCount === 'function' ? '✅ 存在' : '❌ 不存在'}\n`;
+                diagnosis += `initPromptCount方法: ${typeof mySpaceManager.initPromptCount === 'function' ? '✅ 存在' : '❌ 不存在'}\n`;
+                diagnosis += `loadMyPrompts方法: ${typeof mySpaceManager.loadMyPrompts === 'function' ? '✅ 存在' : '❌ 不存在'}\n`;
+            }
+            
+            // 检查认证状态
+            if (typeof authManager !== 'undefined') {
+                diagnosis += `认证状态: ${authManager.isAuthenticated() ? '✅ 已登录' : '❌ 未登录'}\n`;
+                const user = authManager.getCurrentUser();
+                diagnosis += `当前用户: ${user ? user.username || user.email : '无'}\n`;
+            }
+
+            diagnosisDiv.textContent = diagnosis;
+            updateRealtimeStatus();
+        }
+
+        function fixManagerInitialization() {
+            console.log('尝试修复管理器初始化...');
+            
+            try {
+                // 如果mySpaceManager不存在，手动创建
+                if (typeof mySpaceManager === 'undefined') {
+                    console.log('创建MySpaceManager实例...');
+                    window.mySpaceManager = new MySpaceManager();
+                    window.mySpaceManager.init();
+                    console.log('✅ MySpaceManager创建成功');
+                }
+                
+                // 调用初始化方法
+                if (typeof mySpaceManager.initPromptCount === 'function') {
+                    mySpaceManager.initPromptCount();
+                    console.log('✅ initPromptCount调用成功');
+                }
+                
+                alert('管理器初始化修复完成');
+                runDiagnosis();
+            } catch (error) {
+                console.error('❌ 管理器初始化修复失败:', error);
+                alert(`修复失败: ${error.message}`);
+            }
+        }
+
+        function fixDOMElements() {
+            console.log('检查和修复DOM元素...');
+            
+            const countElement = document.getElementById('my-prompt-count');
+            if (!countElement) {
+                console.error('❌ my-prompt-count元素不存在');
+                alert('DOM元素不存在，请确保在正确的页面上');
+                return;
+            }
+            
+            console.log('✅ DOM元素存在');
+            console.log('当前内容:', countElement.textContent);
+            
+            // 尝试设置测试内容
+            countElement.innerHTML = '我创建的提示词数量：<span class="count-number">测试</span>';
+            
+            setTimeout(() => {
+                countElement.textContent = '我创建的提示词数量：加载中...';
+                alert('DOM元素检查完成');
+                runDiagnosis();
+            }, 2000);
+        }
+
+        async function testAPICall() {
+            console.log('测试API调用...');
+            
+            if (typeof apiManager === 'undefined') {
+                alert('apiManager不可用');
+                return;
+            }
+            
+            if (typeof authManager === 'undefined' || !authManager.isAuthenticated()) {
+                alert('请先登录');
+                return;
+            }
+            
+            try {
+                const result = await apiManager.getMyPrompts({
+                    page: 1,
+                    search: ''
+                });
+                
+                console.log('API调用结果:', result);
+                
+                if (result.success) {
+                    const total = result.pagination.total;
+                    console.log('✅ API调用成功，总数:', total);
+                    
+                    // 手动更新显示
+                    const countElement = document.getElementById('my-prompt-count');
+                    if (countElement) {
+                        countElement.innerHTML = `我创建的提示词数量：<span class="count-number">${total}</span>`;
+                    }
+                    
+                    alert(`API调用成功！总数: ${total}`);
+                } else {
+                    console.error('❌ API调用失败:', result.error);
+                    alert(`API调用失败: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('❌ API调用异常:', error);
+                alert(`API调用异常: ${error.message}`);
+            }
+            
+            runDiagnosis();
+        }
+
+        function forceUpdate() {
+            console.log('强制更新数量显示...');
+            
+            if (typeof mySpaceManager !== 'undefined' && typeof mySpaceManager.updatePromptCount === 'function') {
+                mySpaceManager.updatePromptCount(42);
+                console.log('✅ 使用mySpaceManager.updatePromptCount');
+            } else {
+                // 手动更新
+                const countElement = document.getElementById('my-prompt-count');
+                if (countElement) {
+                    countElement.innerHTML = '我创建的提示词数量：<span class="count-number">42</span>';
+                    console.log('✅ 手动更新DOM');
+                }
+            }
+            
+            alert('强制更新完成');
+            runDiagnosis();
+        }
+
+        function updateRealtimeStatus() {
+            const statusDiv = document.getElementById('realtime-status');
+            const countElement = document.getElementById('my-prompt-count');
+            
+            let status = `时间: ${new Date().toLocaleTimeString()}\n`;
+            status += `显示内容: ${countElement ? countElement.textContent : '无'}\n`;
+            status += `HTML内容: ${countElement ? countElement.innerHTML : '无'}\n`;
+            
+            statusDiv.textContent = status;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('修复验证页面加载完成');
+            
+            // 等待应用初始化
+            setTimeout(() => {
+                // 尝试获取app实例
+                if (typeof App !== 'undefined') {
+                    app = new App();
+                    app.init().then(() => {
+                        console.log('✅ 应用初始化完成');
+                        runDiagnosis();
+                    }).catch(error => {
+                        console.error('❌ 应用初始化失败:', error);
+                        runDiagnosis();
+                    });
+                } else {
+                    console.log('App类不可用，直接运行诊断');
+                    runDiagnosis();
+                }
+            }, 1000);
+            
+            // 定期更新实时状态
+            setInterval(updateRealtimeStatus, 5000);
+        });
+    </script>
+</body>
+</html>

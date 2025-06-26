@@ -287,10 +287,10 @@ class UI {
     }
 
     // 创建分页控件
-    static createPagination(pagination, onPageChange) {
+    static createPagination(pagination, onPageChange, containerId = 'pagination') {
         const { page, totalPages, total, pageSize } = pagination;
-        const paginationContainer = document.getElementById('pagination');
-        
+        const paginationContainer = document.getElementById(containerId);
+
         if (!paginationContainer || totalPages <= 1) {
             if (paginationContainer) paginationContainer.innerHTML = '';
             return;

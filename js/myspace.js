@@ -6,13 +6,26 @@ class MySpaceManager {
         this.editingPrompt = null;
         this.currentMediaFile = null;
         this.currentMediaUrl = null;
-        this.init();
+        // init() 将在main.js中手动调用
     }
 
     // 初始化
     init() {
         this.bindEvents();
         this.createPromptModal();
+        this.initPromptCount();
+    }
+
+    // 初始化提示词数量显示
+    initPromptCount() {
+        const countElement = document.getElementById('my-prompt-count');
+        if (countElement) {
+            if (authManager.isAuthenticated()) {
+                countElement.textContent = '我创建的提示词数量：加载中...';
+            } else {
+                countElement.textContent = '我创建的提示词数量：请先登录';
+            }
+        }
     }
 
     // 绑定事件
@@ -53,9 +66,22 @@ class MySpaceManager {
         // 监听认证状态变化
         authManager.onAuthStateChange((event, user) => {
             if (event === 'signIn') {
-                this.loadMyPrompts();
+                // 用户登录时重置页面状态并加载数据
+                this.resetPageState();
+                // 延迟加载，确保页面切换完成
+                setTimeout(() => {
+                    this.loadMyPromptsIfNeeded();
+                }, 300);
             } else if (event === 'signOut') {
+                // 用户登出时清空数据
                 this.clearMyPrompts();
+            } else if (event === 'userChanged') {
+                // 用户切换时重置页面状态并重新加载数据
+                this.resetPageState();
+                // 延迟加载，确保页面切换完成
+                setTimeout(() => {
+                    this.loadMyPromptsIfNeeded();
+                }, 300);
             }
         });
 
@@ -63,7 +89,10 @@ class MySpaceManager {
         document.querySelectorAll('[data-page="my-space"]').forEach(link => {
             link.addEventListener('click', () => {
                 if (authManager.isAuthenticated()) {
-                    this.loadMyPrompts();
+                    // 延迟加载，确保页面切换完成
+                    setTimeout(() => {
+                        this.loadMyPromptsIfNeeded();
+                    }, 100);
                 }
             });
         });
@@ -330,25 +359,61 @@ class MySpaceManager {
         UI.showLoading();
 
         try {
-            const result = await apiManager.getPrompts({
+            const result = await apiManager.getMyPrompts({
                 page: this.currentPage,
-                search: this.searchQuery,
-                userId: authManager.getCurrentUser().id
+                search: this.searchQuery
             });
 
             if (result.success) {
                 this.renderMyPrompts(result.data);
                 this.createMyPromptsPagination(result.pagination);
+                // 更新提示词数量统计
+                this.updatePromptCount(result.pagination.total);
             } else {
                 UI.showNotification(result.error || '加载失败', 'error');
                 this.renderMyPrompts([]);
+                this.updatePromptCount(0);
             }
         } catch (error) {
             console.error('加载我的提示词失败:', error);
             UI.showNotification('加载失败', 'error');
             this.renderMyPrompts([]);
+            this.updatePromptCount(0);
         } finally {
             UI.hideLoading();
+        }
+    }
+
+    // 根据需要加载我的提示词（避免重复加载）
+    loadMyPromptsIfNeeded() {
+        // 检查当前是否在我的空间页面
+        const currentPage = document.querySelector('.page.active');
+        if (!currentPage || currentPage.id !== 'my-space-page') {
+            console.log('不在我的空间页面，跳过数据加载');
+            return;
+        }
+
+        // 检查是否已经有数据
+        const container = document.getElementById('my-prompts-container');
+        const isEmpty = !container ||
+                       container.innerHTML.trim() === '' ||
+                       container.innerHTML.includes('加载中') ||
+                       container.innerHTML.includes('请先登录') ||
+                       container.innerHTML.includes('您还没有创建任何提示词');
+
+        if (isEmpty) {
+            console.log('检测到数据为空，开始加载我的提示词');
+            this.loadMyPrompts();
+        } else {
+            console.log('数据已存在，无需重复加载');
+        }
+    }
+
+    // 更新提示词数量统计
+    updatePromptCount(count) {
+        const countElement = document.getElementById('my-prompt-count');
+        if (countElement) {
+            countElement.innerHTML = `我创建的提示词数量：<span class="count-number">${count}</span>`;
         }
     }
 
@@ -362,6 +427,12 @@ class MySpaceManager {
                 this.searchQuery ? '没有找到匹配的提示词' : '您还没有创建任何提示词，点击上方按钮开始创建吧！',
                 'fas fa-plus-circle'
             );
+
+            // 清空分页
+            const paginationContainer = document.getElementById('my-pagination');
+            if (paginationContainer) {
+                paginationContainer.innerHTML = '';
+            }
             return;
         }
 
@@ -502,11 +573,11 @@ class MySpaceManager {
 
     // 创建我的提示词分页
     createMyPromptsPagination(pagination) {
-        // 可以复用主页面的分页逻辑，或者创建专门的分页
+        // 使用专门的我的空间分页容器
         UI.createPagination(pagination, (page) => {
             this.currentPage = page;
             this.loadMyPrompts();
-        });
+        }, 'my-pagination');
     }
 
     // 清空我的提示词
@@ -519,8 +590,20 @@ class MySpaceManager {
             );
         }
 
+        // 清空分页
+        const paginationContainer = document.getElementById('my-pagination');
+        if (paginationContainer) {
+            paginationContainer.innerHTML = '';
+        }
+
         // 重置搜索状态
         this.resetSearchState();
+
+        // 重置数量统计
+        const countElement = document.getElementById('my-prompt-count');
+        if (countElement) {
+            countElement.textContent = '我创建的提示词数量：请先登录';
+        }
     }
 
     // 重置搜索状态
@@ -533,6 +616,32 @@ class MySpaceManager {
         if (searchInput) {
             searchInput.value = '';
         }
+    }
+
+    // 重置页面状态（用于用户切换时）
+    resetPageState() {
+        this.currentPage = 1;
+        this.searchQuery = '';
+        this.editingPrompt = null;
+        this.currentMediaFile = null;
+        this.currentMediaUrl = null;
+
+        // 清空搜索输入框
+        const searchInput = document.getElementById('my-search-input');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        // 清除API缓存，确保获取新用户的数据
+        if (typeof apiManager !== 'undefined' && typeof apiManager.clearCache === 'function') {
+            console.log('清除API缓存以获取新用户数据');
+            apiManager.clearCache('my-prompts');
+            apiManager.clearCache('prompts');
+            apiManager.clearCache('user-interactions');
+        }
+
+        // 重置数量显示
+        this.initPromptCount();
     }
 
     // 绑定媒体上传事件
@@ -722,10 +831,4 @@ class MySpaceManager {
     }
 }
 
-// 创建全局我的空间管理器实例
-let mySpaceManager;
-
-// 在DOM加载完成后初始化
-document.addEventListener('DOMContentLoaded', () => {
-    mySpaceManager = new MySpaceManager();
-});
+// 全局我的空间管理器实例将在main.js中创建

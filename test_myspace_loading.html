@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的空间数据加载测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .demo-container {
+            background: var(--gray-50);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 我的空间数据加载测试</h1>
+        <p>测试登录后自动跳转到我的空间时的数据加载问题</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>问题描述</h3>
+            <div style="background: var(--warning-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--warning-200);">
+                <h4 style="color: var(--warning-700); margin-top: 0;">⚠️ 发现的问题</h4>
+                <ul style="color: var(--warning-600); margin-bottom: 0;">
+                    <li><strong>现象</strong>：用户登录后自动跳转到我的空间页面，但页面数据空白</li>
+                    <li><strong>原因</strong>：页面跳转时机早于数据加载，存在时序竞争问题</li>
+                    <li><strong>解决</strong>：添加智能数据加载检查和延迟机制</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>修复方案</h3>
+            <div style="background: var(--success-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--success-200);">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 修复内容</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>ensureMySpaceDataLoaded</strong>：在跳转后确保数据加载</li>
+                    <li><strong>loadMyPromptsIfNeeded</strong>：智能检查是否需要加载数据</li>
+                    <li><strong>延迟机制</strong>：使用适当的延迟确保页面切换完成</li>
+                    <li><strong>状态检查</strong>：检查容器内容判断是否需要加载</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>功能测试</h3>
+            <button class="test-button" onclick="testNavigateToMySpace()">测试跳转到我的空间</button>
+            <button class="test-button" onclick="testEnsureDataLoaded()">测试确保数据加载</button>
+            <button class="test-button" onclick="testLoadIfNeeded()">测试按需加载</button>
+            <button class="test-button" onclick="simulateLoginFlow()">模拟登录流程</button>
+        </div>
+
+        <div class="test-section">
+            <h3>我的空间容器状态</h3>
+            <div class="demo-container">
+                <h4>模拟我的空间页面</h4>
+                <div class="my-prompts-grid" id="my-prompts-container" style="min-height: 100px; border: 1px dashed var(--border-color); padding: 1rem;">
+                    <!-- 这里会显示我的空间内容 -->
+                    <div style="text-align: center; color: var(--text-secondary);">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+                <div id="container-analysis" class="status-info">容器分析...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            status += `authManager可用: ${typeof authManager !== 'undefined' ? '✅' : '❌'}\n`;
+            status += `mySpaceManager可用: ${typeof mySpaceManager !== 'undefined' ? '✅' : '❌'}\n`;
+            
+            // 认证状态
+            if (typeof authManager !== 'undefined') {
+                const isAuth = authManager.isAuthenticated();
+                const user = authManager.getCurrentUser();
+                status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+                status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+            }
+
+            // 方法检查
+            if (typeof authManager !== 'undefined') {
+                status += `navigateToMySpace方法: ${typeof authManager.navigateToMySpace === 'function' ? '✅' : '❌'}\n`;
+                status += `ensureMySpaceDataLoaded方法: ${typeof authManager.ensureMySpaceDataLoaded === 'function' ? '✅' : '❌'}\n`;
+            }
+
+            if (typeof mySpaceManager !== 'undefined') {
+                status += `loadMyPromptsIfNeeded方法: ${typeof mySpaceManager.loadMyPromptsIfNeeded === 'function' ? '✅' : '❌'}\n`;
+            }
+
+            statusDiv.textContent = status;
+            analyzeContainer();
+            log('状态检查完成');
+        }
+
+        function analyzeContainer() {
+            const analysisDiv = document.getElementById('container-analysis');
+            const container = document.getElementById('my-prompts-container');
+            
+            let analysis = '';
+            
+            if (container) {
+                analysis += `容器存在: ✅\n`;
+                analysis += `容器内容长度: ${container.innerHTML.length}\n`;
+                analysis += `是否为空: ${container.innerHTML.trim() === '' ? '是' : '否'}\n`;
+                analysis += `包含"加载中": ${container.innerHTML.includes('加载中') ? '是' : '否'}\n`;
+                analysis += `包含"请先登录": ${container.innerHTML.includes('请先登录') ? '是' : '否'}\n`;
+                analysis += `包含"您还没有创建": ${container.innerHTML.includes('您还没有创建任何提示词') ? '是' : '否'}\n`;
+                
+                // 判断是否为空状态
+                const isEmpty = container.innerHTML.trim() === '' || 
+                               container.innerHTML.includes('加载中') ||
+                               container.innerHTML.includes('请先登录') ||
+                               container.innerHTML.includes('您还没有创建任何提示词');
+                
+                analysis += `判断为空状态: ${isEmpty ? '是' : '否'}\n`;
+            } else {
+                analysis += `容器存在: ❌\n`;
+            }
+            
+            analysisDiv.textContent = analysis;
+        }
+
+        function testNavigateToMySpace() {
+            log('=== 测试跳转到我的空间 ===');
+            
+            if (typeof authManager !== 'undefined' && typeof authManager.navigateToMySpace === 'function') {
+                try {
+                    authManager.navigateToMySpace();
+                    log('✅ navigateToMySpace调用成功');
+                } catch (error) {
+                    log(`❌ navigateToMySpace调用失败: ${error.message}`);
+                }
+            } else {
+                log('❌ navigateToMySpace方法不可用');
+            }
+            
+            setTimeout(() => {
+                checkCurrentStatus();
+            }, 500);
+        }
+
+        function testEnsureDataLoaded() {
+            log('=== 测试确保数据加载 ===');
+            
+            if (typeof authManager !== 'undefined' && typeof authManager.ensureMySpaceDataLoaded === 'function') {
+                try {
+                    authManager.ensureMySpaceDataLoaded();
+                    log('✅ ensureMySpaceDataLoaded调用成功');
+                } catch (error) {
+                    log(`❌ ensureMySpaceDataLoaded调用失败: ${error.message}`);
+                }
+            } else {
+                log('❌ ensureMySpaceDataLoaded方法不可用');
+            }
+            
+            setTimeout(() => {
+                checkCurrentStatus();
+            }, 500);
+        }
+
+        function testLoadIfNeeded() {
+            log('=== 测试按需加载 ===');
+            
+            if (typeof mySpaceManager !== 'undefined' && typeof mySpaceManager.loadMyPromptsIfNeeded === 'function') {
+                try {
+                    mySpaceManager.loadMyPromptsIfNeeded();
+                    log('✅ loadMyPromptsIfNeeded调用成功');
+                } catch (error) {
+                    log(`❌ loadMyPromptsIfNeeded调用失败: ${error.message}`);
+                }
+            } else {
+                log('❌ loadMyPromptsIfNeeded方法不可用');
+            }
+            
+            setTimeout(() => {
+                checkCurrentStatus();
+            }, 500);
+        }
+
+        function simulateLoginFlow() {
+            log('=== 模拟登录流程 ===');
+            
+            // 模拟设置空白状态
+            const container = document.getElementById('my-prompts-container');
+            if (container) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i><p>加载中...</p></div>';
+                log('设置容器为加载中状态');
+            }
+            
+            // 模拟登录后的跳转和数据加载流程
+            setTimeout(() => {
+                log('步骤1: 模拟跳转到我的空间');
+                testNavigateToMySpace();
+                
+                setTimeout(() => {
+                    log('步骤2: 确保数据加载');
+                    testEnsureDataLoaded();
+                    
+                    setTimeout(() => {
+                        log('步骤3: 按需加载检查');
+                        testLoadIfNeeded();
+                        
+                        setTimeout(() => {
+                            log('模拟登录流程完成');
+                            checkCurrentStatus();
+                        }, 300);
+                    }, 300);
+                }, 200);
+            }, 100);
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('我的空间数据加载测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            // 等待应用初始化
+            if (typeof App !== 'undefined') {
+                const app = new App();
+                app.init().then(() => {
+                    log('✅ 应用初始化完成');
+                    setTimeout(() => {
+                        checkCurrentStatus();
+                    }, 500);
+                }).catch(error => {
+                    log(`❌ 应用初始化失败: ${error.message}`);
+                    setTimeout(() => {
+                        checkCurrentStatus();
+                    }, 1000);
+                });
+            } else {
+                log('App类不可用，延迟检查');
+                setTimeout(() => {
+                    checkCurrentStatus();
+                }, 2000);
+            }
+            
+            // 定期更新容器分析
+            setInterval(analyzeContainer, 3000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词数量统计测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .demo-header {
+            background: var(--gray-50);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            margin: 1rem 0;
+        }
+        .status-info {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            border: 1px solid var(--info-200);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📊 提示词数量统计功能测试</h1>
+        <p>测试"我的空间"页面中提示词数量统计的显示功能</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>1. 功能说明</h3>
+            <div style="background: var(--success-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--success-200);">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 新增功能</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>显示位置</strong>：我的空间页面标题下方</li>
+                    <li><strong>显示格式</strong>："我创建的提示词数量：" + 数量</li>
+                    <li><strong>数据来源</strong>：API返回的分页信息中的total字段</li>
+                    <li><strong>实时更新</strong>：创建、删除提示词后自动更新</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 当前状态</h3>
+            <div id="status-info" class="status-info">检查中...</div>
+            <button class="test-button" onclick="updateStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 模拟我的空间页面标题</h3>
+            <div class="demo-header">
+                <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="page-title-section">
+                        <h2 style="margin: 0;">我的空间</h2>
+                        <p class="prompt-count-display" id="demo-prompt-count">我创建的提示词数量：加载中...</p>
+                    </div>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        创建提示词
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 测试操作</h3>
+            <button class="test-button" onclick="simulateLogin()">模拟登录</button>
+            <button class="test-button" onclick="simulateLogout()">模拟登出</button>
+            <button class="test-button" onclick="testUpdateCount(5)">模拟5个提示词</button>
+            <button class="test-button" onclick="testUpdateCount(23)">模拟23个提示词</button>
+            <button class="test-button" onclick="testUpdateCount(0)">模拟0个提示词</button>
+            <button class="test-button" onclick="testRealAPI()">测试真实API</button>
+            <button class="test-button" onclick="testInitMethod()">测试初始化方法</button>
+        </div>
+
+        <div class="test-section">
+            <h3>5. 不同状态的显示效果</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                <div style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                    <h4>未登录状态</h4>
+                    <p class="prompt-count-display">我创建的提示词数量：请先登录</p>
+                </div>
+                
+                <div style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                    <h4>加载中状态</h4>
+                    <p class="prompt-count-display">我创建的提示词数量：加载中...</p>
+                </div>
+                
+                <div style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                    <h4>有数据状态</h4>
+                    <p class="prompt-count-display">我创建的提示词数量：<span class="count-number">15</span></p>
+                </div>
+                
+                <div style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+                    <h4>无数据状态</h4>
+                    <p class="prompt-count-display">我创建的提示词数量：<span class="count-number">0</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoggedIn = false;
+
+        function updateStatus() {
+            const statusDiv = document.getElementById('status-info');
+
+            let status = `登录状态: ${isLoggedIn ? '✅ 已登录' : '❌ 未登录'}\n`;
+
+            // 检查必要的对象
+            status += `authManager可用: ${typeof authManager !== 'undefined' ? '✅' : '❌'}\n`;
+            status += `mySpaceManager可用: ${typeof mySpaceManager !== 'undefined' ? '✅' : '❌'}\n`;
+            status += `apiManager可用: ${typeof apiManager !== 'undefined' ? '✅' : '❌'}\n`;
+
+            // 检查DOM元素
+            const countElement = document.getElementById('demo-prompt-count');
+            const realCountElement = document.getElementById('my-prompt-count');
+            status += `测试数量显示元素: ${countElement ? '✅ 存在' : '❌ 不存在'}\n`;
+            status += `真实数量显示元素: ${realCountElement ? '✅ 存在' : '❌ 不存在'}\n`;
+            status += `测试元素内容: ${countElement ? countElement.textContent : '无'}\n`;
+            status += `真实元素内容: ${realCountElement ? realCountElement.textContent : '无'}\n`;
+
+            // 检查方法
+            if (typeof mySpaceManager !== 'undefined') {
+                status += `updatePromptCount方法: ${typeof mySpaceManager.updatePromptCount === 'function' ? '✅' : '❌'}\n`;
+                status += `initPromptCount方法: ${typeof mySpaceManager.initPromptCount === 'function' ? '✅' : '❌'}\n`;
+                status += `loadMyPrompts方法: ${typeof mySpaceManager.loadMyPrompts === 'function' ? '✅' : '❌'}\n`;
+            }
+
+            // 检查API方法
+            if (typeof apiManager !== 'undefined') {
+                status += `getMyPrompts方法: ${typeof apiManager.getMyPrompts === 'function' ? '✅' : '❌'}\n`;
+            }
+
+            statusDiv.textContent = status;
+        }
+
+        function simulateLogin() {
+            console.log('模拟登录');
+            isLoggedIn = true;
+            
+            // 模拟加载数据
+            const countElement = document.getElementById('demo-prompt-count');
+            if (countElement) {
+                countElement.textContent = '我创建的提示词数量：加载中...';
+                
+                // 延迟显示结果
+                setTimeout(() => {
+                    testUpdateCount(8);
+                }, 1000);
+            }
+            
+            updateStatus();
+        }
+
+        function simulateLogout() {
+            console.log('模拟登出');
+            isLoggedIn = false;
+            
+            const countElement = document.getElementById('demo-prompt-count');
+            if (countElement) {
+                countElement.textContent = '我创建的提示词数量：请先登录';
+            }
+            
+            updateStatus();
+        }
+
+        function testUpdateCount(count) {
+            console.log(`测试更新数量: ${count}`);
+            
+            const countElement = document.getElementById('demo-prompt-count');
+            if (countElement) {
+                countElement.innerHTML = `我创建的提示词数量：<span class="count-number">${count}</span>`;
+            }
+            
+            // 如果mySpaceManager可用，也调用真实的方法
+            if (typeof mySpaceManager !== 'undefined' && typeof mySpaceManager.updatePromptCount === 'function') {
+                mySpaceManager.updatePromptCount(count);
+                console.log('✅ 调用了真实的updatePromptCount方法');
+            }
+            
+            updateStatus();
+        }
+
+        async function testRealAPI() {
+            console.log('测试真实API调用');
+
+            if (typeof apiManager === 'undefined') {
+                alert('apiManager不可用');
+                return;
+            }
+
+            if (typeof authManager === 'undefined' || !authManager.isAuthenticated()) {
+                alert('请先登录');
+                return;
+            }
+
+            try {
+                console.log('调用apiManager.getMyPrompts...');
+                const result = await apiManager.getMyPrompts({
+                    page: 1,
+                    search: ''
+                });
+
+                console.log('API调用结果:', result);
+
+                if (result.success) {
+                    console.log('✅ API调用成功');
+                    console.log('数据:', result.data);
+                    console.log('分页信息:', result.pagination);
+                    console.log('总数:', result.pagination.total);
+
+                    testUpdateCount(result.pagination.total);
+                    alert(`API调用成功！总数: ${result.pagination.total}`);
+                } else {
+                    console.error('❌ API调用失败:', result.error);
+                    alert(`API调用失败: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('❌ API调用异常:', error);
+                alert(`API调用异常: ${error.message}`);
+            }
+        }
+
+        function testInitMethod() {
+            console.log('测试初始化方法');
+
+            if (typeof mySpaceManager === 'undefined') {
+                alert('mySpaceManager不可用');
+                return;
+            }
+
+            if (typeof mySpaceManager.initPromptCount !== 'function') {
+                alert('initPromptCount方法不存在');
+                return;
+            }
+
+            try {
+                mySpaceManager.initPromptCount();
+                console.log('✅ initPromptCount调用成功');
+                alert('initPromptCount调用成功，请查看控制台日志');
+            } catch (error) {
+                console.error('❌ initPromptCount调用失败:', error);
+                alert(`initPromptCount调用失败: ${error.message}`);
+            }
+
+            updateStatus();
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('提示词数量统计测试页面加载完成');
+            updateStatus();
+
+            // 延迟检查，等待所有脚本加载完成
+            setTimeout(() => {
+                console.log('延迟检查对象状态...');
+                updateStatus();
+
+                // 如果mySpaceManager可用，尝试调用初始化方法
+                if (typeof mySpaceManager !== 'undefined' && typeof mySpaceManager.initPromptCount === 'function') {
+                    console.log('尝试调用initPromptCount...');
+                    mySpaceManager.initPromptCount();
+                }
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
