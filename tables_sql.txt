@@ -90,7 +90,7 @@ CREATE INDEX idx_categories_is_active ON categories (is_active);
 CREATE TABLE prompts (
     prompt_id BIGSERIAL PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
-    slug VARCHAR(200) NOT NULL UNIQUE,
+
     description TEXT,
     content TEXT NOT NULL,
     category_id BIGINT NOT NULL REFERENCES categories(category_id) ON DELETE RESTRICT,
@@ -122,7 +122,7 @@ ALTER TABLE prompts ADD COLUMN  output_media TEXT; --多媒体文件在Supabase 
 ALTER TABLE prompts ADD COLUMN  orig_auth TEXT; --原作者
 
 -- 提示词表索引
-CREATE INDEX idx_prompts_slug ON prompts (slug);
+
 CREATE INDEX idx_prompts_category_id ON prompts (category_id);
 CREATE INDEX idx_prompts_status ON prompts (status);
 CREATE INDEX idx_prompts_is_featured ON prompts (is_featured);
@@ -279,10 +279,33 @@ CREATE INDEX idx_system_configs_is_public ON system_configs (is_public);
 -- 创建视图
 -- ==========================================
 CREATE OR REPLACE VIEW hot_prompts AS
-SELECT 
-    p.*,
-    c.name as category_name,
-    u.username as author_name,
+SELECT
+    p.prompt_id,
+    p.title,
+    p.description,
+    p.content,
+    p.category_id,
+    p.user_id,
+    p.view_count,
+    p.use_count,
+    p.like_count,
+    p.favorite_count,
+    p.rating_average,
+    p.rating_count,
+    p.status,
+    p.is_featured,
+    p.is_public,
+    p.published_at,
+    p.created_at,
+    p.updated_at,
+    p.tags,
+    p.output_media,
+    p.orig_auth,
+    p.author_name,
+    p.author_avatar,
+    p.category_name,
+    c.name as category_name_join,
+    u.username as author_name_join,
     COALESCE(p.use_count * 0.4 + p.view_count * 0.3 + p.like_count * 0.2 + p.favorite_count * 0.1, 0) as hot_score
 FROM prompts p
 LEFT JOIN categories c ON p.category_id = c.category_id
@@ -533,11 +556,10 @@ SET role = 'admin', username = '管理员'
 WHERE  username = 'chtx365@163.com';
 
 -- 初始化提示词（由管理员创建）
-INSERT INTO prompts (title, slug, description, content, category_id, user_id, status, is_featured, published_at) 
+INSERT INTO prompts (title, description, content, category_id, user_id, status, is_featured, published_at)
 SELECT 
-    '专业文章写作助手', 
-    'professional-writing-assistant', 
-    '帮助您创作结构清晰、逻辑严密的专业文章，支持多种文体和风格调整', 
+    '专业文章写作助手',
+    '帮助您创作结构清晰、逻辑严密的专业文章，支持多种文体和风格调整',
     '你是一位专业的写作助手，请帮我写一篇关于[主题]的文章。要求：
 1. 文章结构清晰，包含引言、主体和结论
 2. 逻辑严密，论点明确
@@ -551,11 +573,10 @@ SELECT
     NOW()
 FROM public.users u WHERE u.username= '管理员';
 
-INSERT INTO prompts (title, slug, description, content, category_id, user_id, status, is_featured, published_at) 
-SELECT 
-    '代码优化专家', 
-    'code-optimization-expert', 
-    '分析您的代码并提供优化建议，包括性能提升、可读性改进和最佳实践', 
+INSERT INTO prompts (title, description, content, category_id, user_id, status, is_featured, published_at)
+SELECT
+    '代码优化专家',
+    '分析您的代码并提供优化建议，包括性能提升、可读性改进和最佳实践',
     '你是一位资深的代码优化专家，请帮我分析以下代码并提供优化建议：
 [代码内容]
 请从以下方面进行分析：

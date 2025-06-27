@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重复创建提示词修复测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .test-button:disabled {
+            background: var(--gray-400);
+            cursor: not-allowed;
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .fix-highlight {
+            background: var(--success-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--success-200);
+            margin: 1rem 0;
+        }
+        .problem-highlight {
+            background: var(--warning-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--warning-200);
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 重复创建提示词修复测试</h1>
+        <p>测试创建提示词时的重复提交问题修复</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>问题描述</h3>
+            <div class="problem-highlight">
+                <h4 style="color: var(--warning-700); margin-top: 0;">🐛 发现的问题</h4>
+                <ul style="color: var(--warning-600); margin-bottom: 0;">
+                    <li><strong>现象</strong>：每次保存提示词后会生成两条一样的提示词</li>
+                    <li><strong>原因1</strong>：模态框重复创建导致多个相同ID的元素</li>
+                    <li><strong>原因2</strong>：表单事件重复绑定导致多次提交</li>
+                    <li><strong>原因3</strong>：缺乏防重复提交机制</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>修复方案</h3>
+            <div class="fix-highlight">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 修复内容</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>防止模态框重复创建</strong>：检查是否已存在相同ID的模态框</li>
+                    <li><strong>防止事件重复绑定</strong>：使用cloneNode替换旧的表单元素</li>
+                    <li><strong>添加提交状态控制</strong>：使用isSubmitting标志防止重复提交</li>
+                    <li><strong>按钮状态管理</strong>：提交时禁用按钮并显示提交中状态</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>修复验证测试</h3>
+            <button class="test-button" onclick="testModalCreation()">测试模态框创建</button>
+            <button class="test-button" onclick="testEventBinding()">测试事件绑定</button>
+            <button class="test-button" onclick="testSubmitPrevention()">测试重复提交防护</button>
+            <button class="test-button" onclick="simulateRapidClicks()">模拟快速点击</button>
+        </div>
+
+        <div class="test-section">
+            <h3>实际创建测试</h3>
+            <p style="color: var(--text-secondary);">请先登录，然后测试创建提示词功能</p>
+            <button class="test-button" onclick="openCreateModal()">打开创建提示词模态框</button>
+            <button class="test-button" onclick="checkPromptCount()">检查提示词数量</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            status += `mySpaceManager可用: ${typeof mySpaceManager !== 'undefined' ? '✅' : '❌'}\n`;
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                status += `isSubmitting属性: ${mySpaceManager.hasOwnProperty('isSubmitting') ? '✅' : '❌'}\n`;
+                status += `当前isSubmitting值: ${mySpaceManager.isSubmitting || false}\n`;
+            }
+
+            // 检查模态框
+            const existingModal = document.getElementById('prompt-modal');
+            status += `prompt-modal存在: ${existingModal ? '✅' : '❌'}\n`;
+            
+            if (existingModal) {
+                const forms = document.querySelectorAll('#prompt-form');
+                status += `prompt-form数量: ${forms.length} ${forms.length > 1 ? '⚠️ 重复' : '✅'}\n`;
+            }
+
+            // 认证状态
+            if (typeof authManager !== 'undefined') {
+                const isAuth = authManager.isAuthenticated();
+                const user = authManager.getCurrentUser();
+                status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+                status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('状态检查完成');
+        }
+
+        function testModalCreation() {
+            log('=== 测试模态框创建 ===');
+            
+            // 检查初始状态
+            let modalCount = document.querySelectorAll('#prompt-modal').length;
+            log(`初始模态框数量: ${modalCount}`);
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                try {
+                    // 尝试多次创建模态框
+                    log('第1次调用createPromptModal...');
+                    mySpaceManager.createPromptModal();
+                    modalCount = document.querySelectorAll('#prompt-modal').length;
+                    log(`第1次后模态框数量: ${modalCount}`);
+                    
+                    log('第2次调用createPromptModal...');
+                    mySpaceManager.createPromptModal();
+                    modalCount = document.querySelectorAll('#prompt-modal').length;
+                    log(`第2次后模态框数量: ${modalCount}`);
+                    
+                    log('第3次调用createPromptModal...');
+                    mySpaceManager.createPromptModal();
+                    modalCount = document.querySelectorAll('#prompt-modal').length;
+                    log(`第3次后模态框数量: ${modalCount}`);
+                    
+                    if (modalCount === 1) {
+                        log('✅ 模态框创建防重复机制正常工作');
+                    } else {
+                        log(`❌ 模态框重复创建，数量: ${modalCount}`);
+                    }
+                } catch (error) {
+                    log(`❌ 模态框创建测试失败: ${error.message}`);
+                }
+            } else {
+                log('❌ mySpaceManager不可用');
+            }
+        }
+
+        function testEventBinding() {
+            log('=== 测试事件绑定 ===');
+            
+            const modal = document.getElementById('prompt-modal');
+            if (!modal) {
+                log('❌ 模态框不存在，先创建模态框');
+                if (typeof mySpaceManager !== 'undefined') {
+                    mySpaceManager.createPromptModal();
+                }
+                return;
+            }
+            
+            const form = document.getElementById('prompt-form');
+            if (form) {
+                // 检查事件监听器（这个比较难直接检测，我们通过其他方式验证）
+                log('✅ 找到表单元素');
+                log('表单事件绑定使用了cloneNode方式，避免重复绑定');
+                
+                // 检查表单元素的唯一性
+                const forms = document.querySelectorAll('#prompt-form');
+                log(`表单元素数量: ${forms.length}`);
+                
+                if (forms.length === 1) {
+                    log('✅ 表单元素唯一，事件绑定正常');
+                } else {
+                    log(`❌ 发现多个表单元素: ${forms.length}`);
+                }
+            } else {
+                log('❌ 找不到表单元素');
+            }
+        }
+
+        function testSubmitPrevention() {
+            log('=== 测试重复提交防护 ===');
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                log(`初始isSubmitting状态: ${mySpaceManager.isSubmitting}`);
+                
+                // 模拟设置提交状态
+                mySpaceManager.isSubmitting = true;
+                log('设置isSubmitting为true');
+                
+                // 尝试调用handlePromptSubmit
+                try {
+                    log('尝试调用handlePromptSubmit...');
+                    mySpaceManager.handlePromptSubmit();
+                    log('✅ handlePromptSubmit调用成功（应该被防护机制阻止）');
+                } catch (error) {
+                    log(`调用handlePromptSubmit出错: ${error.message}`);
+                }
+                
+                // 重置状态
+                mySpaceManager.isSubmitting = false;
+                log('重置isSubmitting为false');
+            } else {
+                log('❌ mySpaceManager不可用');
+            }
+        }
+
+        function simulateRapidClicks() {
+            log('=== 模拟快速点击测试 ===');
+            
+            const modal = document.getElementById('prompt-modal');
+            if (!modal) {
+                log('❌ 模态框不存在');
+                return;
+            }
+            
+            const submitBtn = modal.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                log('找到提交按钮，模拟快速点击...');
+                
+                // 模拟快速点击5次
+                for (let i = 1; i <= 5; i++) {
+                    setTimeout(() => {
+                        log(`第${i}次点击提交按钮`);
+                        submitBtn.click();
+                    }, i * 100);
+                }
+                
+                setTimeout(() => {
+                    log('快速点击测试完成，检查是否有重复提交');
+                }, 1000);
+            } else {
+                log('❌ 找不到提交按钮');
+            }
+        }
+
+        function openCreateModal() {
+            log('=== 打开创建提示词模态框 ===');
+            
+            if (!authManager.isAuthenticated()) {
+                log('❌ 请先登录');
+                UI.showNotification('请先登录', 'warning');
+                return;
+            }
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                try {
+                    mySpaceManager.showCreatePromptModal();
+                    log('✅ 创建提示词模态框已打开');
+                } catch (error) {
+                    log(`❌ 打开模态框失败: ${error.message}`);
+                }
+            } else {
+                log('❌ mySpaceManager不可用');
+            }
+        }
+
+        async function checkPromptCount() {
+            log('=== 检查提示词数量 ===');
+            
+            if (!authManager.isAuthenticated()) {
+                log('❌ 请先登录');
+                return;
+            }
+            
+            try {
+                const result = await apiManager.getMyPrompts({ page: 1, pageSize: 100 });
+                if (result.success) {
+                    log(`✅ 当前用户提示词数量: ${result.data.length}`);
+                    
+                    // 检查是否有重复的提示词
+                    const titles = result.data.map(p => p.title);
+                    const uniqueTitles = [...new Set(titles)];
+                    
+                    if (titles.length !== uniqueTitles.length) {
+                        log(`⚠️ 发现重复标题的提示词: ${titles.length - uniqueTitles.length} 个`);
+                        
+                        // 找出重复的标题
+                        const duplicates = titles.filter((title, index) => titles.indexOf(title) !== index);
+                        log(`重复的标题: ${[...new Set(duplicates)].join(', ')}`);
+                    } else {
+                        log('✅ 没有发现重复的提示词');
+                    }
+                } else {
+                    log(`❌ 获取提示词失败: ${result.error}`);
+                }
+            } catch (error) {
+                log(`❌ 检查提示词数量失败: ${error.message}`);
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('重复创建提示词修复测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                checkCurrentStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

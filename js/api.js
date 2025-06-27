@@ -457,7 +457,6 @@ class APIManager {
                 .insert([{
                     ...promptData,
                     user_id: authManager.getCurrentUser()?.id,
-                    slug: this.generateSlug(promptData.title),
                     status: 'published',
                     published_at: new Date().toISOString()
                 }])
@@ -649,15 +648,7 @@ class APIManager {
         }
     }
 
-    // 生成 slug
-    generateSlug(title) {
-        return title
-            .toLowerCase()
-            .replace(/[^\w\s-]/g, '')
-            .replace(/[\s_-]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-            + '-' + Date.now();
-    }
+
 
     // 获取用户的点赞和收藏状态
     async getUserInteractions(promptIds) {

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Null错误修复测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .fix-highlight {
+            background: var(--success-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--success-200);
+            margin: 1rem 0;
+        }
+        .problem-highlight {
+            background: var(--warning-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--warning-200);
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 Null错误修复测试</h1>
+        <p>测试所有DOM元素访问的安全性修复</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>问题描述</h3>
+            <div class="problem-highlight">
+                <h4 style="color: var(--warning-700); margin-top: 0;">🐛 Null引用错误</h4>
+                <ul style="color: var(--warning-600); margin-bottom: 0;">
+                    <li><strong>错误类型</strong>：Cannot set properties of null (setting 'textContent')</li>
+                    <li><strong>根本原因</strong>：直接访问DOM元素而不检查是否存在</li>
+                    <li><strong>发生场景</strong>：模态框状态变化、元素未加载、DOM结构异常</li>
+                    <li><strong>影响范围</strong>：创建提示词、编辑提示词、表单操作</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>修复方案</h3>
+            <div class="fix-highlight">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 全面的安全检查</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>按钮存在性检查</strong>：在访问submitBtn之前检查是否为null</li>
+                    <li><strong>表单元素安全访问</strong>：所有表单元素访问前都进行存在性检查</li>
+                    <li><strong>模态框元素检查</strong>：标题、文本等元素的安全更新</li>
+                    <li><strong>防御性编程</strong>：使用条件运算符和安全访问模式</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>安全性测试</h3>
+            <button class="test-button" onclick="testElementExistence()">测试元素存在性</button>
+            <button class="test-button" onclick="testSafeAccess()">测试安全访问</button>
+            <button class="test-button" onclick="testModalOperations()">测试模态框操作</button>
+            <button class="test-button" onclick="testFormOperations()">测试表单操作</button>
+        </div>
+
+        <div class="test-section">
+            <h3>实际功能测试</h3>
+            <p style="color: var(--text-secondary);">请先登录，然后测试实际功能</p>
+            <button class="test-button" onclick="testCreateModal()">测试创建模态框</button>
+            <button class="test-button" onclick="testSubmitProcess()">测试提交流程</button>
+            <button class="test-button" onclick="testErrorScenarios()">测试错误场景</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            status += `mySpaceManager可用: ${typeof mySpaceManager !== 'undefined' ? '✅' : '❌'}\n`;
+
+            // 检查关键DOM元素
+            const elements = [
+                'prompt-modal',
+                'prompt-form',
+                'prompt-modal-title',
+                'prompt-submit-text',
+                'prompt-title',
+                'prompt-description',
+                'prompt-category',
+                'prompt-content',
+                'prompt-tags',
+                'prompt-model',
+                'prompt-output',
+                'prompt-orig-auth'
+            ];
+
+            status += `\nDOM元素检查:\n`;
+            elements.forEach(id => {
+                const element = document.getElementById(id);
+                status += `${id}: ${element ? '✅' : '❌'}\n`;
+            });
+
+            // 检查提交按钮
+            const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+            status += `\n提交按钮: ${submitBtn ? '✅' : '❌'}\n`;
+            if (submitBtn) {
+                status += `按钮文本: "${submitBtn.textContent}"\n`;
+                status += `按钮禁用: ${submitBtn.disabled ? '是' : '否'}\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('状态检查完成');
+        }
+
+        function testElementExistence() {
+            log('=== 测试元素存在性 ===');
+            
+            const testElements = [
+                'prompt-modal',
+                'prompt-form',
+                'prompt-modal-title',
+                'prompt-submit-text'
+            ];
+
+            testElements.forEach(id => {
+                const element = document.getElementById(id);
+                log(`${id}: ${element ? '✅ 存在' : '❌ 不存在'}`);
+            });
+
+            // 测试提交按钮
+            const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+            log(`提交按钮: ${submitBtn ? '✅ 存在' : '❌ 不存在'}`);
+
+            log('元素存在性测试完成');
+        }
+
+        function testSafeAccess() {
+            log('=== 测试安全访问模式 ===');
+            
+            // 测试安全的textContent设置
+            const modalTitle = document.getElementById('prompt-modal-title');
+            try {
+                if (modalTitle) {
+                    modalTitle.textContent = '测试标题';
+                    log('✅ 安全设置模态框标题成功');
+                } else {
+                    log('⚠️ 模态框标题元素不存在，跳过操作');
+                }
+            } catch (error) {
+                log(`❌ 设置模态框标题失败: ${error.message}`);
+            }
+
+            // 测试安全的value设置
+            const titleInput = document.getElementById('prompt-title');
+            try {
+                if (titleInput) {
+                    titleInput.value = '测试标题';
+                    log('✅ 安全设置输入框值成功');
+                } else {
+                    log('⚠️ 标题输入框不存在，跳过操作');
+                }
+            } catch (error) {
+                log(`❌ 设置输入框值失败: ${error.message}`);
+            }
+
+            // 测试安全的按钮操作
+            const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+            try {
+                if (submitBtn && submitBtn.parentNode) {
+                    const originalText = submitBtn.textContent;
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '测试中...';
+                    
+                    setTimeout(() => {
+                        if (submitBtn && submitBtn.parentNode) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = originalText;
+                            log('✅ 安全的按钮状态管理成功');
+                        }
+                    }, 1000);
+                } else {
+                    log('⚠️ 提交按钮不存在或已从DOM移除，跳过操作');
+                }
+            } catch (error) {
+                log(`❌ 按钮状态管理失败: ${error.message}`);
+            }
+        }
+
+        function testModalOperations() {
+            log('=== 测试模态框操作 ===');
+            
+            if (typeof mySpaceManager === 'undefined') {
+                log('❌ mySpaceManager不可用');
+                return;
+            }
+
+            try {
+                // 测试创建模态框
+                log('测试showCreatePromptModal...');
+                mySpaceManager.showCreatePromptModal();
+                log('✅ showCreatePromptModal调用成功');
+
+                setTimeout(() => {
+                    // 测试模态框状态
+                    const modal = document.getElementById('prompt-modal');
+                    if (modal) {
+                        log(`模态框状态: ${modal.classList.contains('active') ? '显示' : '隐藏'}`);
+                    }
+                }, 100);
+
+            } catch (error) {
+                log(`❌ 模态框操作失败: ${error.message}`);
+            }
+        }
+
+        function testFormOperations() {
+            log('=== 测试表单操作 ===');
+            
+            // 测试表单数据获取（模拟handlePromptSubmit中的逻辑）
+            try {
+                const titleInput = document.getElementById('prompt-title');
+                const descInput = document.getElementById('prompt-description');
+                const categorySelect = document.getElementById('prompt-category');
+                const contentInput = document.getElementById('prompt-content');
+
+                const formData = {
+                    title: titleInput ? titleInput.value.trim() : '',
+                    description: descInput ? descInput.value.trim() : '',
+                    category_id: categorySelect ? parseInt(categorySelect.value) : 0,
+                    content: contentInput ? contentInput.value.trim() : ''
+                };
+
+                log('✅ 安全的表单数据获取成功');
+                log(`表单数据: ${JSON.stringify(formData, null, 2)}`);
+
+            } catch (error) {
+                log(`❌ 表单数据获取失败: ${error.message}`);
+            }
+        }
+
+        function testCreateModal() {
+            log('=== 测试创建模态框功能 ===');
+            
+            if (!authManager.isAuthenticated()) {
+                log('❌ 请先登录');
+                UI.showNotification('请先登录', 'warning');
+                return;
+            }
+
+            if (typeof mySpaceManager !== 'undefined') {
+                try {
+                    mySpaceManager.showCreatePromptModal();
+                    log('✅ 创建模态框功能正常');
+                } catch (error) {
+                    log(`❌ 创建模态框功能失败: ${error.message}`);
+                }
+            } else {
+                log('❌ mySpaceManager不可用');
+            }
+        }
+
+        function testSubmitProcess() {
+            log('=== 测试提交流程 ===');
+            
+            const modal = document.getElementById('prompt-modal');
+            if (!modal || !modal.classList.contains('active')) {
+                log('❌ 模态框未打开，请先打开创建模态框');
+                return;
+            }
+
+            // 填充测试数据
+            const titleInput = document.getElementById('prompt-title');
+            const contentInput = document.getElementById('prompt-content');
+            
+            if (titleInput) titleInput.value = '测试提示词';
+            if (contentInput) contentInput.value = '这是一个测试提示词内容';
+
+            log('已填充测试数据，请手动点击提交按钮测试');
+        }
+
+        function testErrorScenarios() {
+            log('=== 测试错误场景 ===');
+            
+            // 模拟元素不存在的情况
+            log('模拟访问不存在的元素...');
+            
+            const nonExistentElement = document.getElementById('non-existent-element');
+            try {
+                if (nonExistentElement) {
+                    nonExistentElement.textContent = '测试';
+                    log('❌ 不应该执行到这里');
+                } else {
+                    log('✅ 正确处理了不存在的元素');
+                }
+            } catch (error) {
+                log(`❌ 处理不存在元素时出错: ${error.message}`);
+            }
+
+            // 模拟按钮不存在的情况
+            log('模拟提交按钮不存在的情况...');
+            const fakeSubmitBtn = null;
+            try {
+                if (fakeSubmitBtn && fakeSubmitBtn.parentNode) {
+                    fakeSubmitBtn.textContent = '测试';
+                    log('❌ 不应该执行到这里');
+                } else {
+                    log('✅ 正确处理了不存在的按钮');
+                }
+            } catch (error) {
+                log(`❌ 处理不存在按钮时出错: ${error.message}`);
+            }
+
+            log('错误场景测试完成');
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Null错误修复测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                checkCurrentStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

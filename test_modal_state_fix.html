@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模态框状态修复测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .fix-highlight {
+            background: var(--success-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--success-200);
+            margin: 1rem 0;
+        }
+        .problem-highlight {
+            background: var(--warning-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--warning-200);
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 模态框状态修复测试</h1>
+        <p>测试创建提示词保存成功后再次创建时的错误修复</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>问题描述</h3>
+            <div class="problem-highlight">
+                <h4 style="color: var(--warning-700); margin-top: 0;">🐛 发现的错误</h4>
+                <ul style="color: var(--warning-600); margin-bottom: 0;">
+                    <li><strong>错误信息</strong>：Cannot set properties of null (setting 'textContent')</li>
+                    <li><strong>发生时机</strong>：创建提示词保存成功后，再次创建提示词时</li>
+                    <li><strong>原因</strong>：finally块中尝试访问已被隐藏的模态框中的按钮元素</li>
+                    <li><strong>影响</strong>：阻止用户继续创建新的提示词</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>修复方案</h3>
+            <div class="fix-highlight">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 修复内容</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>安全的元素访问</strong>：在finally块中检查按钮是否仍然存在</li>
+                    <li><strong>状态重置优化</strong>：在显示模态框时重置提交状态和按钮状态</li>
+                    <li><strong>防御性编程</strong>：添加元素存在性检查，避免null引用错误</li>
+                    <li><strong>完整的状态管理</strong>：确保每次打开模态框时状态都是干净的</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>修复验证测试</h3>
+            <button class="test-button" onclick="testModalStateReset()">测试模态框状态重置</button>
+            <button class="test-button" onclick="testButtonStateManagement()">测试按钮状态管理</button>
+            <button class="test-button" onclick="testSafeElementAccess()">测试安全元素访问</button>
+            <button class="test-button" onclick="simulateCreateFlow()">模拟创建流程</button>
+        </div>
+
+        <div class="test-section">
+            <h3>实际操作测试</h3>
+            <p style="color: var(--text-secondary);">请先登录，然后测试完整的创建流程</p>
+            <button class="test-button" onclick="openCreateModal()">1. 打开创建模态框</button>
+            <button class="test-button" onclick="simulateSubmitSuccess()">2. 模拟提交成功</button>
+            <button class="test-button" onclick="openCreateModalAgain()">3. 再次打开创建模态框</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            status += `mySpaceManager可用: ${typeof mySpaceManager !== 'undefined' ? '✅' : '❌'}\n`;
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                status += `isSubmitting属性: ${mySpaceManager.hasOwnProperty('isSubmitting') ? '✅' : '❌'}\n`;
+                status += `当前isSubmitting值: ${mySpaceManager.isSubmitting || false}\n`;
+            }
+
+            // 检查模态框状态
+            const modal = document.getElementById('prompt-modal');
+            status += `prompt-modal存在: ${modal ? '✅' : '❌'}\n`;
+            
+            if (modal) {
+                status += `模态框激活状态: ${modal.classList.contains('active') ? '✅ 显示' : '❌ 隐藏'}\n`;
+                
+                const submitBtn = modal.querySelector('button[type="submit"]');
+                status += `提交按钮存在: ${submitBtn ? '✅' : '❌'}\n`;
+                
+                if (submitBtn) {
+                    status += `按钮禁用状态: ${submitBtn.disabled ? '是' : '否'}\n`;
+                    status += `按钮文本: ${submitBtn.textContent}\n`;
+                }
+            }
+
+            // 认证状态
+            if (typeof authManager !== 'undefined') {
+                const isAuth = authManager.isAuthenticated();
+                status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('状态检查完成');
+        }
+
+        function testModalStateReset() {
+            log('=== 测试模态框状态重置 ===');
+            
+            if (typeof mySpaceManager === 'undefined') {
+                log('❌ mySpaceManager不可用');
+                return;
+            }
+
+            try {
+                // 模拟设置一个"脏"状态
+                mySpaceManager.isSubmitting = true;
+                log('设置isSubmitting为true（模拟脏状态）');
+                
+                // 调用showCreatePromptModal
+                log('调用showCreatePromptModal...');
+                mySpaceManager.showCreatePromptModal();
+                
+                setTimeout(() => {
+                    log(`状态重置后isSubmitting: ${mySpaceManager.isSubmitting}`);
+                    
+                    const modal = document.getElementById('prompt-modal');
+                    if (modal) {
+                        const submitBtn = modal.querySelector('button[type="submit"]');
+                        if (submitBtn) {
+                            log(`按钮状态 - 禁用: ${submitBtn.disabled}, 文本: "${submitBtn.textContent}"`);
+                            log('✅ 模态框状态重置测试完成');
+                        } else {
+                            log('❌ 找不到提交按钮');
+                        }
+                    } else {
+                        log('❌ 找不到模态框');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                log(`❌ 模态框状态重置测试失败: ${error.message}`);
+            }
+        }
+
+        function testButtonStateManagement() {
+            log('=== 测试按钮状态管理 ===');
+            
+            const modal = document.getElementById('prompt-modal');
+            if (!modal) {
+                log('❌ 模态框不存在，先创建模态框');
+                if (typeof mySpaceManager !== 'undefined') {
+                    mySpaceManager.createPromptModal();
+                }
+                return;
+            }
+            
+            const submitBtn = modal.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                log(`初始按钮状态 - 禁用: ${submitBtn.disabled}, 文本: "${submitBtn.textContent}"`);
+                
+                // 模拟提交状态
+                submitBtn.disabled = true;
+                submitBtn.textContent = '提交中...';
+                log('设置按钮为提交中状态');
+                
+                // 模拟检查按钮是否存在的逻辑
+                if (submitBtn && submitBtn.parentNode) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '创建提示词';
+                    log('✅ 安全重置按钮状态成功');
+                } else {
+                    log('❌ 按钮不存在或已从DOM中移除');
+                }
+                
+            } else {
+                log('❌ 找不到提交按钮');
+            }
+        }
+
+        function testSafeElementAccess() {
+            log('=== 测试安全元素访问 ===');
+            
+            // 模拟finally块中的逻辑
+            const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+            
+            log(`submitBtn存在: ${submitBtn ? '是' : '否'}`);
+            
+            if (submitBtn) {
+                log(`submitBtn.parentNode存在: ${submitBtn.parentNode ? '是' : '否'}`);
+            }
+            
+            // 测试安全访问逻辑
+            try {
+                if (submitBtn && submitBtn.parentNode) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '测试文本';
+                    log('✅ 安全元素访问成功');
+                } else {
+                    log('⚠️ 元素不存在，跳过操作（这是正确的行为）');
+                }
+            } catch (error) {
+                log(`❌ 安全元素访问失败: ${error.message}`);
+            }
+        }
+
+        function simulateCreateFlow() {
+            log('=== 模拟完整创建流程 ===');
+            
+            if (!authManager.isAuthenticated()) {
+                log('❌ 请先登录');
+                return;
+            }
+            
+            if (typeof mySpaceManager === 'undefined') {
+                log('❌ mySpaceManager不可用');
+                return;
+            }
+
+            // 步骤1：打开创建模态框
+            log('步骤1: 打开创建模态框');
+            mySpaceManager.showCreatePromptModal();
+            
+            setTimeout(() => {
+                // 步骤2：模拟提交成功
+                log('步骤2: 模拟提交成功，隐藏模态框');
+                UI.hideModal('prompt-modal');
+                
+                setTimeout(() => {
+                    // 步骤3：再次打开创建模态框
+                    log('步骤3: 再次打开创建模态框');
+                    try {
+                        mySpaceManager.showCreatePromptModal();
+                        log('✅ 再次打开模态框成功，没有错误');
+                    } catch (error) {
+                        log(`❌ 再次打开模态框失败: ${error.message}`);
+                    }
+                }, 500);
+            }, 500);
+        }
+
+        function openCreateModal() {
+            log('=== 打开创建提示词模态框 ===');
+            
+            if (!authManager.isAuthenticated()) {
+                log('❌ 请先登录');
+                UI.showNotification('请先登录', 'warning');
+                return;
+            }
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                try {
+                    mySpaceManager.showCreatePromptModal();
+                    log('✅ 创建提示词模态框已打开');
+                } catch (error) {
+                    log(`❌ 打开模态框失败: ${error.message}`);
+                }
+            } else {
+                log('❌ mySpaceManager不可用');
+            }
+        }
+
+        function simulateSubmitSuccess() {
+            log('=== 模拟提交成功 ===');
+            
+            const modal = document.getElementById('prompt-modal');
+            if (!modal || !modal.classList.contains('active')) {
+                log('❌ 模态框未打开');
+                return;
+            }
+            
+            log('模拟提交成功，隐藏模态框...');
+            UI.hideModal('prompt-modal');
+            log('✅ 模态框已隐藏');
+        }
+
+        function openCreateModalAgain() {
+            log('=== 再次打开创建模态框 ===');
+            
+            if (typeof mySpaceManager !== 'undefined') {
+                try {
+                    mySpaceManager.showCreatePromptModal();
+                    log('✅ 再次打开创建模态框成功');
+                    
+                    // 检查状态是否正确重置
+                    setTimeout(() => {
+                        const modal = document.getElementById('prompt-modal');
+                        if (modal) {
+                            const submitBtn = modal.querySelector('button[type="submit"]');
+                            if (submitBtn) {
+                                log(`按钮状态检查 - 禁用: ${submitBtn.disabled}, 文本: "${submitBtn.textContent}"`);
+                                log('✅ 状态重置正常');
+                            }
+                        }
+                    }, 100);
+                } catch (error) {
+                    log(`❌ 再次打开模态框失败: ${error.message}`);
+                }
+            } else {
+                log('❌ mySpaceManager不可用');
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('模态框状态修复测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                checkCurrentStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

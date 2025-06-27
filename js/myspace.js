@@ -6,6 +6,7 @@ class MySpaceManager {
         this.editingPrompt = null;
         this.currentMediaFile = null;
         this.currentMediaUrl = null;
+        this.isSubmitting = false; // 防止重复提交
         // init() 将在main.js中手动调用
     }
 
@@ -100,6 +101,12 @@ class MySpaceManager {
 
     // 创建提示词模态框
     createPromptModal() {
+        // 检查是否已经存在模态框，避免重复创建
+        const existingModal = document.getElementById('prompt-modal');
+        if (existingModal) {
+            return;
+        }
+
         const modal = document.createElement('div');
         modal.id = 'prompt-modal';
         modal.className = 'modal';
@@ -195,9 +202,14 @@ class MySpaceManager {
         `;
         document.body.appendChild(modal);
 
-        // 绑定表单提交事件
+        // 绑定表单提交事件（移除旧的事件监听器，避免重复绑定）
         const form = document.getElementById('prompt-form');
-        form.addEventListener('submit', (e) => {
+        // 移除可能存在的旧事件监听器
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+
+        // 绑定新的事件监听器
+        newForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handlePromptSubmit();
         });
@@ -209,14 +221,30 @@ class MySpaceManager {
     // 显示创建提示词模态框
     async showCreatePromptModal() {
         this.editingPrompt = null;
-        document.getElementById('prompt-modal-title').textContent = '创建提示词';
-        document.getElementById('prompt-submit-text').textContent = '创建提示词';
+
+        // 重置提交状态
+        this.isSubmitting = false;
+
+        // 安全地更新模态框标题
+        const modalTitle = document.getElementById('prompt-modal-title');
+        const submitText = document.getElementById('prompt-submit-text');
+        const form = document.getElementById('prompt-form');
+
+        if (modalTitle) modalTitle.textContent = '创建提示词';
+        if (submitText) submitText.textContent = '创建提示词';
 
         // 重置表单
-        document.getElementById('prompt-form').reset();
+        if (form) form.reset();
 
         // 重置媒体上传
         this.removeMedia();
+
+        // 重置按钮状态
+        const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '创建提示词';
+        }
 
         // 加载分类选项
         await this.loadCategoriesForForm();
@@ -227,17 +255,40 @@ class MySpaceManager {
     // 显示编辑提示词模态框
     async showEditPromptModal(prompt) {
         this.editingPrompt = prompt;
-        document.getElementById('prompt-modal-title').textContent = '编辑提示词';
-        document.getElementById('prompt-submit-text').textContent = '保存修改';
 
-        // 填充表单数据
-        document.getElementById('prompt-title').value = prompt.title;
-        document.getElementById('prompt-description').value = prompt.description || '';
-        document.getElementById('prompt-content').value = prompt.content;
-        document.getElementById('prompt-tags').value = prompt.tags ? prompt.tags.join(', ') : '';
-        document.getElementById('prompt-model').value = prompt.model_name || '';
-        document.getElementById('prompt-output').value = prompt.output_text || '';
-        document.getElementById('prompt-orig-auth').value = prompt.orig_auth || '';
+        // 重置提交状态
+        this.isSubmitting = false;
+
+        // 安全地更新模态框标题
+        const modalTitle = document.getElementById('prompt-modal-title');
+        const submitText = document.getElementById('prompt-submit-text');
+
+        if (modalTitle) modalTitle.textContent = '编辑提示词';
+        if (submitText) submitText.textContent = '保存修改';
+
+        // 重置按钮状态
+        const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '保存修改';
+        }
+
+        // 安全地填充表单数据
+        const titleInput = document.getElementById('prompt-title');
+        const descInput = document.getElementById('prompt-description');
+        const contentInput = document.getElementById('prompt-content');
+        const tagsInput = document.getElementById('prompt-tags');
+        const modelInput = document.getElementById('prompt-model');
+        const outputInput = document.getElementById('prompt-output');
+        const origAuthInput = document.getElementById('prompt-orig-auth');
+
+        if (titleInput) titleInput.value = prompt.title;
+        if (descInput) descInput.value = prompt.description || '';
+        if (contentInput) contentInput.value = prompt.content;
+        if (tagsInput) tagsInput.value = prompt.tags ? prompt.tags.join(', ') : '';
+        if (modelInput) modelInput.value = prompt.model_name || '';
+        if (outputInput) outputInput.value = prompt.output_text || '';
+        if (origAuthInput) origAuthInput.value = prompt.orig_auth || '';
 
         // 处理现有媒体
         this.removeMedia(); // 先清空
@@ -248,7 +299,8 @@ class MySpaceManager {
 
         // 加载分类选项
         await this.loadCategoriesForForm();
-        document.getElementById('prompt-category').value = prompt.category_id;
+        const categorySelect = document.getElementById('prompt-category');
+        if (categorySelect) categorySelect.value = prompt.category_id;
 
         UI.showModal('prompt-modal');
     }
@@ -272,27 +324,58 @@ class MySpaceManager {
 
     // 处理提示词提交
     async handlePromptSubmit() {
-        const formData = {
-            title: document.getElementById('prompt-title').value.trim(),
-            description: document.getElementById('prompt-description').value.trim(),
-            category_id: parseInt(document.getElementById('prompt-category').value),
-            content: document.getElementById('prompt-content').value.trim(),
-            tags: document.getElementById('prompt-tags').value
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag.length > 0),
-            model_name: document.getElementById('prompt-model').value.trim(),
-            output_text: document.getElementById('prompt-output').value.trim(),
-            orig_auth: document.getElementById('prompt-orig-auth').value.trim()
-        };
-
-        // 验证必填字段
-        if (!formData.title || !formData.content || !formData.category_id) {
-            UI.showNotification('请填写所有必填字段', 'warning');
+        // 防止重复提交
+        if (this.isSubmitting) {
+            console.log('正在提交中，忽略重复请求');
             return;
         }
 
+        this.isSubmitting = true;
+        const submitBtn = document.querySelector('#prompt-form button[type="submit"]');
+
+        // 检查按钮是否存在
+        if (!submitBtn) {
+            console.error('找不到提交按钮');
+            this.isSubmitting = false;
+            return;
+        }
+
+        const originalText = submitBtn.textContent;
+
         try {
+            // 禁用提交按钮
+            submitBtn.disabled = true;
+            submitBtn.textContent = '提交中...';
+
+            // 安全地获取表单数据
+            const titleInput = document.getElementById('prompt-title');
+            const descInput = document.getElementById('prompt-description');
+            const categorySelect = document.getElementById('prompt-category');
+            const contentInput = document.getElementById('prompt-content');
+            const tagsInput = document.getElementById('prompt-tags');
+            const modelInput = document.getElementById('prompt-model');
+            const outputInput = document.getElementById('prompt-output');
+            const origAuthInput = document.getElementById('prompt-orig-auth');
+
+            const formData = {
+                title: titleInput ? titleInput.value.trim() : '',
+                description: descInput ? descInput.value.trim() : '',
+                category_id: categorySelect ? parseInt(categorySelect.value) : 0,
+                content: contentInput ? contentInput.value.trim() : '',
+                tags: tagsInput ? tagsInput.value
+                    .split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0) : [],
+                model_name: modelInput ? modelInput.value.trim() : '',
+                output_text: outputInput ? outputInput.value.trim() : '',
+                orig_auth: origAuthInput ? origAuthInput.value.trim() : ''
+            };
+
+            // 验证必填字段
+            if (!formData.title || !formData.content || !formData.category_id) {
+                UI.showNotification('请填写所有必填字段', 'warning');
+                return;
+            }
             // 处理媒体上传
             let mediaUrl = this.currentMediaUrl;
 
@@ -346,6 +429,15 @@ class MySpaceManager {
         } catch (error) {
             console.error('提交提示词失败:', error);
             UI.showNotification('操作失败', 'error');
+        } finally {
+            // 重置提交状态
+            this.isSubmitting = false;
+
+            // 检查按钮是否仍然存在（模态框可能已被隐藏）
+            if (submitBtn && submitBtn.parentNode) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
         }
     }
 
