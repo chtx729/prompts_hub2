@@ -678,32 +678,16 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tsvector_update_prompts BEFORE INSERT OR UPDATE
 ON prompts FOR EACH ROW EXECUTE FUNCTION prompts_search_vector_update();
 
-CREATE OR REPLACE FUNCTION tags_search_vector_update() 
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.search_vector = 
-        setweight(to_tsvector('english', COALESCE(NEW.name, '')), 'A') ||
-        setweight(to_tsvector('english', COALESCE(NEW.description, '')), 'B');
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER tsvector_update_tags BEFORE INSERT OR UPDATE
-ON tags FOR EACH ROW EXECUTE FUNCTION tags_search_vector_update();
-
 -- 初始化搜索向量
 UPDATE prompts SET search_vector = 
     setweight(to_tsvector('english', COALESCE(title, '')), 'A') ||
     setweight(to_tsvector('english', COALESCE(description, '')), 'B') ||
     setweight(to_tsvector('english', COALESCE(content, '')), 'C');
 
-UPDATE tags SET search_vector = 
-    setweight(to_tsvector('english', COALESCE(name, '')), 'A') ||
-    setweight(to_tsvector('english', COALESCE(description, '')), 'B');
 
 -- 创建搜索索引
 CREATE INDEX idx_prompts_search ON prompts USING GIN (search_vector);
-CREATE INDEX idx_tags_search ON tags USING GIN (search_vector);
+
 
 -- ==========================================
 -- 创建计数器更新函数

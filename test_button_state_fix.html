@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮状态修复测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+        .warning {
+            color: var(--warning-600);
+            font-weight: bold;
+        }
+        .status-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--info-200);
+        }
+        .button-demo {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        .prompt-card-demo {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔘 按钮状态修复测试</h1>
+        <p>测试页面刷新后点赞按钮状态是否正确恢复</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>修复说明</h3>
+            <div class="status-display">
+                <h4>问题：</h4>
+                <p>点赞后按钮显示"已赞"，但页面刷新后又变成"点赞"</p>
+                
+                <h4>原因：</h4>
+                <p>1. 只有登录用户才加载交互状态，匿名用户被忽略</p>
+                <p>2. 按钮状态更新逻辑不完整</p>
+                
+                <h4>修复：</h4>
+                <p>1. ✅ 总是加载用户交互状态（包括匿名用户）</p>
+                <p>2. ✅ 完善按钮状态更新逻辑，先重置再设置</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>测试步骤</h3>
+            <ol>
+                <li>确保未登录状态（匿名用户）</li>
+                <li>在首页找一个提示词进行点赞</li>
+                <li>确认按钮变为"已赞"状态</li>
+                <li>刷新页面（F5或Ctrl+R）</li>
+                <li>检查按钮是否仍显示"已赞"</li>
+            </ol>
+            <button class="test-button" onclick="goToHomepage()">前往首页测试</button>
+            <button class="test-button" onclick="checkCurrentState()">检查当前状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-display">
+                <p>点击"检查当前状态"按钮查看详情</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>模拟测试</h3>
+            <p>模拟提示词卡片和按钮状态更新</p>
+            
+            <div class="prompt-card-demo" data-prompt-id="999">
+                <h4>测试提示词</h4>
+                <p>这是一个用于测试按钮状态的模拟提示词卡片</p>
+                <div class="button-demo">
+                    <button class="btn btn-outline like-btn" data-prompt-id="999">
+                        <i class="fas fa-heart"></i>
+                        点赞
+                    </button>
+                    <button class="btn btn-outline favorite-btn" data-prompt-id="999">
+                        <i class="fas fa-bookmark"></i>
+                        收藏
+                    </button>
+                </div>
+            </div>
+            
+            <button class="test-button" onclick="testButtonUpdate()">测试按钮状态更新</button>
+            <button class="test-button" onclick="simulatePageRefresh()">模拟页面刷新</button>
+        </div>
+
+        <div class="test-section">
+            <h3>交互状态测试</h3>
+            <button class="test-button" onclick="testGetUserInteractions()">测试获取用户交互</button>
+            <button class="test-button" onclick="testLoadInteractions()">测试加载交互状态</button>
+            <button class="test-button" onclick="testUpdateButtons()">测试更新按钮</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function goToHomepage() {
+            log('跳转到首页进行实际测试...');
+            window.location.href = 'index.html';
+        }
+
+        async function checkCurrentState() {
+            log('=== 检查当前状态 ===');
+            
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 检查认证状态
+            const isAuthenticated = authManager.isAuthenticated();
+            status += `认证状态: ${isAuthenticated ? '已登录' : '未登录（匿名用户）'}\n`;
+            
+            if (isAuthenticated) {
+                const user = authManager.getCurrentUser();
+                status += `用户信息: ${user ? user.email || user.username : '无'}\n`;
+            } else {
+                // 检查匿名用户ID
+                const anonymousId = apiManager.getOrCreateAnonymousUserId();
+                status += `匿名用户ID: ${anonymousId}\n`;
+            }
+
+            // 检查API方法可用性
+            status += `\nAPI方法检查:\n`;
+            status += `getUserInteractions: ${typeof apiManager.getUserInteractions === 'function' ? '✅' : '❌'}\n`;
+            status += `isLiked: ${typeof apiManager.isLiked === 'function' ? '✅' : '❌'}\n`;
+
+            // 检查PromptsManager
+            status += `\nPromptsManager检查:\n`;
+            if (typeof promptsManager !== 'undefined') {
+                status += `promptsManager: ✅ 可用\n`;
+                status += `loadUserInteractionsAsync: ${typeof promptsManager.loadUserInteractionsAsync === 'function' ? '✅' : '❌'}\n`;
+                status += `updateInteractionButtons: ${typeof promptsManager.updateInteractionButtons === 'function' ? '✅' : '❌'}\n`;
+            } else {
+                status += `promptsManager: ❌ 不可用\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('当前状态检查完成');
+        }
+
+        async function testButtonUpdate() {
+            log('=== 测试按钮状态更新 ===');
+            
+            try {
+                // 模拟用户交互数据
+                const mockInteractions = {
+                    likes: [999],
+                    favorites: []
+                };
+
+                // 手动更新按钮状态
+                const likeBtn = document.querySelector('[data-prompt-id="999"] .like-btn');
+                const favoriteBtn = document.querySelector('[data-prompt-id="999"] .favorite-btn');
+
+                if (likeBtn) {
+                    likeBtn.classList.add('liked');
+                    likeBtn.innerHTML = '<i class="fas fa-heart"></i> 已赞';
+                    log('✅ 点赞按钮状态已更新为"已赞"', 'success');
+                } else {
+                    log('❌ 找不到点赞按钮', 'error');
+                }
+
+                if (favoriteBtn) {
+                    favoriteBtn.classList.remove('favorited');
+                    favoriteBtn.innerHTML = '<i class="fas fa-bookmark"></i> 收藏';
+                    log('✅ 收藏按钮状态保持"收藏"', 'success');
+                } else {
+                    log('❌ 找不到收藏按钮', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 按钮状态更新失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function simulatePageRefresh() {
+            log('=== 模拟页面刷新后的状态恢复 ===');
+            
+            try {
+                // 先重置按钮状态（模拟页面刷新）
+                const likeBtn = document.querySelector('[data-prompt-id="999"] .like-btn');
+                const favoriteBtn = document.querySelector('[data-prompt-id="999"] .favorite-btn');
+
+                if (likeBtn) {
+                    likeBtn.classList.remove('liked');
+                    likeBtn.innerHTML = '<i class="fas fa-heart"></i> 点赞';
+                    log('🔄 重置点赞按钮状态（模拟页面刷新）');
+                }
+
+                if (favoriteBtn) {
+                    favoriteBtn.classList.remove('favorited');
+                    favoriteBtn.innerHTML = '<i class="fas fa-bookmark"></i> 收藏';
+                    log('🔄 重置收藏按钮状态（模拟页面刷新）');
+                }
+
+                // 等待一下
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 模拟加载用户交互状态
+                log('📡 模拟加载用户交互状态...');
+                
+                const result = await apiManager.getUserInteractions([999]);
+                if (result.success) {
+                    log(`✅ 获取用户交互状态成功: ${JSON.stringify(result.data)}`, 'success');
+                    
+                    // 模拟更新按钮状态
+                    const { likes, favorites } = result.data;
+                    
+                    if (likes.includes(999)) {
+                        if (likeBtn) {
+                            likeBtn.classList.add('liked');
+                            likeBtn.innerHTML = '<i class="fas fa-heart"></i> 已赞';
+                            log('✅ 恢复点赞按钮状态为"已赞"', 'success');
+                        }
+                    }
+                    
+                    if (favorites.includes(999)) {
+                        if (favoriteBtn) {
+                            favoriteBtn.classList.add('favorited');
+                            favoriteBtn.innerHTML = '<i class="fas fa-bookmark"></i> 已藏';
+                            log('✅ 恢复收藏按钮状态为"已藏"', 'success');
+                        }
+                    }
+                } else {
+                    log(`❌ 获取用户交互状态失败: ${result.error}`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 模拟页面刷新失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetUserInteractions() {
+            log('=== 测试获取用户交互 ===');
+            
+            try {
+                const testIds = [1, 2, 3];
+                const result = await apiManager.getUserInteractions(testIds);
+                
+                if (result.success) {
+                    log(`✅ 获取用户交互成功:`, 'success');
+                    log(`点赞: ${JSON.stringify(result.data.likes)}`);
+                    log(`收藏: ${JSON.stringify(result.data.favorites)}`);
+                } else {
+                    log(`❌ 获取用户交互失败: ${result.error}`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 测试获取用户交互异常: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLoadInteractions() {
+            log('=== 测试加载交互状态 ===');
+            
+            try {
+                if (typeof promptsManager !== 'undefined') {
+                    const mockPrompts = [{ prompt_id: 999 }];
+                    await promptsManager.loadUserInteractionsAsync(mockPrompts);
+                    log('✅ loadUserInteractionsAsync调用成功', 'success');
+                } else {
+                    log('❌ promptsManager不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 测试加载交互状态失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUpdateButtons() {
+            log('=== 测试更新按钮方法 ===');
+            
+            try {
+                if (typeof promptsManager !== 'undefined' && typeof promptsManager.updateInteractionButtons === 'function') {
+                    // 设置模拟数据
+                    promptsManager.userInteractions = {
+                        likes: [999],
+                        favorites: []
+                    };
+                    
+                    promptsManager.updateInteractionButtons();
+                    log('✅ updateInteractionButtons调用成功', 'success');
+                } else {
+                    log('❌ updateInteractionButtons方法不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 测试更新按钮方法失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('按钮状态修复测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                log('修复内容：');
+                log('1. 总是加载用户交互状态（包括匿名用户）');
+                log('2. 完善按钮状态更新逻辑');
+                checkCurrentState();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

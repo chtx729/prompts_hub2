@@ -520,8 +520,12 @@ class APIManager {
 
     // 点赞/取消点赞
     async toggleLike(promptId) {
-        const userId = authManager.getCurrentUser()?.id;
-        if (!userId) return { success: false, error: '请先登录' };
+        let userId = authManager.getCurrentUser()?.id;
+
+        // 如果用户未登录，获取或创建匿名用户ID
+        if (!userId) {
+            userId = this.getOrCreateAnonymousUserId();
+        }
 
         // 验证userId是否为有效的UUID格式
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -531,35 +535,238 @@ class APIManager {
         }
 
         try {
+            console.log('执行点赞操作，用户ID:', userId, '提示词ID:', promptId);
+
             // 检查是否已点赞
-            const { data: existingLike } = await supabase
+            const { data: existingLike, error: selectError } = await supabase
                 .from('user_likes')
                 .select('like_id')
                 .eq('user_id', userId)
                 .eq('prompt_id', promptId)
                 .single();
 
+            if (selectError && selectError.code !== 'PGRST116') {
+                console.error('查询点赞记录失败:', selectError);
+                throw selectError;
+            }
+
             if (existingLike) {
+                console.log('取消点赞，删除记录ID:', existingLike.like_id);
+
                 // 取消点赞
-                const { error } = await supabase
+                const { error: deleteError } = await supabase
                     .from('user_likes')
                     .delete()
                     .eq('like_id', existingLike.like_id);
 
-                if (error) throw error;
+                if (deleteError) {
+                    console.error('删除点赞记录失败:', deleteError);
+                    throw deleteError;
+                }
+
+                // 使用事务确保原子性操作
+                const updateResult = await this.updatePromptLikeCountAtomic(promptId, -1);
+                if (!updateResult.success) {
+                    console.warn('计数更新失败，但点赞记录已删除');
+                }
+
                 return { success: true, liked: false };
             } else {
+                console.log('添加点赞记录');
+
                 // 添加点赞
-                const { error } = await supabase
+                const { error: insertError } = await supabase
                     .from('user_likes')
                     .insert([{ user_id: userId, prompt_id: promptId }]);
 
-                if (error) throw error;
+                if (insertError) {
+                    console.error('插入点赞记录失败:', insertError);
+                    console.error('错误详情:', {
+                        code: insertError.code,
+                        message: insertError.message,
+                        details: insertError.details,
+                        hint: insertError.hint
+                    });
+                    throw insertError;
+                }
+
+                // 使用事务确保原子性操作
+                const updateResult = await this.updatePromptLikeCountAtomic(promptId, 1);
+                if (!updateResult.success) {
+                    console.warn('计数更新失败，但点赞记录已添加');
+                }
+
                 return { success: true, liked: true };
             }
         } catch (error) {
             console.error('点赞操作失败:', error);
+
+            // 如果是外键约束错误，提供更友好的错误信息
+            if (error.code === '23503' && error.message.includes('user_likes_user_id_fkey')) {
+                return {
+                    success: false,
+                    error: '数据库配置问题：请先运行 fix_anonymous_user_constraints.sql 脚本来修复外键约束'
+                };
+            }
+
             return { success: false, error: error.message };
+        }
+    }
+
+    // 获取或创建匿名用户ID
+    getOrCreateAnonymousUserId() {
+        try {
+            let anonymousId = localStorage.getItem('anonymous_user_id');
+
+            if (!anonymousId) {
+                // 生成新的UUID
+                anonymousId = this.generateUUID();
+                localStorage.setItem('anonymous_user_id', anonymousId);
+                console.log('创建新的匿名用户ID:', anonymousId);
+            }
+
+            return anonymousId;
+        } catch (error) {
+            console.error('获取匿名用户ID失败:', error);
+            // 如果localStorage不可用，生成临时ID
+            return this.generateUUID();
+        }
+    }
+
+    // 生成UUID
+    generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    // 简单的计数更新方法（避免复杂的备用逻辑）
+    async updatePromptLikeCountSimple(promptId, increment) {
+        try {
+            console.log(`简单更新计数: 提示词${promptId}, 增量${increment}`);
+
+            // 先获取当前计数
+            const { data: prompt, error: selectError } = await supabase
+                .from('prompts')
+                .select('like_count')
+                .eq('prompt_id', promptId)
+                .single();
+
+            if (selectError) {
+                console.error('获取当前计数失败:', selectError);
+                throw selectError;
+            }
+
+            const currentCount = prompt.like_count || 0;
+            const newCount = Math.max(0, currentCount + increment);
+
+            console.log(`当前计数: ${currentCount}, 新计数: ${newCount}`);
+
+            // 更新计数
+            const { error: updateError } = await supabase
+                .from('prompts')
+                .update({ like_count: newCount })
+                .eq('prompt_id', promptId);
+
+            if (updateError) {
+                console.error('更新计数失败:', updateError);
+                throw updateError;
+            }
+
+            console.log('简单方法执行成功');
+            return { success: true };
+        } catch (error) {
+            console.error('简单计数更新失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 原子性的计数更新方法（使用数据库事务）
+    async updatePromptLikeCountAtomic(promptId, increment) {
+        try {
+            console.log(`原子性更新计数: 提示词${promptId}, 增量${increment}`);
+
+            // 使用单个SQL语句进行原子性更新
+            const { data, error } = await supabase
+                .from('prompts')
+                .update({
+                    like_count: supabase.raw(`GREATEST(0, COALESCE(like_count, 0) + ${increment})`)
+                })
+                .eq('prompt_id', promptId)
+                .select('like_count');
+
+            if (error) {
+                console.error('原子性更新失败:', error);
+                return { success: false, error: error.message };
+            }
+
+            const newCount = data && data[0] ? data[0].like_count : 0;
+            console.log(`原子性更新成功，新计数: ${newCount}`);
+
+            return { success: true, newCount };
+        } catch (error) {
+            console.error('原子性更新异常:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 检查用户是否已点赞（包括匿名用户）
+    async isLiked(promptId) {
+        let userId = authManager.getCurrentUser()?.id;
+
+        // 如果用户未登录，使用匿名用户ID
+        if (!userId) {
+            userId = this.getOrCreateAnonymousUserId();
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('user_likes')
+                .select('like_id')
+                .eq('user_id', userId)
+                .eq('prompt_id', promptId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 是没有找到记录的错误
+                console.error('检查点赞状态失败:', error);
+                return false;
+            }
+
+            return !!data;
+        } catch (error) {
+            console.error('检查点赞状态异常:', error);
+            return false;
+        }
+    }
+
+    // 检查用户是否已收藏（包括匿名用户）
+    async isFavorited(promptId) {
+        let userId = authManager.getCurrentUser()?.id;
+
+        // 如果用户未登录，使用匿名用户ID
+        if (!userId) {
+            userId = this.getOrCreateAnonymousUserId();
+        }
+
+        try {
+            const { data, error } = await supabase
+                .from('user_favorites')
+                .select('favorite_id')
+                .eq('user_id', userId)
+                .eq('prompt_id', promptId)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error('检查收藏状态失败:', error);
+                return false;
+            }
+
+            return !!data;
+        } catch (error) {
+            console.error('检查收藏状态异常:', error);
+            return false;
         }
     }
 
@@ -652,9 +859,15 @@ class APIManager {
 
     // 获取用户的点赞和收藏状态
     async getUserInteractions(promptIds) {
-        const userId = authManager.getCurrentUser()?.id;
-        if (!userId || !promptIds.length) {
+        if (!promptIds.length) {
             return { success: true, data: { likes: [], favorites: [] } };
+        }
+
+        let userId = authManager.getCurrentUser()?.id;
+
+        // 如果用户未登录，使用匿名用户ID
+        if (!userId) {
+            userId = this.getOrCreateAnonymousUserId();
         }
 
         // 验证userId是否为有效的UUID格式

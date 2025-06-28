@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单点赞修复测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .count-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--info-200);
+            font-family: monospace;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+        .demo-like-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+        }
+        .demo-like-btn:hover {
+            background: var(--primary-hover);
+        }
+        .demo-like-btn.liked {
+            background: var(--error-color);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 简单点赞修复测试</h1>
+        <p>测试修复后的点赞计数准确性</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>测试设置</h3>
+            <label for="test-prompt-id">测试提示词ID:</label>
+            <input type="number" id="test-prompt-id" value="1" min="1" style="margin: 0 1rem; padding: 0.5rem;">
+            <button class="test-button" onclick="selectPrompt()">选择</button>
+            <button class="test-button" onclick="resetPromptCounts()">重置计数</button>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态</h3>
+            <div id="count-display" class="count-display">
+                提示词ID: <span id="current-prompt-id">1</span><br>
+                user_likes记录数: <span id="user-likes-count">-</span><br>
+                prompts.like_count: <span id="prompts-like-count">-</span><br>
+                一致性: <span id="consistency-status">-</span>
+            </div>
+            <button class="test-button" onclick="checkCounts()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>点赞测试</h3>
+            <div style="text-align: center; margin: 2rem 0;">
+                <button class="demo-like-btn" id="demo-like-btn" onclick="testLike()">
+                    <i class="fas fa-heart"></i>
+                    点赞
+                </button>
+            </div>
+            <button class="test-button" onclick="testMultipleLikes()">连续点赞测试</button>
+            <button class="test-button" onclick="testTogglePattern()">切换模式测试</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+        let currentPromptId = 1;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function selectPrompt() {
+            const input = document.getElementById('test-prompt-id');
+            currentPromptId = parseInt(input.value) || 1;
+            document.getElementById('current-prompt-id').textContent = currentPromptId;
+            log(`选择测试提示词ID: ${currentPromptId}`);
+            checkCounts();
+        }
+
+        async function checkCounts() {
+            log('检查当前计数状态...');
+            
+            try {
+                // 查询user_likes表记录数
+                const { data: likesData, error: likesError } = await supabase
+                    .from('user_likes')
+                    .select('like_id', { count: 'exact' })
+                    .eq('prompt_id', currentPromptId);
+
+                if (likesError) throw likesError;
+
+                const userLikesCount = likesData ? likesData.length : 0;
+                document.getElementById('user-likes-count').textContent = userLikesCount;
+
+                // 查询prompts表like_count
+                const { data: promptData, error: promptError } = await supabase
+                    .from('prompts')
+                    .select('like_count')
+                    .eq('prompt_id', currentPromptId)
+                    .single();
+
+                if (promptError) throw promptError;
+
+                const promptsLikeCount = promptData ? (promptData.like_count || 0) : 0;
+                document.getElementById('prompts-like-count').textContent = promptsLikeCount;
+
+                // 检查一致性
+                const isConsistent = userLikesCount === promptsLikeCount;
+                const statusElement = document.getElementById('consistency-status');
+                
+                if (isConsistent) {
+                    statusElement.textContent = '✅ 一致';
+                    statusElement.className = 'success';
+                    log(`数据一致: user_likes=${userLikesCount}, like_count=${promptsLikeCount}`, 'success');
+                } else {
+                    statusElement.textContent = '❌ 不一致';
+                    statusElement.className = 'error';
+                    log(`数据不一致: user_likes=${userLikesCount}, like_count=${promptsLikeCount}`, 'error');
+                }
+
+                // 更新按钮状态
+                updateButtonState();
+
+            } catch (error) {
+                log(`检查计数失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function updateButtonState() {
+            try {
+                const isLiked = await apiManager.isLiked(currentPromptId);
+                const btn = document.getElementById('demo-like-btn');
+                btn.classList.toggle('liked', isLiked);
+                btn.innerHTML = `
+                    <i class="fas fa-heart"></i>
+                    ${isLiked ? '已赞' : '点赞'}
+                `;
+            } catch (error) {
+                log(`更新按钮状态失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLike() {
+            log('=== 执行点赞操作 ===');
+            
+            try {
+                // 记录操作前状态
+                const beforeUserLikes = parseInt(document.getElementById('user-likes-count').textContent);
+                const beforePromptsCount = parseInt(document.getElementById('prompts-like-count').textContent);
+                
+                log(`操作前: user_likes=${beforeUserLikes}, like_count=${beforePromptsCount}`);
+
+                // 执行点赞操作
+                const result = await apiManager.toggleLike(currentPromptId);
+                log(`点赞操作结果: ${JSON.stringify(result)}`);
+
+                if (result.success) {
+                    // 等待一下确保数据库更新完成
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    // 检查操作后状态
+                    await checkCounts();
+                    
+                    const afterUserLikes = parseInt(document.getElementById('user-likes-count').textContent);
+                    const afterPromptsCount = parseInt(document.getElementById('prompts-like-count').textContent);
+                    
+                    log(`操作后: user_likes=${afterUserLikes}, like_count=${afterPromptsCount}`);
+
+                    // 验证变化
+                    const userLikesChange = afterUserLikes - beforeUserLikes;
+                    const promptsCountChange = afterPromptsCount - beforePromptsCount;
+
+                    if (userLikesChange === promptsCountChange) {
+                        log(`✅ 计数变化一致: 都变化了${userLikesChange}`, 'success');
+                    } else {
+                        log(`❌ 计数变化不一致: user_likes变化${userLikesChange}, like_count变化${promptsCountChange}`, 'error');
+                    }
+                } else {
+                    log(`点赞操作失败: ${result.error}`, 'error');
+                }
+
+            } catch (error) {
+                log(`点赞测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMultipleLikes() {
+            log('=== 连续点赞测试 ===');
+            
+            for (let i = 0; i < 5; i++) {
+                log(`第${i + 1}次点赞:`);
+                await testLike();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        async function testTogglePattern() {
+            log('=== 切换模式测试 ===');
+            
+            // 执行点赞-取消-点赞-取消的模式
+            const operations = ['点赞', '取消', '点赞', '取消', '点赞'];
+            
+            for (let i = 0; i < operations.length; i++) {
+                log(`第${i + 1}步: ${operations[i]}`);
+                await testLike();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        async function resetPromptCounts() {
+            log('=== 重置提示词计数 ===');
+            
+            try {
+                // 删除所有点赞记录
+                const { error: deleteError } = await supabase
+                    .from('user_likes')
+                    .delete()
+                    .eq('prompt_id', currentPromptId);
+
+                if (deleteError) throw deleteError;
+
+                // 重置计数
+                const { error: updateError } = await supabase
+                    .from('prompts')
+                    .update({ like_count: 0 })
+                    .eq('prompt_id', currentPromptId);
+
+                if (updateError) throw updateError;
+
+                log(`✅ 提示词${currentPromptId}的计数已重置`, 'success');
+                await checkCounts();
+
+            } catch (error) {
+                log(`重置计数失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('简单点赞修复测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                selectPrompt();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

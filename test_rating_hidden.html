@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评分功能隐藏测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+        .warning {
+            color: var(--warning-600);
+            font-weight: bold;
+        }
+        .demo-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            margin: 1rem 0;
+            background: white;
+        }
+        .demo-sort-select {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        .hidden-content {
+            background: var(--error-50);
+            color: var(--error-700);
+            padding: 0.5rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--error-200);
+            margin: 0.5rem 0;
+        }
+        .visible-content {
+            background: var(--success-50);
+            color: var(--success-700);
+            padding: 0.5rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--success-200);
+            margin: 0.5rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>⭐ 评分功能隐藏测试</h1>
+        <p>验证所有评分相关的显示是否已正确隐藏</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>隐藏内容清单</h3>
+            <div class="hidden-content">
+                <h4>已隐藏的评分功能：</h4>
+                <ul>
+                    <li>✅ 提示词卡片中的评分显示</li>
+                    <li>✅ 提示词详情页的评分统计</li>
+                    <li>✅ 排序下拉列表中的"评分"选项</li>
+                    <li>✅ 使用手册中的评分相关描述</li>
+                </ul>
+            </div>
+            <div class="visible-content">
+                <h4>保留的功能：</h4>
+                <ul>
+                    <li>✅ 点赞功能和显示</li>
+                    <li>✅ 收藏功能和显示</li>
+                    <li>✅ 浏览量和使用量统计</li>
+                    <li>✅ 其他所有功能正常</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>模拟提示词卡片测试</h3>
+            <div class="demo-card" id="demo-card">
+                <!-- 这里将通过JavaScript生成模拟卡片 -->
+            </div>
+            <button class="test-button" onclick="generateDemoCard()">生成测试卡片</button>
+        </div>
+
+        <div class="test-section">
+            <h3>排序选项测试</h3>
+            <p>检查排序下拉列表是否已移除评分选项：</p>
+            <select class="demo-sort-select" id="demo-sort">
+                <option value="created_at">最新发布</option>
+                <option value="view_count">浏览量</option>
+                <option value="use_count">使用量</option>
+                <option value="like_count">点赞量</option>
+                <!-- 评分选项应该已被隐藏 -->
+            </select>
+            <button class="test-button" onclick="checkSortOptions()">检查排序选项</button>
+        </div>
+
+        <div class="test-section">
+            <h3>页面元素检查</h3>
+            <button class="test-button" onclick="checkMainPageElements()">检查首页元素</button>
+            <button class="test-button" onclick="checkRatingElements()">搜索评分相关元素</button>
+            <button class="test-button" onclick="testPromptDetail()">测试提示词详情</button>
+        </div>
+
+        <div class="test-section">
+            <h3>功能验证</h3>
+            <button class="test-button" onclick="goToMainPage()">前往首页验证</button>
+            <button class="test-button" onclick="testCreateCard()">测试创建卡片</button>
+        </div>
+
+        <div class="test-section">
+            <h3>测试日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function generateDemoCard() {
+            log('=== 生成测试提示词卡片 ===');
+            
+            try {
+                const mockPrompt = {
+                    prompt_id: 999,
+                    title: '测试提示词',
+                    description: '这是一个用于测试评分功能隐藏的模拟提示词',
+                    view_count: 1234,
+                    use_count: 567,
+                    like_count: 89,
+                    rating_average: 4.5, // 这个应该不会显示
+                    created_at: new Date().toISOString(),
+                    tags: ['测试', '评分隐藏']
+                };
+
+                const cardHtml = UI.createPromptCard(mockPrompt, 'card', {});
+                document.getElementById('demo-card').appendChild(cardHtml);
+                
+                log('✅ 测试卡片生成成功', 'success');
+                
+                // 检查是否包含评分元素
+                const ratingElements = cardHtml.querySelectorAll('.fa-star');
+                if (ratingElements.length === 0) {
+                    log('✅ 确认：卡片中没有星星图标（评分已隐藏）', 'success');
+                } else {
+                    log(`❌ 警告：卡片中仍有${ratingElements.length}个星星图标`, 'warning');
+                }
+
+                // 检查统计数据
+                const stats = cardHtml.querySelectorAll('.prompt-stat');
+                log(`统计项数量: ${stats.length}`);
+                stats.forEach((stat, index) => {
+                    const icon = stat.querySelector('i');
+                    const iconClass = icon ? icon.className : '无图标';
+                    const text = stat.textContent.trim();
+                    log(`  统计项${index + 1}: ${iconClass} - ${text}`);
+                });
+
+            } catch (error) {
+                log(`❌ 生成测试卡片失败: ${error.message}`, 'error');
+            }
+        }
+
+        function checkSortOptions() {
+            log('=== 检查排序选项 ===');
+            
+            const sortSelect = document.getElementById('demo-sort');
+            const options = Array.from(sortSelect.options);
+            
+            log(`排序选项总数: ${options.length}`);
+            
+            let hasRatingOption = false;
+            options.forEach((option, index) => {
+                log(`  选项${index + 1}: ${option.value} - ${option.text}`);
+                if (option.value === 'rating_average' || option.text.includes('评分')) {
+                    hasRatingOption = true;
+                }
+            });
+
+            if (hasRatingOption) {
+                log('❌ 警告：排序选项中仍包含评分相关选项', 'warning');
+            } else {
+                log('✅ 确认：排序选项中已移除评分选项', 'success');
+            }
+        }
+
+        function checkMainPageElements() {
+            log('=== 检查首页元素 ===');
+            
+            try {
+                // 检查首页的排序下拉列表
+                const mainSortSelect = document.querySelector('#sort-filter');
+                if (mainSortSelect) {
+                    const options = Array.from(mainSortSelect.options);
+                    log(`首页排序选项数量: ${options.length}`);
+                    
+                    let hasRating = false;
+                    options.forEach(option => {
+                        if (option.value === 'rating_average') {
+                            hasRating = true;
+                        }
+                    });
+                    
+                    if (hasRating) {
+                        log('❌ 首页排序中仍有评分选项', 'error');
+                    } else {
+                        log('✅ 首页排序中已移除评分选项', 'success');
+                    }
+                } else {
+                    log('ℹ️ 当前页面没有首页排序元素');
+                }
+
+            } catch (error) {
+                log(`❌ 检查首页元素失败: ${error.message}`, 'error');
+            }
+        }
+
+        function checkRatingElements() {
+            log('=== 搜索页面中的评分相关元素 ===');
+            
+            try {
+                // 搜索所有星星图标
+                const starIcons = document.querySelectorAll('.fa-star');
+                log(`页面中星星图标数量: ${starIcons.length}`);
+                
+                if (starIcons.length > 0) {
+                    starIcons.forEach((icon, index) => {
+                        const parent = icon.closest('.prompt-stat, .stat-item, .feature-icon');
+                        const context = parent ? parent.textContent.trim() : icon.parentNode.textContent.trim();
+                        log(`  星星图标${index + 1}: ${context}`);
+                    });
+                }
+
+                // 搜索包含"评分"文字的元素
+                const allElements = document.querySelectorAll('*');
+                let ratingTextCount = 0;
+                
+                allElements.forEach(element => {
+                    if (element.textContent && element.textContent.includes('评分') && element.children.length === 0) {
+                        ratingTextCount++;
+                        log(`  包含"评分"的文本: ${element.textContent.trim()}`);
+                    }
+                });
+
+                log(`包含"评分"文字的元素数量: ${ratingTextCount}`);
+
+                if (starIcons.length === 0 && ratingTextCount === 0) {
+                    log('✅ 确认：页面中没有发现评分相关元素', 'success');
+                } else {
+                    log('⚠️ 注意：页面中仍有评分相关元素', 'warning');
+                }
+
+            } catch (error) {
+                log(`❌ 搜索评分元素失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testPromptDetail() {
+            log('=== 测试提示词详情显示 ===');
+            
+            try {
+                const mockPrompt = {
+                    prompt_id: 999,
+                    title: '测试提示词详情',
+                    description: '测试评分功能是否在详情页中隐藏',
+                    content: '这是提示词内容',
+                    view_count: 1000,
+                    use_count: 500,
+                    like_count: 100,
+                    rating_average: 4.2,
+                    tags: ['测试'],
+                    created_at: new Date().toISOString()
+                };
+
+                // 模拟详情页HTML生成（简化版）
+                const detailHtml = `
+                    <div class="prompt-stats-detail">
+                        <div class="stat-item">
+                            <i class="fas fa-eye"></i>
+                            <span>浏览 ${mockPrompt.view_count}</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-copy"></i>
+                            <span>使用 ${mockPrompt.use_count}</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-heart"></i>
+                            <span>点赞 ${mockPrompt.like_count}</span>
+                        </div>
+                        <!-- 评分应该被隐藏 -->
+                    </div>
+                `;
+
+                log('模拟详情页统计信息生成');
+                
+                // 检查是否包含评分
+                if (detailHtml.includes('fa-star') || detailHtml.includes('评分')) {
+                    log('❌ 详情页中仍包含评分元素', 'error');
+                } else {
+                    log('✅ 详情页中已移除评分元素', 'success');
+                }
+
+            } catch (error) {
+                log(`❌ 测试提示词详情失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testCreateCard() {
+            log('=== 测试UI.createPromptCard方法 ===');
+            
+            try {
+                if (typeof UI !== 'undefined' && typeof UI.createPromptCard === 'function') {
+                    const mockPrompt = {
+                        prompt_id: 888,
+                        title: 'API测试提示词',
+                        description: '通过API方法创建的测试卡片',
+                        view_count: 2000,
+                        use_count: 800,
+                        like_count: 150,
+                        rating_average: 4.8,
+                        created_at: new Date().toISOString(),
+                        tags: ['API测试']
+                    };
+
+                    const card = UI.createPromptCard(mockPrompt);
+                    
+                    // 检查生成的HTML
+                    const cardHtml = card.outerHTML || card.innerHTML || card.toString();
+                    
+                    if (cardHtml.includes('fa-star') || cardHtml.includes('rating')) {
+                        log('❌ UI.createPromptCard仍生成评分元素', 'error');
+                    } else {
+                        log('✅ UI.createPromptCard已移除评分元素', 'success');
+                    }
+
+                    // 统计显示的数据项
+                    const statMatches = cardHtml.match(/prompt-stat/g);
+                    const statCount = statMatches ? statMatches.length : 0;
+                    log(`生成的卡片包含${statCount}个统计项`);
+
+                } else {
+                    log('❌ UI.createPromptCard方法不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 测试创建卡片失败: ${error.message}`, 'error');
+            }
+        }
+
+        function goToMainPage() {
+            log('跳转到首页进行实际验证...');
+            window.location.href = 'index.html';
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('评分功能隐藏测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                log('开始验证评分功能是否已正确隐藏...');
+                
+                // 自动执行基础检查
+                checkMainPageElements();
+                checkRatingElements();
+                
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

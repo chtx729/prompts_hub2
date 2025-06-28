@@ -126,6 +126,7 @@ class UI {
 
     // 创建提示词卡片
     static createPromptCard(prompt, viewMode = 'card', userInteractions = {}) {
+        // 检查用户交互状态（包括匿名用户状态）
         const isLiked = userInteractions.likes?.includes(prompt.prompt_id) || false;
         const isFavorited = userInteractions.favorites?.includes(prompt.prompt_id) || false;
 
@@ -182,10 +183,12 @@ class UI {
                     <i class="fas fa-heart"></i>
                     ${this.formatNumber(prompt.like_count || 0)}
                 </span>
+                <!-- 评分功能暂时隐藏
                 <span class="prompt-stat">
                     <i class="fas fa-star"></i>
                     ${prompt.rating_average ? prompt.rating_average.toFixed(1) : '0.0'}
                 </span>
+                -->
             </div>
             <div class="prompt-card-actions">
                 <button class="btn btn-outline btn-sm view-prompt-btn">
@@ -239,8 +242,6 @@ class UI {
         const likeBtn = card.querySelector('.like-btn');
         if (likeBtn) {
             likeBtn.addEventListener('click', async () => {
-                if (!authManager.requireAuth('点赞')) return;
-
                 const result = await apiManager.toggleLike(prompt.prompt_id);
                 if (result.success) {
                     likeBtn.classList.toggle('liked', result.liked);
@@ -248,8 +249,8 @@ class UI {
                         <i class="fas fa-heart"></i>
                         ${result.liked ? '已赞' : '点赞'}
                     `;
-                    
-                    // 更新计数
+
+                    // 更新计数（现在所有用户都会更新服务器计数）
                     const countSpan = card.querySelector('.prompt-stat i.fa-heart').parentNode;
                     const currentCount = parseInt(countSpan.textContent.trim()) || 0;
                     const newCount = result.liked ? currentCount + 1 : Math.max(0, currentCount - 1);
@@ -274,11 +275,14 @@ class UI {
                         ${result.favorited ? '已藏' : '收藏'}
                     `;
                     
-                    // 更新计数
+                    // 收藏功能暂时不显示计数更新
+                    // 因为评分功能已隐藏，这里的计数更新也暂时注释
+                    /*
                     const countSpan = card.querySelector('.prompt-stat i.fa-star').parentNode;
                     const currentCount = parseInt(countSpan.textContent.trim()) || 0;
                     const newCount = result.favorited ? currentCount + 1 : Math.max(0, currentCount - 1);
                     countSpan.innerHTML = `<i class="fas fa-star"></i> ${this.formatNumber(newCount)}`;
+                    */
                 } else {
                     this.showNotification(result.error || '操作失败', 'error');
                 }

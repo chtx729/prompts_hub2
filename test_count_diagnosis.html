@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计数问题诊断</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .count-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--info-200);
+            font-family: monospace;
+            font-size: 1rem;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .warning {
+            background: var(--warning-50);
+            color: var(--warning-700);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--warning-200);
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔍 计数问题诊断</h1>
+        <p>诊断是否有数据库触发器或其他机制在自动更新计数</p>
+        
+        <div class="warning">
+            <strong>⚠️ 注意</strong>：当前代码已临时禁用手动计数更新，只操作user_likes表。
+            如果like_count仍然变化，说明有数据库触发器或其他自动机制在工作。
+        </div>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>测试设置</h3>
+            <label for="test-prompt-id">测试提示词ID:</label>
+            <input type="number" id="test-prompt-id" value="1" min="1" style="margin: 0 1rem; padding: 0.5rem;">
+            <button class="test-button" onclick="selectPrompt()">选择</button>
+            <button class="test-button" onclick="resetCounts()">重置计数</button>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态</h3>
+            <div id="count-display" class="count-display">
+                提示词ID: <span id="current-prompt-id">1</span><br>
+                user_likes记录数: <span id="user-likes-count">-</span><br>
+                prompts.like_count: <span id="prompts-like-count">-</span><br>
+                <br>
+                <strong>诊断结果:</strong><br>
+                <span id="diagnosis-result">等待测试...</span>
+            </div>
+            <button class="test-button" onclick="checkCounts()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>诊断测试</h3>
+            <p>这些测试只操作user_likes表，不手动更新like_count</p>
+            <button class="test-button" onclick="testLikeOperation()">执行点赞操作</button>
+            <button class="test-button" onclick="testDirectInsert()">直接插入记录</button>
+            <button class="test-button" onclick="testDirectDelete()">直接删除记录</button>
+        </div>
+
+        <div class="test-section">
+            <h3>数据库检查</h3>
+            <button class="test-button" onclick="checkTriggers()">检查触发器</button>
+            <button class="test-button" onclick="checkFunctions()">检查RPC函数</button>
+            <button class="test-button" onclick="manualCountUpdate()">手动更新计数</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+        let currentPromptId = 1;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function selectPrompt() {
+            const input = document.getElementById('test-prompt-id');
+            currentPromptId = parseInt(input.value) || 1;
+            document.getElementById('current-prompt-id').textContent = currentPromptId;
+            log(`选择测试提示词ID: ${currentPromptId}`);
+            checkCounts();
+        }
+
+        async function checkCounts() {
+            log('检查当前计数状态...');
+            
+            try {
+                // 查询user_likes表记录数
+                const { data: likesData, error: likesError } = await supabase
+                    .from('user_likes')
+                    .select('like_id', { count: 'exact' })
+                    .eq('prompt_id', currentPromptId);
+
+                if (likesError) throw likesError;
+
+                const userLikesCount = likesData ? likesData.length : 0;
+                document.getElementById('user-likes-count').textContent = userLikesCount;
+
+                // 查询prompts表like_count
+                const { data: promptData, error: promptError } = await supabase
+                    .from('prompts')
+                    .select('like_count')
+                    .eq('prompt_id', currentPromptId)
+                    .single();
+
+                if (promptError) throw promptError;
+
+                const promptsLikeCount = promptData ? (promptData.like_count || 0) : 0;
+                document.getElementById('prompts-like-count').textContent = promptsLikeCount;
+
+                // 诊断结果
+                const diagnosisElement = document.getElementById('diagnosis-result');
+                if (userLikesCount === promptsLikeCount) {
+                    diagnosisElement.innerHTML = '<span class="success">✅ 数据一致</span>';
+                } else {
+                    diagnosisElement.innerHTML = `<span class="error">❌ 数据不一致<br>差异: ${promptsLikeCount - userLikesCount}</span>`;
+                }
+
+                log(`当前状态: user_likes=${userLikesCount}, like_count=${promptsLikeCount}`);
+
+            } catch (error) {
+                log(`检查计数失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testLikeOperation() {
+            log('=== 测试点赞操作（不手动更新计数）===');
+            
+            try {
+                // 记录操作前状态
+                await checkCounts();
+                const beforeUserLikes = parseInt(document.getElementById('user-likes-count').textContent);
+                const beforePromptsCount = parseInt(document.getElementById('prompts-like-count').textContent);
+                
+                log(`操作前: user_likes=${beforeUserLikes}, like_count=${beforePromptsCount}`);
+
+                // 执行点赞操作（当前代码不会手动更新计数）
+                const result = await apiManager.toggleLike(currentPromptId);
+                log(`点赞操作结果: ${JSON.stringify(result)}`);
+
+                // 等待一下
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // 检查操作后状态
+                await checkCounts();
+                const afterUserLikes = parseInt(document.getElementById('user-likes-count').textContent);
+                const afterPromptsCount = parseInt(document.getElementById('prompts-like-count').textContent);
+                
+                log(`操作后: user_likes=${afterUserLikes}, like_count=${afterPromptsCount}`);
+
+                // 分析变化
+                const userLikesChange = afterUserLikes - beforeUserLikes;
+                const promptsCountChange = afterPromptsCount - beforePromptsCount;
+
+                log(`变化分析: user_likes变化${userLikesChange}, like_count变化${promptsCountChange}`);
+
+                if (promptsCountChange === 0) {
+                    log('✅ like_count没有变化，说明没有自动更新机制', 'success');
+                } else {
+                    log(`❌ like_count变化了${promptsCountChange}，说明有自动更新机制在工作！`, 'error');
+                }
+
+            } catch (error) {
+                log(`测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDirectInsert() {
+            log('=== 直接插入user_likes记录 ===');
+            
+            try {
+                await checkCounts();
+                const beforeCount = parseInt(document.getElementById('prompts-like-count').textContent);
+
+                // 获取匿名用户ID
+                const anonymousId = apiManager.getOrCreateAnonymousUserId();
+                
+                // 直接插入记录
+                const { error } = await supabase
+                    .from('user_likes')
+                    .insert([{ user_id: anonymousId, prompt_id: currentPromptId }]);
+
+                if (error) {
+                    log(`插入失败: ${error.message}`, 'error');
+                    return;
+                }
+
+                log('直接插入user_likes记录成功');
+
+                // 检查like_count是否变化
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await checkCounts();
+                const afterCount = parseInt(document.getElementById('prompts-like-count').textContent);
+
+                if (afterCount > beforeCount) {
+                    log(`❌ 检测到触发器！like_count从${beforeCount}变为${afterCount}`, 'error');
+                } else {
+                    log(`✅ 没有触发器，like_count保持${beforeCount}`, 'success');
+                }
+
+            } catch (error) {
+                log(`直接插入测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDirectDelete() {
+            log('=== 直接删除user_likes记录 ===');
+            
+            try {
+                await checkCounts();
+                const beforeCount = parseInt(document.getElementById('prompts-like-count').textContent);
+
+                // 获取匿名用户ID
+                const anonymousId = apiManager.getOrCreateAnonymousUserId();
+                
+                // 直接删除记录
+                const { error } = await supabase
+                    .from('user_likes')
+                    .delete()
+                    .eq('user_id', anonymousId)
+                    .eq('prompt_id', currentPromptId);
+
+                if (error) {
+                    log(`删除失败: ${error.message}`, 'error');
+                    return;
+                }
+
+                log('直接删除user_likes记录成功');
+
+                // 检查like_count是否变化
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await checkCounts();
+                const afterCount = parseInt(document.getElementById('prompts-like-count').textContent);
+
+                if (afterCount < beforeCount) {
+                    log(`❌ 检测到触发器！like_count从${beforeCount}变为${afterCount}`, 'error');
+                } else {
+                    log(`✅ 没有触发器，like_count保持${beforeCount}`, 'success');
+                }
+
+            } catch (error) {
+                log(`直接删除测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkTriggers() {
+            log('=== 检查数据库触发器 ===');
+            
+            try {
+                const { data, error } = await supabase.rpc('check_triggers_on_user_likes');
+                
+                if (error) {
+                    log('无法检查触发器（可能需要创建检查函数）');
+                    log('请在Supabase SQL编辑器中运行: check_triggers.sql');
+                } else {
+                    log(`触发器检查结果: ${JSON.stringify(data)}`);
+                }
+
+            } catch (error) {
+                log(`检查触发器失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkFunctions() {
+            log('=== 检查RPC函数 ===');
+            
+            try {
+                // 测试是否存在计数更新函数
+                const { data, error } = await supabase.rpc('update_prompt_like_count', {
+                    prompt_id: currentPromptId,
+                    increment_value: 0
+                });
+
+                if (error) {
+                    if (error.code === '42883') {
+                        log('✅ update_prompt_like_count函数不存在', 'success');
+                    } else {
+                        log(`RPC函数错误: ${error.message}`, 'error');
+                    }
+                } else {
+                    log('❌ update_prompt_like_count函数存在并可执行', 'error');
+                }
+
+            } catch (error) {
+                log(`检查RPC函数失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function manualCountUpdate() {
+            log('=== 手动更新计数测试 ===');
+            
+            try {
+                const result = await apiManager.updatePromptLikeCountSimple(currentPromptId, 1);
+                log(`手动更新结果: ${JSON.stringify(result)}`);
+                
+                await checkCounts();
+
+            } catch (error) {
+                log(`手动更新失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function resetCounts() {
+            log('=== 重置计数 ===');
+            
+            try {
+                // 删除所有点赞记录
+                const { error: deleteError } = await supabase
+                    .from('user_likes')
+                    .delete()
+                    .eq('prompt_id', currentPromptId);
+
+                if (deleteError) throw deleteError;
+
+                // 重置计数
+                const { error: updateError } = await supabase
+                    .from('prompts')
+                    .update({ like_count: 0 })
+                    .eq('prompt_id', currentPromptId);
+
+                if (updateError) throw updateError;
+
+                log(`✅ 提示词${currentPromptId}的计数已重置`, 'success');
+                await checkCounts();
+
+            } catch (error) {
+                log(`重置计数失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('计数问题诊断页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('诊断页面初始化完成');
+                log('当前代码已禁用手动计数更新，只操作user_likes表');
+                selectPrompt();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

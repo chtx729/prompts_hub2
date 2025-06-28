@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>匿名点赞功能测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .feature-highlight {
+            background: var(--success-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--success-200);
+            margin: 1rem 0;
+        }
+        .demo-like-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .demo-like-btn:hover {
+            background: var(--primary-hover);
+        }
+        .demo-like-btn.liked {
+            background: var(--error-color);
+            color: white;
+        }
+        .local-storage-display {
+            background: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>👍 匿名点赞功能测试</h1>
+        <p>测试用户无需登录即可进行点赞和取消点赞操作</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>功能说明</h3>
+            <div class="feature-highlight">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 新功能特性</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>无需登录点赞</strong>：未登录用户可以直接点赞提示词</li>
+                    <li><strong>本地状态存储</strong>：使用localStorage保存未登录用户的点赞状态</li>
+                    <li><strong>状态持久化</strong>：刷新页面后点赞状态依然保持</li>
+                    <li><strong>登录后同步</strong>：用户登录后可以选择同步本地状态到服务器</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>本地存储状态</h3>
+            <div id="local-storage-status" class="local-storage-display">检查中...</div>
+            <button class="test-button" onclick="checkLocalStorage()">刷新本地存储</button>
+            <button class="test-button" onclick="clearLocalStorage()">清空本地存储</button>
+        </div>
+
+        <div class="test-section">
+            <h3>点赞功能测试</h3>
+            <p>测试提示词ID: <span id="test-prompt-id">123</span></p>
+            <button class="demo-like-btn" id="demo-like-btn" onclick="testToggleLike()">
+                <i class="fas fa-heart"></i>
+                点赞
+            </button>
+            <button class="test-button" onclick="testMultipleLikes()">测试多个点赞</button>
+            <button class="test-button" onclick="testLikeStatus()">检查点赞状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>API功能测试</h3>
+            <button class="test-button" onclick="testLocalLikeMethods()">测试本地点赞方法</button>
+            <button class="test-button" onclick="testGetUserInteractions()">测试获取用户交互</button>
+            <button class="test-button" onclick="testToggleLikeAPI()">测试点赞API</button>
+        </div>
+
+        <div class="test-section">
+            <h3>实际提示词测试</h3>
+            <p style="color: var(--text-secondary);">测试真实的提示词点赞功能</p>
+            <button class="test-button" onclick="loadRealPrompts()">加载真实提示词</button>
+            <div id="real-prompts-container" style="margin-top: 1rem;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+        let testPromptId = 123;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            status += `认证状态: ${authManager.isAuthenticated() ? '✅ 已登录' : '❌ 未登录'}\n`;
+            
+            if (authManager.isAuthenticated()) {
+                const user = authManager.getCurrentUser();
+                status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+            }
+
+            // API方法检查
+            status += `\nAPI方法可用性:\n`;
+            status += `toggleLike: ${typeof apiManager.toggleLike === 'function' ? '✅' : '❌'}\n`;
+            status += `getLocalLikes: ${typeof apiManager.getLocalLikes === 'function' ? '✅' : '❌'}\n`;
+            status += `isLocallyLiked: ${typeof apiManager.isLocallyLiked === 'function' ? '✅' : '❌'}\n`;
+            status += `toggleLocalLike: ${typeof apiManager.toggleLocalLike === 'function' ? '✅' : '❌'}\n`;
+
+            statusDiv.textContent = status;
+            log('状态检查完成');
+        }
+
+        function checkLocalStorage() {
+            const storageDiv = document.getElementById('local-storage-status');
+            let status = '';
+
+            try {
+                const localLikes = localStorage.getItem('local_likes');
+                const localFavorites = localStorage.getItem('local_favorites');
+                
+                status += `本地点赞数据: ${localLikes || '无'}\n`;
+                status += `本地收藏数据: ${localFavorites || '无'}\n`;
+                
+                if (localLikes) {
+                    const likes = JSON.parse(localLikes);
+                    status += `点赞的提示词ID: ${likes.join(', ')}\n`;
+                }
+                
+                if (localFavorites) {
+                    const favorites = JSON.parse(localFavorites);
+                    status += `收藏的提示词ID: ${favorites.join(', ')}\n`;
+                }
+                
+            } catch (error) {
+                status += `读取本地存储失败: ${error.message}\n`;
+            }
+
+            storageDiv.textContent = status;
+            log('本地存储检查完成');
+        }
+
+        function clearLocalStorage() {
+            try {
+                localStorage.removeItem('local_likes');
+                localStorage.removeItem('local_favorites');
+                log('✅ 本地存储已清空');
+                checkLocalStorage();
+                updateDemoButton();
+            } catch (error) {
+                log(`❌ 清空本地存储失败: ${error.message}`);
+            }
+        }
+
+        function testToggleLike() {
+            log('=== 测试点赞切换 ===');
+            
+            if (typeof apiManager !== 'undefined') {
+                apiManager.toggleLike(testPromptId).then(result => {
+                    if (result.success) {
+                        log(`✅ 点赞操作成功: ${result.liked ? '已点赞' : '取消点赞'}`);
+                        updateDemoButton();
+                        checkLocalStorage();
+                    } else {
+                        log(`❌ 点赞操作失败: ${result.error}`);
+                    }
+                }).catch(error => {
+                    log(`❌ 点赞操作异常: ${error.message}`);
+                });
+            } else {
+                log('❌ apiManager不可用');
+            }
+        }
+
+        function updateDemoButton() {
+            const btn = document.getElementById('demo-like-btn');
+            if (btn && typeof apiManager !== 'undefined') {
+                const isLiked = apiManager.isLocallyLiked(testPromptId);
+                btn.classList.toggle('liked', isLiked);
+                btn.innerHTML = `
+                    <i class="fas fa-heart"></i>
+                    ${isLiked ? '已赞' : '点赞'}
+                `;
+            }
+        }
+
+        function testMultipleLikes() {
+            log('=== 测试多个提示词点赞 ===');
+            
+            const testIds = [123, 456, 789];
+            
+            testIds.forEach((id, index) => {
+                setTimeout(() => {
+                    apiManager.toggleLike(id).then(result => {
+                        log(`提示词${id}: ${result.success ? (result.liked ? '已点赞' : '取消点赞') : '失败'}`);
+                        if (index === testIds.length - 1) {
+                            checkLocalStorage();
+                        }
+                    });
+                }, index * 500);
+            });
+        }
+
+        function testLikeStatus() {
+            log('=== 测试点赞状态检查 ===');
+            
+            const testIds = [123, 456, 789];
+            
+            testIds.forEach(id => {
+                const isLiked = apiManager.isLocallyLiked(id);
+                log(`提示词${id}: ${isLiked ? '已点赞' : '未点赞'}`);
+            });
+        }
+
+        function testLocalLikeMethods() {
+            log('=== 测试本地点赞方法 ===');
+            
+            try {
+                // 测试getLocalLikes
+                const localLikes = apiManager.getLocalLikes();
+                log(`getLocalLikes: ${JSON.stringify(localLikes)}`);
+                
+                // 测试isLocallyLiked
+                const isLiked = apiManager.isLocallyLiked(testPromptId);
+                log(`isLocallyLiked(${testPromptId}): ${isLiked}`);
+                
+                // 测试toggleLocalLike
+                const result = apiManager.toggleLocalLike(999);
+                log(`toggleLocalLike(999): ${JSON.stringify(result)}`);
+                
+                log('✅ 本地点赞方法测试完成');
+            } catch (error) {
+                log(`❌ 本地点赞方法测试失败: ${error.message}`);
+            }
+        }
+
+        function testGetUserInteractions() {
+            log('=== 测试获取用户交互 ===');
+            
+            const testIds = [123, 456, 789];
+            
+            apiManager.getUserInteractions(testIds).then(result => {
+                if (result.success) {
+                    log(`✅ 获取用户交互成功:`);
+                    log(`点赞: ${JSON.stringify(result.data.likes)}`);
+                    log(`收藏: ${JSON.stringify(result.data.favorites)}`);
+                } else {
+                    log(`❌ 获取用户交互失败: ${result.error}`);
+                }
+            }).catch(error => {
+                log(`❌ 获取用户交互异常: ${error.message}`);
+            });
+        }
+
+        function testToggleLikeAPI() {
+            log('=== 测试点赞API ===');
+            
+            const testId = 888;
+            
+            apiManager.toggleLike(testId).then(result => {
+                log(`第一次点赞: ${JSON.stringify(result)}`);
+                
+                // 再次点赞（应该取消）
+                return apiManager.toggleLike(testId);
+            }).then(result => {
+                log(`第二次点赞: ${JSON.stringify(result)}`);
+                checkLocalStorage();
+            }).catch(error => {
+                log(`❌ 点赞API测试失败: ${error.message}`);
+            });
+        }
+
+        async function loadRealPrompts() {
+            log('=== 加载真实提示词 ===');
+            
+            try {
+                const result = await apiManager.getPrompts({ page: 1, pageSize: 3 });
+                
+                if (result.success && result.data.length > 0) {
+                    const container = document.getElementById('real-prompts-container');
+                    container.innerHTML = '';
+                    
+                    result.data.forEach(prompt => {
+                        const card = UI.createPromptCard(prompt, 'card', {});
+                        container.appendChild(card);
+                    });
+                    
+                    log(`✅ 加载了${result.data.length}个真实提示词`);
+                } else {
+                    log('❌ 没有获取到提示词数据');
+                }
+            } catch (error) {
+                log(`❌ 加载真实提示词失败: ${error.message}`);
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('匿名点赞功能测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                checkCurrentStatus();
+                checkLocalStorage();
+                updateDemoButton();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

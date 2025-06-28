@@ -196,7 +196,8 @@ class PromptsManager {
                 });
 
                 // 异步加载用户交互状态，不阻塞主要内容显示
-                if (authManager.isAuthenticated() && result.data.length > 0) {
+                // 现在支持匿名用户点赞，所以总是加载交互状态
+                if (result.data.length > 0) {
                     this.loadUserInteractionsAsync(result.data);
                 }
             } else {
@@ -235,21 +236,45 @@ class PromptsManager {
 
         const { likes, favorites } = this.userInteractions;
 
-        // 更新点赞按钮
+        // 先重置所有点赞按钮状态
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.classList.remove('liked');
+            const icon = btn.querySelector('i');
+            const text = btn.querySelector('.btn-text') || btn;
+            if (icon) icon.className = 'fas fa-heart';
+            if (text) text.innerHTML = text.innerHTML.replace(/已赞|点赞/, '点赞');
+        });
+
+        // 更新已点赞的按钮状态
         likes.forEach(promptId => {
             const likeBtn = document.querySelector(`[data-prompt-id="${promptId}"] .like-btn`);
             if (likeBtn) {
-                likeBtn.classList.add('active');
-                likeBtn.querySelector('i').className = 'fas fa-heart';
+                likeBtn.classList.add('liked');
+                const icon = likeBtn.querySelector('i');
+                const text = likeBtn.querySelector('.btn-text') || likeBtn;
+                if (icon) icon.className = 'fas fa-heart';
+                if (text) text.innerHTML = text.innerHTML.replace(/点赞/, '已赞');
             }
         });
 
-        // 更新收藏按钮
+        // 先重置所有收藏按钮状态
+        document.querySelectorAll('.favorite-btn').forEach(btn => {
+            btn.classList.remove('favorited');
+            const icon = btn.querySelector('i');
+            const text = btn.querySelector('.btn-text') || btn;
+            if (icon) icon.className = 'fas fa-bookmark';
+            if (text) text.innerHTML = text.innerHTML.replace(/已藏|收藏/, '收藏');
+        });
+
+        // 更新已收藏的按钮状态
         favorites.forEach(promptId => {
             const favoriteBtn = document.querySelector(`[data-prompt-id="${promptId}"] .favorite-btn`);
             if (favoriteBtn) {
-                favoriteBtn.classList.add('active');
-                favoriteBtn.querySelector('i').className = 'fas fa-bookmark';
+                favoriteBtn.classList.add('favorited');
+                const icon = favoriteBtn.querySelector('i');
+                const text = favoriteBtn.querySelector('.btn-text') || favoriteBtn;
+                if (icon) icon.className = 'fas fa-bookmark';
+                if (text) text.innerHTML = text.innerHTML.replace(/收藏/, '已藏');
             }
         });
     }
@@ -390,10 +415,12 @@ class PromptsManager {
                                 <i class="fas fa-heart"></i>
                                 <span>点赞 ${UI.formatNumber(prompt.like_count || 0)}</span>
                             </div>
+                            <!-- 评分功能暂时隐藏
                             <div class="stat-item">
                                 <i class="fas fa-star"></i>
                                 <span>评分 ${prompt.rating_average ? prompt.rating_average.toFixed(1) : '0.0'}</span>
                             </div>
+                            -->
                         </div>
                         
                         ${prompt.tags && prompt.tags.length > 0 ? `
@@ -468,11 +495,11 @@ class PromptsManager {
                         </div>
                         
                         <div class="prompt-actions">
-                            <button class="btn btn-primary btn-full like-btn" data-prompt-id="${prompt.prompt_id}">
+                            <button class="btn btn-primary btn-full like-btn" data-prompt-id="${prompt.prompt_id}" id="detail-like-btn">
                                 <i class="fas fa-heart"></i>
                                 点赞
                             </button>
-                            <button class="btn btn-outline btn-full favorite-btn" data-prompt-id="${prompt.prompt_id}">
+                            <button class="btn btn-outline btn-full favorite-btn" data-prompt-id="${prompt.prompt_id}" id="detail-favorite-btn">
                                 <i class="fas fa-bookmark"></i>
                                 收藏
                             </button>
@@ -488,6 +515,42 @@ class PromptsManager {
 
         // 绑定详情页事件
         this.bindDetailEvents(prompt);
+
+        // 更新按钮状态
+        this.updateDetailButtonStates(prompt.prompt_id);
+    }
+
+    // 更新详情页按钮状态
+    updateDetailButtonStates(promptId) {
+        const likeBtn = document.getElementById('detail-like-btn');
+        const favoriteBtn = document.getElementById('detail-favorite-btn');
+
+        // 统一从服务器获取状态（包括匿名用户）
+        apiManager.getUserInteractions([promptId]).then(result => {
+            if (result.success) {
+                const { likes, favorites } = result.data;
+
+                if (likeBtn) {
+                    const isLiked = likes.includes(promptId);
+                    likeBtn.classList.toggle('liked', isLiked);
+                    likeBtn.innerHTML = `
+                        <i class="fas fa-heart"></i>
+                        ${isLiked ? '已赞' : '点赞'}
+                    `;
+                }
+
+                if (favoriteBtn) {
+                    const isFavorited = favorites.includes(promptId);
+                    favoriteBtn.classList.toggle('favorited', isFavorited);
+                    favoriteBtn.innerHTML = `
+                        <i class="fas fa-bookmark"></i>
+                        ${isFavorited ? '已藏' : '收藏'}
+                    `;
+                }
+            }
+        }).catch(error => {
+            console.error('获取用户交互状态失败:', error);
+        });
     }
 
     // 绑定详情页事件
@@ -515,8 +578,6 @@ class PromptsManager {
         const likeBtn = container.querySelector('.like-btn');
         if (likeBtn) {
             likeBtn.addEventListener('click', async () => {
-                if (!authManager.requireAuth('点赞')) return;
-
                 const result = await apiManager.toggleLike(prompt.prompt_id);
                 if (result.success) {
                     likeBtn.innerHTML = `

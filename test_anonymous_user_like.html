@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>匿名用户点赞功能测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-info {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .feature-highlight {
+            background: var(--success-50);
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--success-200);
+            margin: 1rem 0;
+        }
+        .demo-like-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .demo-like-btn:hover {
+            background: var(--primary-hover);
+        }
+        .demo-like-btn.liked {
+            background: var(--error-color);
+            color: white;
+        }
+        .anonymous-id-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.875rem;
+            border: 1px solid var(--info-200);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🆔 匿名用户点赞功能测试</h1>
+        <p>测试匿名用户使用统一UUID进行点赞，并更新数据库记录</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>功能说明</h3>
+            <div class="feature-highlight">
+                <h4 style="color: var(--success-700); margin-top: 0;">✨ 新的匿名用户机制</h4>
+                <ul style="color: var(--success-600); margin-bottom: 0;">
+                    <li><strong>统一匿名ID</strong>：为每个浏览器生成唯一的匿名用户UUID</li>
+                    <li><strong>数据库记录</strong>：匿名用户的点赞记录存储在user_likes表中</li>
+                    <li><strong>计数更新</strong>：点赞操作会实时更新prompts表的like_count字段</li>
+                    <li><strong>持久化存储</strong>：匿名ID存储在localStorage中，浏览器重启后保持</li>
+                    <li><strong>独立处理</strong>：匿名用户数据独立，不与登录用户合并</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>匿名用户ID状态</h3>
+            <div id="anonymous-id-status" class="anonymous-id-display">检查中...</div>
+            <button class="test-button" onclick="checkAnonymousId()">刷新匿名ID</button>
+            <button class="test-button" onclick="generateNewAnonymousId()">生成新的匿名ID</button>
+            <button class="test-button" onclick="clearAnonymousId()">清除匿名ID</button>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态检查</h3>
+            <div id="current-status" class="status-info">检查中...</div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+        </div>
+
+        <div class="test-section">
+            <h3>点赞功能测试</h3>
+            <p>测试提示词ID: <span id="test-prompt-id">1</span></p>
+            <button class="demo-like-btn" id="demo-like-btn" onclick="testToggleLike()">
+                <i class="fas fa-heart"></i>
+                点赞
+            </button>
+            <div style="margin-top: 1rem;">
+                <button class="test-button" onclick="checkLikeStatus()">检查点赞状态</button>
+                <button class="test-button" onclick="testMultipleLikes()">测试多个点赞</button>
+                <button class="test-button" onclick="testDatabaseUpdate()">验证数据库更新</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>API功能测试</h3>
+            <button class="test-button" onclick="testAnonymousIdGeneration()">测试匿名ID生成</button>
+            <button class="test-button" onclick="testGetUserInteractions()">测试获取用户交互</button>
+            <button class="test-button" onclick="testIsLikedMethod()">测试isLiked方法</button>
+        </div>
+
+        <div class="test-section">
+            <h3>数据一致性测试</h3>
+            <button class="test-button" onclick="testDataConsistency()">测试数据一致性</button>
+            <button class="test-button" onclick="testLikeCountUpdate()">测试计数更新</button>
+            <button class="test-button" onclick="testAnonymousIdPersistence()">测试ID持久化</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+        let testPromptId = 1;
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkAnonymousId() {
+            const statusDiv = document.getElementById('anonymous-id-status');
+            let status = '';
+
+            try {
+                const anonymousId = localStorage.getItem('anonymous_user_id');
+                
+                if (anonymousId) {
+                    status += `匿名用户ID: ${anonymousId}\n`;
+                    status += `ID格式: ${isValidUUID(anonymousId) ? '✅ 有效UUID' : '❌ 无效格式'}\n`;
+                    status += `存储时间: ${getStorageTime()}\n`;
+                } else {
+                    status += `匿名用户ID: ❌ 未生成\n`;
+                }
+
+                // 测试API方法
+                if (typeof apiManager !== 'undefined') {
+                    const apiId = apiManager.getOrCreateAnonymousUserId();
+                    status += `API获取ID: ${apiId}\n`;
+                    status += `ID一致性: ${anonymousId === apiId ? '✅ 一致' : '❌ 不一致'}\n`;
+                }
+
+            } catch (error) {
+                status += `检查失败: ${error.message}\n`;
+            }
+
+            statusDiv.textContent = status;
+            log('匿名ID检查完成');
+        }
+
+        function isValidUUID(uuid) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            return uuidRegex.test(uuid);
+        }
+
+        function getStorageTime() {
+            try {
+                const timestamp = localStorage.getItem('anonymous_user_id_timestamp');
+                return timestamp ? new Date(parseInt(timestamp)).toLocaleString() : '未知';
+            } catch {
+                return '未知';
+            }
+        }
+
+        function generateNewAnonymousId() {
+            try {
+                localStorage.removeItem('anonymous_user_id');
+                localStorage.setItem('anonymous_user_id_timestamp', Date.now().toString());
+                
+                if (typeof apiManager !== 'undefined') {
+                    const newId = apiManager.getOrCreateAnonymousUserId();
+                    log(`✅ 生成新的匿名ID: ${newId}`);
+                    checkAnonymousId();
+                } else {
+                    log('❌ apiManager不可用');
+                }
+            } catch (error) {
+                log(`❌ 生成新匿名ID失败: ${error.message}`);
+            }
+        }
+
+        function clearAnonymousId() {
+            try {
+                localStorage.removeItem('anonymous_user_id');
+                localStorage.removeItem('anonymous_user_id_timestamp');
+                log('✅ 匿名ID已清除');
+                checkAnonymousId();
+            } catch (error) {
+                log(`❌ 清除匿名ID失败: ${error.message}`);
+            }
+        }
+
+        function checkCurrentStatus() {
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            // 基础状态
+            status += `时间: ${new Date().toLocaleString()}\n`;
+            status += `认证状态: ${authManager.isAuthenticated() ? '✅ 已登录' : '❌ 未登录'}\n`;
+            
+            if (authManager.isAuthenticated()) {
+                const user = authManager.getCurrentUser();
+                status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+            }
+
+            // API方法检查
+            status += `\nAPI方法可用性:\n`;
+            status += `getOrCreateAnonymousUserId: ${typeof apiManager.getOrCreateAnonymousUserId === 'function' ? '✅' : '❌'}\n`;
+            status += `generateUUID: ${typeof apiManager.generateUUID === 'function' ? '✅' : '❌'}\n`;
+            status += `updatePromptLikeCount: ${typeof apiManager.updatePromptLikeCount === 'function' ? '✅' : '❌'}\n`;
+            status += `isLiked: ${typeof apiManager.isLiked === 'function' ? '✅' : '❌'}\n`;
+
+            statusDiv.textContent = status;
+            log('状态检查完成');
+        }
+
+        async function testToggleLike() {
+            log('=== 测试点赞切换 ===');
+            
+            if (typeof apiManager !== 'undefined') {
+                try {
+                    const result = await apiManager.toggleLike(testPromptId);
+                    if (result.success) {
+                        log(`✅ 点赞操作成功: ${result.liked ? '已点赞' : '取消点赞'}`);
+                        updateDemoButton();
+                    } else {
+                        log(`❌ 点赞操作失败: ${result.error}`);
+                    }
+                } catch (error) {
+                    log(`❌ 点赞操作异常: ${error.message}`);
+                }
+            } else {
+                log('❌ apiManager不可用');
+            }
+        }
+
+        async function updateDemoButton() {
+            const btn = document.getElementById('demo-like-btn');
+            if (btn && typeof apiManager !== 'undefined') {
+                try {
+                    const isLiked = await apiManager.isLiked(testPromptId);
+                    btn.classList.toggle('liked', isLiked);
+                    btn.innerHTML = `
+                        <i class="fas fa-heart"></i>
+                        ${isLiked ? '已赞' : '点赞'}
+                    `;
+                } catch (error) {
+                    log(`❌ 更新按钮状态失败: ${error.message}`);
+                }
+            }
+        }
+
+        async function checkLikeStatus() {
+            log('=== 检查点赞状态 ===');
+            
+            try {
+                const isLiked = await apiManager.isLiked(testPromptId);
+                log(`提示词${testPromptId}点赞状态: ${isLiked ? '已点赞' : '未点赞'}`);
+                
+                const interactions = await apiManager.getUserInteractions([testPromptId]);
+                if (interactions.success) {
+                    log(`用户交互数据: ${JSON.stringify(interactions.data)}`);
+                }
+            } catch (error) {
+                log(`❌ 检查点赞状态失败: ${error.message}`);
+            }
+        }
+
+        async function testMultipleLikes() {
+            log('=== 测试多个提示词点赞 ===');
+            
+            const testIds = [1, 2, 3];
+            
+            for (const id of testIds) {
+                try {
+                    const result = await apiManager.toggleLike(id);
+                    log(`提示词${id}: ${result.success ? (result.liked ? '已点赞' : '取消点赞') : '失败'}`);
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 延迟避免并发问题
+                } catch (error) {
+                    log(`提示词${id}操作失败: ${error.message}`);
+                }
+            }
+        }
+
+        async function testDatabaseUpdate() {
+            log('=== 验证数据库更新 ===');
+            
+            try {
+                // 获取当前点赞状态
+                const beforeLiked = await apiManager.isLiked(testPromptId);
+                log(`操作前状态: ${beforeLiked ? '已点赞' : '未点赞'}`);
+                
+                // 执行点赞操作
+                const result = await apiManager.toggleLike(testPromptId);
+                log(`点赞操作结果: ${JSON.stringify(result)}`);
+                
+                // 检查操作后状态
+                const afterLiked = await apiManager.isLiked(testPromptId);
+                log(`操作后状态: ${afterLiked ? '已点赞' : '未点赞'}`);
+                
+                // 验证状态变化
+                if (beforeLiked !== afterLiked) {
+                    log('✅ 数据库状态正确更新');
+                } else {
+                    log('❌ 数据库状态未发生变化');
+                }
+                
+            } catch (error) {
+                log(`❌ 验证数据库更新失败: ${error.message}`);
+            }
+        }
+
+        function testAnonymousIdGeneration() {
+            log('=== 测试匿名ID生成 ===');
+            
+            try {
+                // 测试UUID生成
+                const uuid1 = apiManager.generateUUID();
+                const uuid2 = apiManager.generateUUID();
+                
+                log(`生成UUID1: ${uuid1}`);
+                log(`生成UUID2: ${uuid2}`);
+                log(`UUID格式验证: ${isValidUUID(uuid1) && isValidUUID(uuid2) ? '✅' : '❌'}`);
+                log(`UUID唯一性: ${uuid1 !== uuid2 ? '✅' : '❌'}`);
+                
+                // 测试匿名ID获取
+                const anonymousId1 = apiManager.getOrCreateAnonymousUserId();
+                const anonymousId2 = apiManager.getOrCreateAnonymousUserId();
+                
+                log(`匿名ID1: ${anonymousId1}`);
+                log(`匿名ID2: ${anonymousId2}`);
+                log(`匿名ID一致性: ${anonymousId1 === anonymousId2 ? '✅' : '❌'}`);
+                
+            } catch (error) {
+                log(`❌ 匿名ID生成测试失败: ${error.message}`);
+            }
+        }
+
+        async function testGetUserInteractions() {
+            log('=== 测试获取用户交互 ===');
+            
+            const testIds = [1, 2, 3];
+            
+            try {
+                const result = await apiManager.getUserInteractions(testIds);
+                if (result.success) {
+                    log(`✅ 获取用户交互成功:`);
+                    log(`点赞: ${JSON.stringify(result.data.likes)}`);
+                    log(`收藏: ${JSON.stringify(result.data.favorites)}`);
+                } else {
+                    log(`❌ 获取用户交互失败: ${result.error}`);
+                }
+            } catch (error) {
+                log(`❌ 获取用户交互异常: ${error.message}`);
+            }
+        }
+
+        async function testIsLikedMethod() {
+            log('=== 测试isLiked方法 ===');
+            
+            const testIds = [1, 2, 3];
+            
+            for (const id of testIds) {
+                try {
+                    const isLiked = await apiManager.isLiked(id);
+                    log(`提示词${id}: ${isLiked ? '已点赞' : '未点赞'}`);
+                } catch (error) {
+                    log(`检查提示词${id}失败: ${error.message}`);
+                }
+            }
+        }
+
+        async function testDataConsistency() {
+            log('=== 测试数据一致性 ===');
+            
+            try {
+                // 获取用户交互数据
+                const interactions = await apiManager.getUserInteractions([testPromptId]);
+                const isLikedFromInteractions = interactions.success && interactions.data.likes.includes(testPromptId);
+                
+                // 直接检查点赞状态
+                const isLikedDirect = await apiManager.isLiked(testPromptId);
+                
+                log(`交互数据显示: ${isLikedFromInteractions ? '已点赞' : '未点赞'}`);
+                log(`直接检查显示: ${isLikedDirect ? '已点赞' : '未点赞'}`);
+                log(`数据一致性: ${isLikedFromInteractions === isLikedDirect ? '✅ 一致' : '❌ 不一致'}`);
+                
+            } catch (error) {
+                log(`❌ 数据一致性测试失败: ${error.message}`);
+            }
+        }
+
+        async function testLikeCountUpdate() {
+            log('=== 测试点赞计数更新 ===');
+            
+            try {
+                // 这里可以添加获取提示词详情的API调用来验证like_count
+                log('注意：需要在数据库中手动验证like_count字段的更新');
+                log('建议：在Supabase控制台中查看prompts表的like_count字段');
+                
+                // 执行点赞操作
+                const result = await apiManager.toggleLike(testPromptId);
+                log(`点赞操作: ${result.success ? (result.liked ? '增加计数' : '减少计数') : '失败'}`);
+                
+            } catch (error) {
+                log(`❌ 点赞计数更新测试失败: ${error.message}`);
+            }
+        }
+
+        function testAnonymousIdPersistence() {
+            log('=== 测试匿名ID持久化 ===');
+            
+            try {
+                const originalId = apiManager.getOrCreateAnonymousUserId();
+                log(`原始ID: ${originalId}`);
+                
+                // 模拟页面刷新（重新获取ID）
+                const persistedId = apiManager.getOrCreateAnonymousUserId();
+                log(`持久化ID: ${persistedId}`);
+                
+                log(`持久化测试: ${originalId === persistedId ? '✅ 成功' : '❌ 失败'}`);
+                
+            } catch (error) {
+                log(`❌ 持久化测试失败: ${error.message}`);
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('匿名用户点赞功能测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                checkCurrentStatus();
+                checkAnonymousId();
+                updateDemoButton();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
