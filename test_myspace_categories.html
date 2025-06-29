@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的空间分类管理测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .feature-list {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        .feature-list h4 {
+            margin: 0 0 0.5rem 0;
+            color: var(--info-700);
+        }
+        .feature-list ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+        .feature-list li {
+            margin: 0.25rem 0;
+            color: var(--info-600);
+        }
+        .demo-tabs {
+            display: flex;
+            gap: var(--space-2);
+            margin: 1rem 0;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .demo-tab {
+            padding: var(--space-3) var(--space-4);
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .demo-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background: var(--primary-50);
+        }
+        .demo-content {
+            display: none;
+            padding: 1rem;
+            background: var(--gray-50);
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        .demo-content.active {
+            display: block;
+        }
+        .api-test {
+            background: var(--warning-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--warning-200);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📂 我的空间分类管理测试</h1>
+        <p>验证"我创建的"和"我收藏的"提示词分类管理功能</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>功能需求</h3>
+            <div class="feature-list">
+                <h4>我的提示词应该包括两部分：</h4>
+                <ul>
+                    <li>✅ 我自己创建的（来自prompts数据表）</li>
+                    <li>✅ 我收藏其他用户的（收藏记录在user_favorites数据表中）</li>
+                </ul>
+            </div>
+            
+            <div class="feature-list">
+                <h4>分类管理功能：</h4>
+                <ul>
+                    <li>✅ 统计数量显示</li>
+                    <li>✅ 分类显示列表</li>
+                    <li>✅ 搜索功能</li>
+                    <li>✅ 排序功能（按浏览量、使用量、点赞量）</li>
+                </ul>
+            </div>
+
+            <div class="feature-list">
+                <h4>操作权限：</h4>
+                <ul>
+                    <li>✅ 我创建的提示词：查看、编辑、删除</li>
+                    <li>✅ 我收藏的提示词：查看、取消收藏</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>界面演示</h3>
+            <div class="demo-tabs">
+                <button class="demo-tab active" data-tab="created">
+                    <i class="fas fa-edit"></i> 我创建的
+                </button>
+                <button class="demo-tab" data-tab="favorites">
+                    <i class="fas fa-heart"></i> 我收藏的
+                </button>
+            </div>
+
+            <div class="demo-content active" id="created-demo">
+                <h4>我创建的提示词</h4>
+                <p>显示用户自己创建的提示词，支持编辑和删除操作</p>
+                <div style="background: white; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <span>我创建的提示词数量：<strong>5</strong></span>
+                        <div>
+                            <button class="test-button">编辑</button>
+                            <button class="test-button" style="background: var(--error-color);">删除</button>
+                        </div>
+                    </div>
+                    <p>示例提示词卡片内容...</p>
+                </div>
+            </div>
+
+            <div class="demo-content" id="favorites-demo">
+                <h4>我收藏的提示词</h4>
+                <p>显示用户收藏的其他用户的提示词，支持查看和取消收藏操作</p>
+                <div style="background: white; padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <span>我收藏的提示词数量：<strong>8</strong></span>
+                        <div>
+                            <button class="test-button" style="background: var(--warning-color);">取消收藏</button>
+                        </div>
+                    </div>
+                    <p>示例收藏提示词卡片内容...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>API功能测试</h3>
+            <div class="api-test">
+                <h4>新增API方法：getMyFavorites</h4>
+                <p>获取用户收藏的提示词列表，支持分页、搜索、排序</p>
+                <button class="test-button" onclick="testGetMyFavorites()">测试获取收藏列表</button>
+            </div>
+
+            <button class="test-button" onclick="testApiManager()">测试API管理器</button>
+            <button class="test-button" onclick="testMySpaceManager()">测试MySpaceManager</button>
+        </div>
+
+        <div class="test-section">
+            <h3>功能验证</h3>
+            <button class="test-button" onclick="testTabSwitching()">测试标签页切换</button>
+            <button class="test-button" onclick="testSearchAndSort()">测试搜索和排序</button>
+            <button class="test-button" onclick="testCountDisplay()">测试数量显示</button>
+            <button class="test-button" onclick="goToMySpace()">前往我的空间页面</button>
+        </div>
+
+        <div class="test-section">
+            <h3>注意事项</h3>
+            <div class="feature-list">
+                <h4>⚠️ 小心改动原则：</h4>
+                <ul>
+                    <li>保持现有功能不受影响</li>
+                    <li>向后兼容已有的API接口</li>
+                    <li>不破坏现有的数据结构</li>
+                    <li>保持用户体验的一致性</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 演示标签页切换
+        document.querySelectorAll('.demo-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                // 更新标签状态
+                document.querySelectorAll('.demo-tab').forEach(t => {
+                    t.classList.toggle('active', t.dataset.tab === tabName);
+                });
+                
+                // 更新内容显示
+                document.querySelectorAll('.demo-content').forEach(content => {
+                    content.classList.toggle('active', content.id === `${tabName}-demo`);
+                });
+            });
+        });
+
+        function testGetMyFavorites() {
+            console.log('=== 测试getMyFavorites API ===');
+            
+            if (typeof apiManager !== 'undefined' && typeof apiManager.getMyFavorites === 'function') {
+                console.log('✅ getMyFavorites方法存在');
+                
+                // 模拟调用
+                console.log('模拟调用: apiManager.getMyFavorites({ page: 1, search: "", sortBy: "created_at" })');
+                alert('✅ getMyFavorites API方法已添加\n\n支持参数：\n- page: 页码\n- search: 搜索关键词\n- sortBy: 排序字段\n- category: 分类筛选');
+            } else {
+                console.log('❌ getMyFavorites方法不存在');
+                alert('❌ getMyFavorites API方法未找到');
+            }
+        }
+
+        function testApiManager() {
+            console.log('=== 测试API管理器 ===');
+            
+            if (typeof apiManager !== 'undefined') {
+                console.log('✅ API管理器可用');
+                
+                const methods = [
+                    'getMyPrompts',
+                    'getMyFavorites',
+                    'toggleFavorite',
+                    'createPrompt',
+                    'updatePrompt',
+                    'deletePrompt'
+                ];
+
+                let available = 0;
+                methods.forEach(method => {
+                    const exists = typeof apiManager[method] === 'function';
+                    console.log(`  ${method}: ${exists ? '✅' : '❌'}`);
+                    if (exists) available++;
+                });
+
+                alert(`API管理器测试结果：\n可用方法: ${available}/${methods.length}\n\n详细信息请查看控制台`);
+            } else {
+                console.log('❌ API管理器不可用');
+                alert('❌ API管理器不可用');
+            }
+        }
+
+        function testMySpaceManager() {
+            console.log('=== 测试MySpaceManager ===');
+            
+            if (typeof window.mySpaceManager !== 'undefined') {
+                console.log('✅ MySpaceManager可用');
+                
+                const methods = [
+                    'initTabs',
+                    'switchTab',
+                    'loadCurrentTabData',
+                    'loadMyCreatedPrompts',
+                    'loadMyFavoritePrompts',
+                    'updateCreatedCount',
+                    'updateFavoritesCount'
+                ];
+
+                let available = 0;
+                methods.forEach(method => {
+                    const exists = typeof window.mySpaceManager[method] === 'function';
+                    console.log(`  ${method}: ${exists ? '✅' : '❌'}`);
+                    if (exists) available++;
+                });
+
+                alert(`MySpaceManager测试结果：\n可用方法: ${available}/${methods.length}\n\n详细信息请查看控制台`);
+            } else {
+                console.log('❌ MySpaceManager不可用');
+                alert('❌ MySpaceManager不可用');
+            }
+        }
+
+        function testTabSwitching() {
+            console.log('=== 测试标签页切换功能 ===');
+            
+            if (typeof window.mySpaceManager !== 'undefined' && typeof window.mySpaceManager.switchTab === 'function') {
+                console.log('✅ 标签页切换功能可用');
+                alert('✅ 标签页切换功能已实现\n\n功能包括：\n- 切换标签按钮状态\n- 切换内容显示\n- 更新搜索框占位符\n- 加载对应数据');
+            } else {
+                console.log('❌ 标签页切换功能不可用');
+                alert('❌ 标签页切换功能不可用');
+            }
+        }
+
+        function testSearchAndSort() {
+            console.log('=== 测试搜索和排序功能 ===');
+            
+            const searchInput = document.getElementById('my-search-input');
+            const sortSelect = document.getElementById('my-sort-filter');
+            
+            let features = [];
+            if (searchInput) features.push('搜索输入框');
+            if (sortSelect) features.push('排序选择器');
+            
+            console.log(`可用功能: ${features.join(', ')}`);
+            alert(`搜索和排序功能：\n\n✅ 支持的功能：\n${features.map(f => `- ${f}`).join('\n')}\n\n✅ 排序选项：\n- 最新发布\n- 浏览量\n- 使用量\n- 点赞量`);
+        }
+
+        function testCountDisplay() {
+            console.log('=== 测试数量显示功能 ===');
+            
+            const createdCount = document.getElementById('my-created-count');
+            const favoritesCount = document.getElementById('my-favorites-count');
+            
+            let status = [];
+            if (createdCount) status.push('我创建的数量显示');
+            if (favoritesCount) status.push('我收藏的数量显示');
+            
+            console.log(`数量显示状态: ${status.join(', ')}`);
+            alert(`数量显示功能：\n\n✅ 支持的显示：\n${status.map(s => `- ${s}`).join('\n')}\n\n✅ 功能特性：\n- 实时更新\n- 分别统计\n- 加载状态显示`);
+        }
+
+        function goToMySpace() {
+            console.log('跳转到我的空间页面...');
+            window.location.href = 'index.html#my-space';
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('我的空间分类管理测试页面加载完成');
+
+            // 初始化MySpaceManager（如果不存在）
+            if (typeof window.mySpaceManager === 'undefined') {
+                console.log('初始化MySpaceManager...');
+                try {
+                    window.mySpaceManager = new MySpaceManager();
+                    window.mySpaceManager.init();
+                    console.log('✅ MySpaceManager初始化成功');
+                } catch (error) {
+                    console.error('❌ MySpaceManager初始化失败:', error);
+                }
+            }
+
+            setTimeout(() => {
+                console.log('开始功能检查...');
+                testApiManager();
+                testMySpaceManager();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

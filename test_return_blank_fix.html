@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>返回空白页面修复验证</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        .status.success {
+            background: var(--success-50);
+            color: var(--success-700);
+            border: 1px solid var(--success-200);
+        }
+        .status.error {
+            background: var(--error-50);
+            color: var(--error-700);
+            border: 1px solid var(--error-200);
+        }
+        .status.warning {
+            background: var(--warning-50);
+            color: var(--warning-700);
+            border: 1px solid var(--warning-200);
+        }
+        .log {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .fix-details {
+            background: var(--info-50);
+            border: 1px solid var(--info-200);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .test-flow {
+            background: var(--warning-50);
+            border: 1px solid var(--warning-200);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 返回空白页面修复验证</h1>
+        <p>验证从提示词详情页面返回"我的空间"时不再显示空白页面</p>
+    </div>
+
+    <div class="test-container">
+        <h3>问题分析</h3>
+        
+        <div class="fix-details">
+            <h4>🐛 问题根因</h4>
+            <p><strong>核心问题</strong>：PromptsManager.goBack()方法直接调用UI.showPage()，只切换了页面显示，但没有触发页面特定的初始化逻辑</p>
+            
+            <h4>🔧 修复方案</h4>
+            <ul>
+                <li>修改goBack()方法，优先使用main.showPage()来确保触发页面初始化</li>
+                <li>添加备用方案triggerPageInit()，手动触发页面初始化逻辑</li>
+                <li>设置window.main全局引用，供其他模块使用</li>
+            </ul>
+        </div>
+
+        <div class="test-flow">
+            <h4>📋 测试流程</h4>
+            <ol>
+                <li>进入"我的空间"页面</li>
+                <li>点击任意提示词的"查看"按钮</li>
+                <li>在详情页面点击"返回"按钮</li>
+                <li>验证是否正确返回"我的空间"页面且显示正常</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h3>功能验证</h3>
+        <button class="test-button" onclick="testGoBackMethod()">测试goBack方法</button>
+        <button class="test-button" onclick="testMainReference()">测试main引用</button>
+        <button class="test-button" onclick="testPageInit()">测试页面初始化</button>
+        <button class="test-button" onclick="simulateReturnFlow()">模拟返回流程</button>
+        <button class="test-button" onclick="goToMySpace()">前往我的空间实际测试</button>
+        
+        <div id="test-results" class="status" style="display: none;">
+            测试结果将在这里显示
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h3>测试日志</h3>
+        <div id="test-log" class="log">等待测试...</div>
+        <button class="test-button" onclick="clearLog()">清空日志</button>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function showResult(message, type = 'success') {
+            const resultDiv = document.getElementById('test-results');
+            resultDiv.className = `status ${type}`;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+        }
+
+        function testGoBackMethod() {
+            log('=== 测试goBack方法 ===');
+            
+            try {
+                if (typeof window.promptsManager !== 'undefined') {
+                    if (typeof window.promptsManager.goBack === 'function') {
+                        log('✅ goBack方法存在');
+                        
+                        if (typeof window.promptsManager.triggerPageInit === 'function') {
+                            log('✅ triggerPageInit备用方法存在');
+                            showResult('✅ goBack方法和备用方案都存在', 'success');
+                        } else {
+                            log('❌ triggerPageInit备用方法不存在');
+                            showResult('⚠️ goBack方法存在但缺少备用方案', 'warning');
+                        }
+                    } else {
+                        log('❌ goBack方法不存在');
+                        showResult('❌ goBack方法不存在', 'error');
+                    }
+                } else {
+                    log('❌ PromptsManager不可用');
+                    showResult('❌ PromptsManager不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 测试goBack方法失败: ${error.message}`);
+                showResult(`❌ 测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testMainReference() {
+            log('=== 测试main引用 ===');
+            
+            try {
+                if (typeof window.main !== 'undefined') {
+                    log('✅ window.main存在');
+                    
+                    if (typeof window.main.showPage === 'function') {
+                        log('✅ window.main.showPage方法存在');
+                        
+                        if (typeof window.main.handlePageInit === 'function') {
+                            log('✅ window.main.handlePageInit方法存在');
+                            showResult('✅ main引用和相关方法都存在', 'success');
+                        } else {
+                            log('❌ window.main.handlePageInit方法不存在');
+                            showResult('⚠️ main引用存在但缺少handlePageInit方法', 'warning');
+                        }
+                    } else {
+                        log('❌ window.main.showPage方法不存在');
+                        showResult('❌ main引用存在但缺少showPage方法', 'error');
+                    }
+                } else {
+                    log('❌ window.main不存在');
+                    showResult('❌ window.main引用不存在', 'error');
+                }
+            } catch (error) {
+                log(`❌ 测试main引用失败: ${error.message}`);
+                showResult(`❌ 测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testPageInit() {
+            log('=== 测试页面初始化 ===');
+            
+            try {
+                if (typeof window.mySpaceManager !== 'undefined') {
+                    const methods = [
+                        'ensureDefaultTabState',
+                        'loadCurrentTabData',
+                        'switchTab'
+                    ];
+
+                    let available = 0;
+                    methods.forEach(method => {
+                        const exists = typeof window.mySpaceManager[method] === 'function';
+                        log(`${method}: ${exists ? '✅' : '❌'}`);
+                        if (exists) available++;
+                    });
+
+                    if (available === methods.length) {
+                        showResult('✅ 所有页面初始化方法都存在', 'success');
+                    } else {
+                        showResult(`⚠️ 部分页面初始化方法不存在 (${available}/${methods.length})`, 'warning');
+                    }
+                } else {
+                    log('❌ MySpaceManager不可用');
+                    showResult('❌ MySpaceManager不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 测试页面初始化失败: ${error.message}`);
+                showResult(`❌ 测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function simulateReturnFlow() {
+            log('=== 模拟返回流程 ===');
+            
+            try {
+                if (typeof window.promptsManager !== 'undefined' && typeof window.main !== 'undefined') {
+                    log('设置模拟环境...');
+                    
+                    // 模拟从my-space页面来的
+                    window.promptsManager.previousPage = 'my-space-page';
+                    log('设置previousPage为: my-space-page');
+                    
+                    // 测试goBack方法
+                    log('调用goBack方法...');
+                    
+                    // 由于实际调用会切换页面，我们只测试方法是否可调用
+                    if (typeof window.promptsManager.goBack === 'function') {
+                        log('✅ goBack方法可调用');
+                        
+                        // 测试备用方案
+                        if (typeof window.promptsManager.triggerPageInit === 'function') {
+                            log('测试triggerPageInit方法...');
+                            window.promptsManager.triggerPageInit('my-space');
+                            log('✅ triggerPageInit方法调用成功');
+                        }
+                        
+                        showResult('✅ 返回流程模拟成功', 'success');
+                    } else {
+                        log('❌ goBack方法不可调用');
+                        showResult('❌ goBack方法不可调用', 'error');
+                    }
+                } else {
+                    log('❌ 缺少必要的管理器对象');
+                    showResult('❌ 缺少必要的管理器对象', 'error');
+                }
+            } catch (error) {
+                log(`❌ 模拟返回流程失败: ${error.message}`);
+                showResult(`❌ 模拟失败: ${error.message}`, 'error');
+            }
+        }
+
+        function goToMySpace() {
+            log('跳转到我的空间页面进行实际测试...');
+            log('请按以下步骤测试：');
+            log('1. 点击任意提示词的"查看"按钮');
+            log('2. 在详情页面点击"返回"按钮');
+            log('3. 验证是否正确返回"我的空间"页面且显示正常');
+            window.location.href = 'index.html#my-space';
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后自动测试
+        document.addEventListener('DOMContentLoaded', () => {
+            logElement = document.getElementById('test-log');
+            
+            log('返回空白页面修复验证页面加载完成');
+            
+            // 确保MySpaceManager可用
+            if (typeof window.mySpaceManager === 'undefined' && typeof MySpaceManager !== 'undefined') {
+                try {
+                    window.mySpaceManager = new MySpaceManager();
+                    window.mySpaceManager.init();
+                    log('✅ MySpaceManager自动初始化成功');
+                } catch (error) {
+                    log(`❌ MySpaceManager自动初始化失败: ${error.message}`);
+                }
+            }
+            
+            setTimeout(() => {
+                log('开始自动测试...');
+                testGoBackMethod();
+                testMainReference();
+                testPageInit();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

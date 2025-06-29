@@ -7,6 +7,13 @@ class MySpaceManager {
         this.currentMediaFile = null;
         this.currentMediaUrl = null;
         this.isSubmitting = false; // 防止重复提交
+
+        // 分类管理相关状态
+        this.currentTab = 'created'; // 'created' 或 'favorites'
+        this.currentSort = 'created_at';
+        this.createdPage = 1;
+        this.favoritesPage = 1;
+
         // init() 将在main.js中手动调用
     }
 
@@ -14,18 +21,530 @@ class MySpaceManager {
     init() {
         this.bindEvents();
         this.createPromptModal();
-        this.initPromptCount();
+        this.initPromptCounts();
+        this.initTabs();
     }
 
     // 初始化提示词数量显示
-    initPromptCount() {
-        const countElement = document.getElementById('my-prompt-count');
-        if (countElement) {
-            if (authManager.isAuthenticated()) {
-                countElement.textContent = '我创建的提示词数量：加载中...';
-            } else {
-                countElement.textContent = '我创建的提示词数量：请先登录';
+    initPromptCounts() {
+        const createdCountElement = document.getElementById('my-created-count');
+        const favoritesCountElement = document.getElementById('my-favorites-count');
+
+        if (authManager.isAuthenticated()) {
+            if (createdCountElement) {
+                createdCountElement.textContent = '我创建的提示词数量：加载中...';
             }
+            if (favoritesCountElement) {
+                favoritesCountElement.textContent = '我收藏的提示词数量：加载中...';
+            }
+        } else {
+            if (createdCountElement) {
+                createdCountElement.textContent = '我创建的提示词数量：请先登录';
+            }
+            if (favoritesCountElement) {
+                favoritesCountElement.textContent = '我收藏的提示词数量：请先登录';
+            }
+        }
+    }
+
+    // 初始化标签页功能
+    initTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+                this.switchTab(tabName);
+            });
+        });
+
+        // 确保默认标签页状态正确
+        this.ensureDefaultTabState();
+    }
+
+    // 确保默认标签页状态
+    ensureDefaultTabState() {
+        // 如果没有活跃的标签页，设置默认为"我创建的"
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (!activeTab) {
+            console.log('没有活跃标签页，设置默认为"我创建的"');
+            this.switchTab('created');
+        } else {
+            // 同步当前标签页状态
+            this.currentTab = activeTab.dataset.tab || 'created';
+            console.log('当前标签页:', this.currentTab);
+        }
+    }
+
+    // 切换标签页
+    switchTab(tabName) {
+        // 更新当前标签页状态
+        this.currentTab = tabName;
+
+        // 更新标签按钮状态
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+
+        // 更新标签内容显示
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `${tabName}-tab-content`);
+        });
+
+        // 更新搜索框占位符
+        const searchInput = document.getElementById('my-search-input');
+        if (searchInput) {
+            searchInput.placeholder = tabName === 'created' ? '搜索我创建的提示词...' : '搜索我收藏的提示词...';
+        }
+
+        // 加载对应的数据
+        this.loadCurrentTabData();
+    }
+
+    // 加载当前标签页的数据
+    loadCurrentTabData() {
+        if (this.currentTab === 'created') {
+            this.loadMyCreatedPrompts();
+        } else if (this.currentTab === 'favorites') {
+            this.loadMyFavoritePrompts();
+        }
+    }
+
+    // 加载我创建的提示词
+    async loadMyCreatedPrompts() {
+        if (!authManager.isAuthenticated()) {
+            this.clearCreatedPrompts();
+            return;
+        }
+
+        UI.showLoading();
+
+        try {
+            const result = await apiManager.getMyPrompts({
+                page: this.createdPage,
+                search: this.searchQuery,
+                sortBy: this.currentSort
+            });
+
+            if (result.success) {
+                this.renderCreatedPrompts(result.data);
+                this.createCreatedPagination(result.pagination);
+                this.updateCreatedCount(result.pagination.total);
+            } else {
+                UI.showNotification(result.error || '加载失败', 'error');
+                this.renderCreatedPrompts([]);
+                this.updateCreatedCount(0);
+            }
+        } catch (error) {
+            console.error('加载我创建的提示词失败:', error);
+            UI.showNotification('加载失败', 'error');
+            this.renderCreatedPrompts([]);
+            this.updateCreatedCount(0);
+        } finally {
+            UI.hideLoading();
+        }
+    }
+
+    // 加载我收藏的提示词
+    async loadMyFavoritePrompts() {
+        if (!authManager.isAuthenticated()) {
+            this.clearFavoritePrompts();
+            return;
+        }
+
+        UI.showLoading();
+
+        try {
+            const result = await apiManager.getMyFavorites({
+                page: this.favoritesPage,
+                search: this.searchQuery,
+                sortBy: this.currentSort
+            });
+
+            if (result.success) {
+                this.renderFavoritePrompts(result.data);
+                this.createFavoritesPagination(result.pagination);
+                this.updateFavoritesCount(result.pagination.total);
+            } else {
+                UI.showNotification(result.error || '加载失败', 'error');
+                this.renderFavoritePrompts([]);
+                this.updateFavoritesCount(0);
+            }
+        } catch (error) {
+            console.error('加载我收藏的提示词失败:', error);
+            UI.showNotification('加载失败', 'error');
+            this.renderFavoritePrompts([]);
+            this.updateFavoritesCount(0);
+        } finally {
+            UI.hideLoading();
+        }
+    }
+
+    // 渲染我创建的提示词
+    renderCreatedPrompts(prompts) {
+        const container = document.getElementById('my-created-container');
+        if (!container) return;
+
+        if (!prompts || prompts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-edit"></i>
+                    <h3>您还没有创建任何提示词</h3>
+                    <p>点击"创建提示词"按钮开始创建您的第一个提示词</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 创建卡片容器
+        const cardsHtml = prompts.map(prompt => {
+            const card = UI.createPromptCard(prompt, 'card');
+            // 替换整个按钮区域，确保所有按钮在同一行
+            const actionsContainer = card.querySelector('.prompt-card-actions');
+            actionsContainer.innerHTML = `
+                <button class="btn my-space-btn view-prompt-btn" data-prompt-id="${prompt.prompt_id}">
+                    <i class="fas fa-eye"></i> 查看
+                </button>
+                <button class="btn my-space-btn edit-prompt-btn" data-prompt-id="${prompt.prompt_id}">
+                    <i class="fas fa-edit"></i> 编辑
+                </button>
+                <button class="btn my-space-btn btn-danger delete-prompt-btn" data-prompt-id="${prompt.prompt_id}">
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+            `;
+            return card.outerHTML;
+        }).join('');
+
+        container.innerHTML = cardsHtml;
+
+        // 绑定编辑和删除事件
+        this.bindCreatedPromptActions();
+    }
+
+    // 渲染我收藏的提示词
+    renderFavoritePrompts(prompts) {
+        const container = document.getElementById('my-favorites-container');
+        if (!container) return;
+
+        if (!prompts || prompts.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-heart"></i>
+                    <h3>您还没有收藏任何提示词</h3>
+                    <p>浏览提示词并点击收藏按钮来收藏您喜欢的提示词</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 创建卡片容器
+        const cardsHtml = prompts.map(prompt => {
+            const card = UI.createPromptCard(prompt, 'card');
+            // 替换整个按钮区域，确保所有按钮在同一行
+            const actionsContainer = card.querySelector('.prompt-card-actions');
+            actionsContainer.innerHTML = `
+                <button class="btn my-space-btn view-prompt-btn" data-prompt-id="${prompt.prompt_id}">
+                    <i class="fas fa-eye"></i> 查看
+                </button>
+                <button class="btn my-space-btn unfavorite-prompt-btn" data-prompt-id="${prompt.prompt_id}">
+                    <i class="fas fa-heart-broken"></i> 取消收藏
+                </button>
+            `;
+            return card.outerHTML;
+        }).join('');
+
+        container.innerHTML = cardsHtml;
+
+        // 绑定取消收藏事件
+        this.bindFavoritePromptActions();
+    }
+
+    // 清理我创建的提示词显示
+    clearCreatedPrompts() {
+        const container = document.getElementById('my-created-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <h3>请先登录</h3>
+                    <p>登录后查看您创建的提示词</p>
+                </div>
+            `;
+        }
+    }
+
+    // 清理我收藏的提示词显示
+    clearFavoritePrompts() {
+        const container = document.getElementById('my-favorites-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-user-slash"></i>
+                    <h3>请先登录</h3>
+                    <p>登录后查看您收藏的提示词</p>
+                </div>
+            `;
+        }
+    }
+
+    // 更新我创建的提示词数量
+    updateCreatedCount(count) {
+        const countElement = document.getElementById('my-created-count');
+        if (countElement) {
+            countElement.innerHTML = `我创建的提示词数量：<span class="count-number">${count}</span>`;
+        }
+    }
+
+    // 更新我收藏的提示词数量
+    updateFavoritesCount(count) {
+        const countElement = document.getElementById('my-favorites-count');
+        if (countElement) {
+            countElement.innerHTML = `我收藏的提示词数量：<span class="count-number">${count}</span>`;
+        }
+    }
+
+    // 创建我创建的提示词分页
+    createCreatedPagination(pagination) {
+        const container = document.getElementById('my-created-pagination');
+        if (!container) return;
+
+        if (pagination.totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const html = this.generatePaginationHTML(pagination, (page) => {
+            this.createdPage = page;
+            this.loadMyCreatedPrompts();
+        });
+
+        container.innerHTML = html;
+        this.bindPaginationEvents(container);
+    }
+
+    // 创建我收藏的提示词分页
+    createFavoritesPagination(pagination) {
+        const container = document.getElementById('my-favorites-pagination');
+        if (!container) return;
+
+        if (pagination.totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const html = this.generatePaginationHTML(pagination, (page) => {
+            this.favoritesPage = page;
+            this.loadMyFavoritePrompts();
+        });
+
+        container.innerHTML = html;
+        this.bindPaginationEvents(container);
+    }
+
+    // 生成分页HTML
+    generatePaginationHTML(pagination, onPageClick) {
+        const { page, totalPages, total, pageSize } = pagination;
+
+        let html = `
+            <button class="pagination-btn" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>
+                <i class="fas fa-chevron-left"></i>
+                上一页
+            </button>
+        `;
+
+        // 页码
+        const startPage = Math.max(1, page - 2);
+        const endPage = Math.min(totalPages, page + 2);
+
+        if (startPage > 1) {
+            html += `<button class="pagination-btn" data-page="1">1</button>`;
+            if (startPage > 2) {
+                html += `<span>...</span>`;
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="pagination-btn ${i === page ? 'active' : ''}" data-page="${i}">${i}</button>`;
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                html += `<span>...</span>`;
+            }
+            html += `<button class="pagination-btn" data-page="${totalPages}">${totalPages}</button>`;
+        }
+
+        html += `
+            <button class="pagination-btn" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>
+                下一页
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        `;
+
+        // 添加总条数信息
+        const startItem = (page - 1) * pageSize + 1;
+        const endItem = Math.min(page * pageSize, total);
+        html += `
+            <div class="pagination-info">
+                <span class="pagination-stats">
+                    显示第 ${startItem}-${endItem} 条，共 ${total} 条提示词
+                </span>
+            </div>
+        `;
+
+        return html;
+    }
+
+    // 绑定分页事件
+    bindPaginationEvents(container) {
+        const buttons = container.querySelectorAll('.pagination-btn[data-page]');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const page = parseInt(btn.dataset.page);
+                if (page && !btn.disabled) {
+                    if (this.currentTab === 'created') {
+                        this.createdPage = page;
+                        this.loadMyCreatedPrompts();
+                    } else if (this.currentTab === 'favorites') {
+                        this.favoritesPage = page;
+                        this.loadMyFavoritePrompts();
+                    }
+                }
+            });
+        });
+    }
+
+    // 绑定我创建的提示词操作事件
+    bindCreatedPromptActions() {
+        // 查看按钮
+        document.querySelectorAll('#my-created-container .view-prompt-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.dataset.promptId;
+                if (promptId && window.promptsManager) {
+                    window.promptsManager.showPromptDetail(promptId, 'my-space-page');
+                }
+            });
+        });
+
+        // 标题点击查看
+        document.querySelectorAll('#my-created-container .prompt-card-title').forEach(title => {
+            title.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptCard = title.closest('.prompt-card');
+                const promptId = promptCard.dataset.promptId;
+                if (promptId && window.promptsManager) {
+                    window.promptsManager.showPromptDetail(promptId, 'my-space-page');
+                }
+            });
+        });
+
+        // 编辑按钮
+        document.querySelectorAll('#my-created-container .edit-prompt-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.dataset.promptId;
+                this.editPrompt(promptId);
+            });
+        });
+
+        // 删除按钮
+        document.querySelectorAll('#my-created-container .delete-prompt-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.dataset.promptId;
+                this.deletePrompt(promptId);
+            });
+        });
+    }
+
+    // 绑定我收藏的提示词操作事件
+    bindFavoritePromptActions() {
+        // 查看按钮
+        document.querySelectorAll('#my-favorites-container .view-prompt-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptId = btn.dataset.promptId;
+                if (promptId && window.promptsManager) {
+                    window.promptsManager.showPromptDetail(promptId, 'my-space-page');
+                }
+            });
+        });
+
+        // 标题点击查看
+        document.querySelectorAll('#my-favorites-container .prompt-card-title').forEach(title => {
+            title.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const promptCard = title.closest('.prompt-card');
+                const promptId = promptCard.dataset.promptId;
+                if (promptId && window.promptsManager) {
+                    window.promptsManager.showPromptDetail(promptId, 'my-space-page');
+                }
+            });
+        });
+
+        // 取消收藏按钮
+        document.querySelectorAll('#my-favorites-container .unfavorite-prompt-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const promptId = btn.dataset.promptId;
+                await this.unfavoritePrompt(promptId);
+            });
+        });
+    }
+
+    // 取消收藏提示词
+    async unfavoritePrompt(promptId) {
+        if (!authManager.requireAuth('取消收藏')) return;
+
+        try {
+            UI.showLoading();
+
+            const result = await apiManager.toggleFavorite(promptId);
+
+            if (result.success) {
+                UI.showNotification('已取消收藏', 'success');
+                // 重新加载收藏列表
+                this.loadMyFavoritePrompts();
+            } else {
+                UI.showNotification(result.error || '取消收藏失败', 'error');
+            }
+        } catch (error) {
+            console.error('取消收藏失败:', error);
+            UI.showNotification('取消收藏失败', 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    }
+
+    // 重置当前页码
+    resetCurrentPageNumber() {
+        if (this.currentTab === 'created') {
+            this.createdPage = 1;
+        } else if (this.currentTab === 'favorites') {
+            this.favoritesPage = 1;
+        }
+    }
+
+    // 编辑提示词
+    async editPrompt(promptId) {
+        try {
+            console.log('开始编辑提示词:', promptId);
+            // 获取提示词详细信息
+            const result = await apiManager.getPrompt(promptId);
+            if (result.success) {
+                console.log('获取提示词详情成功:', result.data);
+                // 设置编辑状态
+                this.editingPrompt = result.data;
+                // 显示编辑模态框
+                this.showEditPromptModal(result.data);
+            } else {
+                console.error('获取提示词详情失败:', result.error);
+                UI.showNotification(result.error || '获取提示词信息失败', 'error');
+            }
+        } catch (error) {
+            console.error('编辑提示词失败:', error);
+            UI.showNotification('编辑提示词失败: ' + error.message, 'error');
         }
     }
 
@@ -50,8 +569,8 @@ class MySpaceManager {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     this.searchQuery = e.target.value;
-                    this.currentPage = 1;
-                    this.loadMyPrompts();
+                    this.resetCurrentPageNumber();
+                    this.loadCurrentTabData();
                 }, APP_CONFIG.search.debounceDelay);
             });
         }
@@ -59,29 +578,41 @@ class MySpaceManager {
         if (mySearchBtn) {
             mySearchBtn.addEventListener('click', () => {
                 this.searchQuery = mySearchInput.value;
-                this.currentPage = 1;
-                this.loadMyPrompts();
+                this.resetCurrentPageNumber();
+                this.loadCurrentTabData();
+            });
+        }
+
+        // 排序选择
+        const mySortFilter = document.getElementById('my-sort-filter');
+        if (mySortFilter) {
+            mySortFilter.addEventListener('change', (e) => {
+                this.currentSort = e.target.value;
+                this.resetCurrentPageNumber();
+                this.loadCurrentTabData();
             });
         }
 
         // 监听认证状态变化
-        authManager.onAuthStateChange((event, user) => {
+        authManager.onAuthStateChange((event) => {
             if (event === 'signIn') {
                 // 用户登录时重置页面状态并加载数据
                 this.resetPageState();
                 // 延迟加载，确保页面切换完成
                 setTimeout(() => {
-                    this.loadMyPromptsIfNeeded();
+                    this.loadCurrentTabData();
                 }, 300);
             } else if (event === 'signOut') {
                 // 用户登出时清空数据
-                this.clearMyPrompts();
+                this.clearCreatedPrompts();
+                this.clearFavoritePrompts();
+                this.initPromptCounts();
             } else if (event === 'userChanged') {
                 // 用户切换时重置页面状态并重新加载数据
                 this.resetPageState();
                 // 延迟加载，确保页面切换完成
                 setTimeout(() => {
-                    this.loadMyPromptsIfNeeded();
+                    this.loadCurrentTabData();
                 }, 300);
             }
         });
@@ -92,7 +623,7 @@ class MySpaceManager {
                 if (authManager.isAuthenticated()) {
                     // 延迟加载，确保页面切换完成
                     setTimeout(() => {
-                        this.loadMyPromptsIfNeeded();
+                        this.loadCurrentTabData();
                     }, 100);
                 }
             });
@@ -441,39 +972,10 @@ class MySpaceManager {
         }
     }
 
-    // 加载我的提示词
+    // 加载我的提示词（兼容旧接口，重定向到新的分类加载）
     async loadMyPrompts() {
-        if (!authManager.isAuthenticated()) {
-            this.clearMyPrompts();
-            return;
-        }
-
-        UI.showLoading();
-
-        try {
-            const result = await apiManager.getMyPrompts({
-                page: this.currentPage,
-                search: this.searchQuery
-            });
-
-            if (result.success) {
-                this.renderMyPrompts(result.data);
-                this.createMyPromptsPagination(result.pagination);
-                // 更新提示词数量统计
-                this.updatePromptCount(result.pagination.total);
-            } else {
-                UI.showNotification(result.error || '加载失败', 'error');
-                this.renderMyPrompts([]);
-                this.updatePromptCount(0);
-            }
-        } catch (error) {
-            console.error('加载我的提示词失败:', error);
-            UI.showNotification('加载失败', 'error');
-            this.renderMyPrompts([]);
-            this.updatePromptCount(0);
-        } finally {
-            UI.hideLoading();
-        }
+        console.log('调用旧的loadMyPrompts方法，重定向到新的分类加载');
+        this.loadCurrentTabData();
     }
 
     // 根据需要加载我的提示词（避免重复加载）
@@ -487,29 +989,36 @@ class MySpaceManager {
 
         // 检查认证状态
         if (!authManager.isAuthenticated()) {
-            this.clearMyPrompts();
+            this.clearCreatedPrompts();
+            this.clearFavoritePrompts();
             return;
         }
 
-        // 检查提示词数量显示是否需要更新
-        const countElement = document.getElementById('my-prompt-count');
-        const needsCountUpdate = countElement &&
-                               (countElement.textContent.includes('加载中') ||
-                                countElement.textContent.includes('请先登录'));
+        // 检查当前标签页的数据是否需要加载
+        const currentContainer = this.currentTab === 'created'
+            ? document.getElementById('my-created-container')
+            : document.getElementById('my-favorites-container');
+
+        const currentCountElement = this.currentTab === 'created'
+            ? document.getElementById('my-created-count')
+            : document.getElementById('my-favorites-count');
+
+        const needsCountUpdate = currentCountElement &&
+                               (currentCountElement.textContent.includes('加载中') ||
+                                currentCountElement.textContent.includes('请先登录'));
 
         // 检查是否已经有数据
-        const container = document.getElementById('my-prompts-container');
-        const isEmpty = !container ||
-                       container.innerHTML.trim() === '' ||
-                       container.innerHTML.includes('加载中') ||
-                       container.innerHTML.includes('请先登录') ||
-                       container.innerHTML.includes('您还没有创建任何提示词');
+        const isEmpty = !currentContainer ||
+                       currentContainer.innerHTML.trim() === '' ||
+                       currentContainer.innerHTML.includes('加载中') ||
+                       currentContainer.innerHTML.includes('请先登录') ||
+                       currentContainer.innerHTML.includes('您还没有');
 
         if (isEmpty || needsCountUpdate) {
-            console.log('检测到数据为空或数量显示需要更新，开始加载我的提示词');
-            this.loadMyPrompts();
+            console.log(`检测到${this.currentTab === 'created' ? '创建的' : '收藏的'}数据为空或数量显示需要更新，开始加载数据`);
+            this.loadCurrentTabData();
         } else {
-            console.log('数据已存在且数量显示正常，无需重复加载');
+            console.log(`${this.currentTab === 'created' ? '创建的' : '收藏的'}数据已存在且数量显示正常，无需重复加载`);
         }
     }
 
@@ -524,33 +1033,51 @@ class MySpaceManager {
     // 刷新提示词数量（从服务器获取最新数据）
     async refreshPromptCount() {
         if (!authManager.isAuthenticated()) {
-            this.initPromptCount();
+            this.initPromptCounts();
             return;
         }
 
         try {
             console.log('刷新提示词数量...');
-            const countElement = document.getElementById('my-prompt-count');
-            if (countElement) {
-                countElement.textContent = '我创建的提示词数量：加载中...';
+
+            // 设置加载状态
+            const createdCountElement = document.getElementById('my-created-count');
+            const favoritesCountElement = document.getElementById('my-favorites-count');
+
+            if (createdCountElement) {
+                createdCountElement.textContent = '我创建的提示词数量：加载中...';
+            }
+            if (favoritesCountElement) {
+                favoritesCountElement.textContent = '我收藏的提示词数量：加载中...';
             }
 
-            // 获取最新的提示词数量
-            const result = await apiManager.getMyPrompts({
-                page: 1,
-                search: ''
-            });
+            // 并行获取两种数量
+            const [createdResult, favoritesResult] = await Promise.all([
+                apiManager.getMyPrompts({ page: 1, search: '' }),
+                apiManager.getMyFavorites({ page: 1, search: '' })
+            ]);
 
-            if (result.success && result.pagination) {
-                this.updatePromptCount(result.pagination.total);
-                console.log('提示词数量刷新成功:', result.pagination.total);
+            // 更新我创建的数量
+            if (createdResult.success && createdResult.pagination) {
+                this.updateCreatedCount(createdResult.pagination.total);
+                console.log('我创建的提示词数量刷新成功:', createdResult.pagination.total);
             } else {
-                console.error('获取提示词数量失败:', result.error);
-                this.updatePromptCount(0);
+                console.error('获取我创建的提示词数量失败:', createdResult.error);
+                this.updateCreatedCount(0);
+            }
+
+            // 更新我收藏的数量
+            if (favoritesResult.success && favoritesResult.pagination) {
+                this.updateFavoritesCount(favoritesResult.pagination.total);
+                console.log('我收藏的提示词数量刷新成功:', favoritesResult.pagination.total);
+            } else {
+                console.error('获取我收藏的提示词数量失败:', favoritesResult.error);
+                this.updateFavoritesCount(0);
             }
         } catch (error) {
             console.error('刷新提示词数量失败:', error);
-            this.updatePromptCount(0);
+            this.updateCreatedCount(0);
+            this.updateFavoritesCount(0);
         }
     }
 
@@ -717,35 +1244,21 @@ class MySpaceManager {
         }, 'my-pagination');
     }
 
-    // 清空我的提示词
+    // 清空我的提示词（兼容旧接口，重定向到新的分类清理）
     clearMyPrompts() {
-        const container = document.getElementById('my-prompts-container');
-        if (container) {
-            container.innerHTML = UI.createEmptyState(
-                '请先登录查看您的提示词',
-                'fas fa-sign-in-alt'
-            );
-        }
-
-        // 清空分页
-        const paginationContainer = document.getElementById('my-pagination');
-        if (paginationContainer) {
-            paginationContainer.innerHTML = '';
-        }
+        console.log('调用旧的clearMyPrompts方法，重定向到新的分类清理');
+        this.clearCreatedPrompts();
+        this.clearFavoritePrompts();
+        this.initPromptCounts();
 
         // 重置搜索状态
         this.resetSearchState();
-
-        // 重置数量统计
-        const countElement = document.getElementById('my-prompt-count');
-        if (countElement) {
-            countElement.textContent = '我创建的提示词数量：请先登录';
-        }
     }
 
     // 重置搜索状态
     resetSearchState() {
-        this.currentPage = 1;
+        this.createdPage = 1;
+        this.favoritesPage = 1;
         this.searchQuery = '';
 
         // 清空搜索输入框
@@ -757,11 +1270,13 @@ class MySpaceManager {
 
     // 重置页面状态（用于用户切换时）
     resetPageState() {
-        this.currentPage = 1;
+        this.createdPage = 1;
+        this.favoritesPage = 1;
         this.searchQuery = '';
         this.editingPrompt = null;
         this.currentMediaFile = null;
         this.currentMediaUrl = null;
+        this.currentTab = 'created'; // 重置到默认标签页
 
         // 清空搜索输入框
         const searchInput = document.getElementById('my-search-input');
@@ -778,7 +1293,7 @@ class MySpaceManager {
         }
 
         // 重置数量显示
-        this.initPromptCount();
+        this.initPromptCounts();
     }
 
     // 绑定媒体上传事件

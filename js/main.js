@@ -265,7 +265,10 @@ class App {
                 break;
             case 'my-space':
                 if (authManager.isAuthenticated() && window.mySpaceManager) {
-                    window.mySpaceManager.loadMyPrompts();
+                    // 确保标签页状态正确
+                    window.mySpaceManager.ensureDefaultTabState();
+                    // 加载当前标签页数据
+                    window.mySpaceManager.loadCurrentTabData();
                 }
                 break;
         }
@@ -482,5 +485,6 @@ document.head.appendChild(configStyles);
 // 应用启动
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
+    window.main = window.app; // 设置main别名，供其他模块使用
     window.app.init();
 });

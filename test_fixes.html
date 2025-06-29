@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修复验证测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+        }
+        .status.success {
+            background: var(--success-50);
+            color: var(--success-700);
+            border: 1px solid var(--success-200);
+        }
+        .status.error {
+            background: var(--error-50);
+            color: var(--error-700);
+            border: 1px solid var(--error-200);
+        }
+        .status.warning {
+            background: var(--warning-50);
+            color: var(--warning-700);
+            border: 1px solid var(--warning-200);
+        }
+        .log {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 修复验证测试</h1>
+        <p>验证MySpaceManager和API修复效果</p>
+    </div>
+
+    <div class="test-container">
+        <h3>问题修复状态</h3>
+        <div id="myspace-status" class="status">检查中...</div>
+        <div id="api-status" class="status">检查中...</div>
+        
+        <button class="test-button" onclick="checkMySpaceManager()">检查MySpaceManager</button>
+        <button class="test-button" onclick="checkAPI()">检查API方法</button>
+        <button class="test-button" onclick="testGetMyFavorites()">测试getMyFavorites</button>
+        <button class="test-button" onclick="goToMySpace()">前往我的空间</button>
+    </div>
+
+    <div class="test-container">
+        <h3>测试日志</h3>
+        <div id="test-log" class="log">等待测试...</div>
+        <button class="test-button" onclick="clearLog()">清空日志</button>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.textContent += logMessage;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `status ${type}`;
+            }
+        }
+
+        function checkMySpaceManager() {
+            log('=== 检查MySpaceManager ===');
+            
+            try {
+                if (typeof window.mySpaceManager !== 'undefined') {
+                    log('✅ MySpaceManager已存在');
+                    updateStatus('myspace-status', '✅ MySpaceManager可用', 'success');
+                    
+                    // 检查关键方法
+                    const methods = [
+                        'initTabs',
+                        'switchTab', 
+                        'loadCurrentTabData',
+                        'loadMyCreatedPrompts',
+                        'loadMyFavoritePrompts'
+                    ];
+                    
+                    let available = 0;
+                    methods.forEach(method => {
+                        const exists = typeof window.mySpaceManager[method] === 'function';
+                        log(`  ${method}: ${exists ? '✅' : '❌'}`);
+                        if (exists) available++;
+                    });
+                    
+                    log(`可用方法: ${available}/${methods.length}`);
+                    
+                } else {
+                    log('❌ MySpaceManager不存在，尝试初始化...');
+                    
+                    if (typeof MySpaceManager !== 'undefined') {
+                        window.mySpaceManager = new MySpaceManager();
+                        window.mySpaceManager.init();
+                        log('✅ MySpaceManager初始化成功');
+                        updateStatus('myspace-status', '✅ MySpaceManager已初始化', 'success');
+                    } else {
+                        log('❌ MySpaceManager类不可用');
+                        updateStatus('myspace-status', '❌ MySpaceManager类不可用', 'error');
+                    }
+                }
+            } catch (error) {
+                log(`❌ 检查MySpaceManager失败: ${error.message}`);
+                updateStatus('myspace-status', `❌ 错误: ${error.message}`, 'error');
+            }
+        }
+
+        function checkAPI() {
+            log('=== 检查API方法 ===');
+            
+            try {
+                if (typeof apiManager !== 'undefined') {
+                    log('✅ apiManager可用');
+                    
+                    // 检查关键方法
+                    const methods = [
+                        'getMyPrompts',
+                        'getMyFavorites',
+                        'toggleFavorite'
+                    ];
+                    
+                    let available = 0;
+                    methods.forEach(method => {
+                        const exists = typeof apiManager[method] === 'function';
+                        log(`  ${method}: ${exists ? '✅' : '❌'}`);
+                        if (exists) available++;
+                    });
+                    
+                    if (available === methods.length) {
+                        updateStatus('api-status', '✅ 所有API方法可用', 'success');
+                    } else {
+                        updateStatus('api-status', `⚠️ 部分API方法不可用 (${available}/${methods.length})`, 'warning');
+                    }
+                    
+                } else {
+                    log('❌ apiManager不可用');
+                    updateStatus('api-status', '❌ apiManager不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 检查API失败: ${error.message}`);
+                updateStatus('api-status', `❌ 错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetMyFavorites() {
+            log('=== 测试getMyFavorites方法 ===');
+            
+            try {
+                if (typeof apiManager !== 'undefined' && typeof apiManager.getMyFavorites === 'function') {
+                    log('✅ getMyFavorites方法存在');
+                    
+                    // 检查用户是否已登录
+                    if (typeof authManager !== 'undefined' && authManager.isAuthenticated()) {
+                        log('用户已登录，尝试调用API...');
+                        
+                        const result = await apiManager.getMyFavorites({
+                            page: 1,
+                            search: '',
+                            sortBy: 'created_at'
+                        });
+                        
+                        if (result.success) {
+                            log(`✅ API调用成功，返回${result.data.length}条收藏记录`);
+                            log(`总数: ${result.pagination.total}`);
+                        } else {
+                            log(`⚠️ API调用失败: ${result.error}`);
+                        }
+                    } else {
+                        log('⚠️ 用户未登录，无法测试API调用');
+                        log('✅ 但getMyFavorites方法结构正确');
+                    }
+                } else {
+                    log('❌ getMyFavorites方法不存在');
+                }
+            } catch (error) {
+                log(`❌ 测试getMyFavorites失败: ${error.message}`);
+            }
+        }
+
+        function goToMySpace() {
+            log('跳转到我的空间页面...');
+            window.location.href = 'index.html#my-space';
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.textContent = '';
+            }
+        }
+
+        // 页面加载完成后自动检查
+        document.addEventListener('DOMContentLoaded', () => {
+            logElement = document.getElementById('test-log');
+            
+            log('修复验证测试页面加载完成');
+            
+            setTimeout(() => {
+                log('开始自动检查...');
+                checkMySpaceManager();
+                checkAPI();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

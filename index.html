@@ -155,7 +155,10 @@
                 <div class="page-header">
                     <div class="page-title-section">
                         <h2>我的空间</h2>
-                        <p class="prompt-count-display" id="my-prompt-count">我创建的提示词数量：加载中...</p>
+                        <div class="my-space-stats">
+                            <p class="prompt-count-display" id="my-created-count">我创建的提示词数量：加载中...</p>
+                            <p class="prompt-count-display" id="my-favorites-count">我收藏的提示词数量：加载中...</p>
+                        </div>
                     </div>
                     <button class="btn btn-primary" id="create-prompt-btn">
                         <i class="fas fa-plus"></i>
@@ -164,22 +167,55 @@
                 </div>
                 
                 <div class="my-prompts-section">
-                    <div class="section-header">
-                        <h3>我的提示词</h3>
-                        <div class="search-box-small">
-                            <input type="text" id="my-search-input" placeholder="搜索我的提示词...">
-                            <button class="btn btn-outline btn-sm" id="my-search-btn">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="my-prompts-grid" id="my-prompts-container">
-                        <!-- 用户的提示词将在这里显示 -->
+                    <!-- 分类标签页 -->
+                    <div class="my-space-tabs">
+                        <button class="tab-btn active" data-tab="created">
+                            <i class="fas fa-edit"></i>
+                            我创建的
+                        </button>
+                        <button class="tab-btn" data-tab="favorites">
+                            <i class="fas fa-heart"></i>
+                            我收藏的
+                        </button>
                     </div>
 
-                    <div class="pagination" id="my-pagination">
-                        <!-- 我的空间分页控件将在这里动态生成 -->
+                    <!-- 搜索和排序控件 -->
+                    <div class="my-space-section-header">
+                        <div class="search-box-small">
+                            <input type="text" id="my-search-input" placeholder="搜索我的提示词...">
+                            <button id="my-search-btn">
+                                <i class="fas fa-search"></i>
+                                搜索
+                            </button>
+                        </div>
+                        <div class="sort-controls">
+                            <select id="my-sort-filter">
+                                <option value="created_at">最新发布</option>
+                                <option value="view_count">浏览量</option>
+                                <option value="use_count">使用量</option>
+                                <option value="like_count">点赞量</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 我创建的提示词 -->
+                    <div class="tab-content active" id="created-tab-content">
+                        <div class="my-prompts-grid" id="my-created-container">
+                            <!-- 我创建的提示词将在这里显示 -->
+                        </div>
+                        <div class="pagination" id="my-created-pagination">
+                            <!-- 我创建的提示词分页控件 -->
+                        </div>
+                    </div>
+
+                    <!-- 我收藏的提示词 -->
+                    <div class="tab-content" id="favorites-tab-content">
+                        <div class="my-prompts-grid" id="my-favorites-container">
+                            <!-- 我收藏的提示词将在这里显示 -->
+                        </div>
+                        <div class="pagination" id="my-favorites-pagination">
+                            <!-- 我收藏的提示词分页控件 -->
+                        </div>
                     </div>
                 </div>
             </div>

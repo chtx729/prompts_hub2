@@ -10,7 +10,7 @@ class PromptsManager {
             sortOrder: 'desc'
         };
         this.viewMode = 'card';
-        this.userInteractions = { likes: [], favorites: [] };
+        // 用户交互功能已移除
         this.previousPage = 'home-page'; // 记录来源页面，默认为首页
         this.subscription = null; // 实时订阅对象
         this.currentPrompts = []; // 当前显示的提示词列表
@@ -195,11 +195,7 @@ class PromptsManager {
                     this.loadPrompts();
                 });
 
-                // 异步加载用户交互状态，不阻塞主要内容显示
-                // 现在支持匿名用户点赞，所以总是加载交互状态
-                if (result.data.length > 0) {
-                    this.loadUserInteractionsAsync(result.data);
-                }
+                // 点赞和收藏功能已移除，不再需要加载用户交互状态
             } else {
                 UI.showNotification(result.error || '加载失败', 'error');
                 this.renderPrompts([]);
@@ -213,71 +209,9 @@ class PromptsManager {
         }
     }
 
-    // 异步加载用户交互状态
-    async loadUserInteractionsAsync(prompts) {
-        try {
-            const promptIds = prompts.map(p => p.prompt_id);
-            const interactionsResult = await apiManager.getUserInteractions(promptIds);
+    // 用户交互功能已移除
 
-            if (interactionsResult.success) {
-                this.userInteractions = interactionsResult.data;
-                // 更新已渲染的按钮状态
-                this.updateInteractionButtons();
-            }
-        } catch (error) {
-            console.error('加载用户交互状态失败:', error);
-            // 不显示错误通知，因为这不是关键功能
-        }
-    }
-
-    // 更新交互按钮状态
-    updateInteractionButtons() {
-        if (!this.userInteractions) return;
-
-        const { likes, favorites } = this.userInteractions;
-
-        // 先重置所有点赞按钮状态
-        document.querySelectorAll('.like-btn').forEach(btn => {
-            btn.classList.remove('liked');
-            const icon = btn.querySelector('i');
-            const text = btn.querySelector('.btn-text') || btn;
-            if (icon) icon.className = 'fas fa-heart';
-            if (text) text.innerHTML = text.innerHTML.replace(/已赞|点赞/, '点赞');
-        });
-
-        // 更新已点赞的按钮状态
-        likes.forEach(promptId => {
-            const likeBtn = document.querySelector(`[data-prompt-id="${promptId}"] .like-btn`);
-            if (likeBtn) {
-                likeBtn.classList.add('liked');
-                const icon = likeBtn.querySelector('i');
-                const text = likeBtn.querySelector('.btn-text') || likeBtn;
-                if (icon) icon.className = 'fas fa-heart';
-                if (text) text.innerHTML = text.innerHTML.replace(/点赞/, '已赞');
-            }
-        });
-
-        // 先重置所有收藏按钮状态
-        document.querySelectorAll('.favorite-btn').forEach(btn => {
-            btn.classList.remove('favorited');
-            const icon = btn.querySelector('i');
-            const text = btn.querySelector('.btn-text') || btn;
-            if (icon) icon.className = 'fas fa-bookmark';
-            if (text) text.innerHTML = text.innerHTML.replace(/已藏|收藏/, '收藏');
-        });
-
-        // 更新已收藏的按钮状态
-        favorites.forEach(promptId => {
-            const favoriteBtn = document.querySelector(`[data-prompt-id="${promptId}"] .favorite-btn`);
-            if (favoriteBtn) {
-                favoriteBtn.classList.add('favorited');
-                const icon = favoriteBtn.querySelector('i');
-                const text = favoriteBtn.querySelector('.btn-text') || favoriteBtn;
-                if (icon) icon.className = 'fas fa-bookmark';
-                if (text) text.innerHTML = text.innerHTML.replace(/收藏/, '已藏');
-            }
-        });
-    }
+    // 交互按钮功能已移除
 
     // 渲染提示词列表
     renderPrompts(prompts) {
@@ -301,7 +235,7 @@ class PromptsManager {
 
         container.innerHTML = '';
         prompts.forEach(prompt => {
-            const card = UI.createPromptCard(prompt, this.viewMode, this.userInteractions);
+            const card = UI.createPromptCard(prompt, this.viewMode);
             container.appendChild(card);
         });
 
@@ -337,8 +271,20 @@ class PromptsManager {
                 this.renderPromptDetail(result.data);
                 UI.showPage('prompt-detail-page');
 
-                // 确保页面滚动到顶部，聚焦显示标题
-                this.scrollToTop();
+                // 确保页面滚动到顶部，解决上下晃动问题
+                // 使用多重延迟确保页面完全渲染后再滚动
+                setTimeout(() => {
+                    UI.scrollToTop();
+                }, 10);
+
+                setTimeout(() => {
+                    UI.scrollToTop();
+                    // 额外确保详情页面容器滚动到顶部
+                    const detailPage = document.getElementById('prompt-detail-page');
+                    if (detailPage) {
+                        detailPage.scrollTop = 0;
+                    }
+                }, 100);
 
                 // 记录查看日志
                 await apiManager.logUsage(promptId, 'view');
@@ -631,7 +577,38 @@ class PromptsManager {
     // 返回上一页
     goBack() {
         console.log('返回上一页:', this.previousPage);
-        UI.showPage(this.previousPage);
+
+        // 从页面ID中提取页面名称（移除'-page'后缀）
+        const pageId = this.previousPage.replace('-page', '');
+
+        // 使用main.showPage()来确保触发页面初始化逻辑
+        if (window.main && typeof window.main.showPage === 'function') {
+            window.main.showPage(pageId);
+        } else {
+            // 备用方案：直接切换页面并手动触发初始化
+            UI.showPage(this.previousPage);
+            this.triggerPageInit(pageId);
+        }
+    }
+
+    // 手动触发页面初始化（备用方案）
+    triggerPageInit(pageId) {
+        console.log('手动触发页面初始化:', pageId);
+
+        switch (pageId) {
+            case 'my-space':
+                if (authManager.isAuthenticated() && window.mySpaceManager) {
+                    console.log('触发我的空间页面初始化');
+                    // 确保标签页状态正确
+                    window.mySpaceManager.ensureDefaultTabState();
+                    // 加载当前标签页数据
+                    window.mySpaceManager.loadCurrentTabData();
+                }
+                break;
+            case 'home':
+                // 首页通常不需要特殊初始化
+                break;
+        }
     }
 
     // 下载图片
@@ -659,10 +636,7 @@ class PromptsManager {
         }
     }
 
-    // 返回到来源页面
-    goBack() {
-        UI.showPage(this.previousPage);
-    }
+    // 重复的goBack方法已移除
 
     // 设置实时订阅
     setupRealtimeSubscription() {

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>按钮对齐和颜色修复验证</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .fix-box {
+            background: var(--success-50);
+            border: 1px solid var(--success-200);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        .demo-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: white;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+        .demo-card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .demo-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .demo-card-title:hover {
+            color: var(--primary-color);
+        }
+        .demo-card-description {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .alignment-guide {
+            background: repeating-linear-gradient(
+                to right,
+                #ff0000 0px,
+                #ff0000 1px,
+                transparent 1px,
+                transparent 10px
+            );
+            height: 2px;
+            margin: 1rem 0;
+            position: relative;
+        }
+        .alignment-guide::before {
+            content: "对齐参考线";
+            position: absolute;
+            left: 0;
+            top: -20px;
+            font-size: 12px;
+            color: #ff0000;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 按钮对齐和颜色修复验证</h1>
+        <p>验证所有按钮在同一水平线上且颜色统一为紫色</p>
+    </div>
+
+    <div class="test-container">
+        <h3>修复内容</h3>
+        
+        <div class="fix-box">
+            <h4>✅ 关键修复</h4>
+            <ul>
+                <li><strong>重构按钮布局</strong>：所有按钮放在同一个容器中</li>
+                <li><strong>统一CSS类</strong>：使用my-space-btn类确保样式一致</li>
+                <li><strong>强制紫色主题</strong>：使用!important确保样式优先级</li>
+                <li><strong>水平对齐</strong>：使用flexbox确保按钮在同一水平线</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h3>按钮对齐演示</h3>
+        
+        <div class="alignment-guide"></div>
+        
+        <div class="demo-card">
+            <div class="demo-card-header">
+                <div class="demo-card-title" onclick="alert('点击标题查看详情！')">
+                    我创建的提示词示例（点击查看详情）
+                </div>
+                <div class="demo-card-description">
+                    验证查看、编辑、删除按钮是否在同一水平线上且颜色统一...
+                </div>
+            </div>
+            <div class="prompt-card-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); background: var(--surface-color);">
+                <button class="btn my-space-btn view-prompt-btn" onclick="alert('查看按钮点击！')">
+                    <i class="fas fa-eye"></i> 查看
+                </button>
+                <button class="btn my-space-btn edit-prompt-btn" onclick="alert('编辑按钮点击！')">
+                    <i class="fas fa-edit"></i> 编辑
+                </button>
+                <button class="btn my-space-btn btn-danger delete-prompt-btn" onclick="alert('删除按钮点击！')">
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+            </div>
+        </div>
+
+        <div class="alignment-guide"></div>
+
+        <div class="demo-card">
+            <div class="demo-card-header">
+                <div class="demo-card-title" onclick="alert('点击标题查看详情！')">
+                    我收藏的提示词示例（点击查看详情）
+                </div>
+                <div class="demo-card-description">
+                    验证查看、取消收藏按钮是否在同一水平线上且颜色统一...
+                </div>
+            </div>
+            <div class="prompt-card-actions" style="display: flex; justify-content: flex-end; align-items: center; gap: var(--space-1); padding: var(--space-3) var(--space-4); background: var(--surface-color);">
+                <button class="btn my-space-btn view-prompt-btn" onclick="alert('查看按钮点击！')">
+                    <i class="fas fa-eye"></i> 查看
+                </button>
+                <button class="btn my-space-btn unfavorite-prompt-btn" onclick="alert('取消收藏按钮点击！')">
+                    <i class="fas fa-heart-broken"></i> 取消收藏
+                </button>
+            </div>
+        </div>
+
+        <div class="alignment-guide"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>技术实现</h3>
+        
+        <div class="fix-box">
+            <h4>🔧 关键技术点</h4>
+            <ul>
+                <li><strong>HTML结构重构</strong>：替换整个按钮容器而不是追加</li>
+                <li><strong>CSS优先级</strong>：使用!important确保样式生效</li>
+                <li><strong>Flexbox布局</strong>：align-items: center确保垂直对齐</li>
+                <li><strong>统一类名</strong>：my-space-btn类统一所有按钮样式</li>
+            </ul>
+        </div>
+
+        <div style="background: var(--gray-50); padding: 1rem; border-radius: var(--radius-md); font-family: monospace; font-size: 12px;">
+            <strong>CSS关键代码：</strong><br>
+            .my-space-btn {<br>
+            &nbsp;&nbsp;background: linear-gradient(...) !important;<br>
+            &nbsp;&nbsp;height: 32px;<br>
+            &nbsp;&nbsp;display: inline-flex;<br>
+            &nbsp;&nbsp;align-items: center;<br>
+            }<br><br>
+            .prompt-card-actions {<br>
+            &nbsp;&nbsp;display: flex;<br>
+            &nbsp;&nbsp;align-items: center;<br>
+            &nbsp;&nbsp;justify-content: flex-end;<br>
+            }
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h3>功能验证</h3>
+        
+        <button class="test-button" onclick="testButtonAlignment()">测试按钮对齐</button>
+        <button class="test-button" onclick="testButtonColors()">测试按钮颜色</button>
+        <button class="test-button" onclick="testButtonSizes()">测试按钮尺寸</button>
+        <button class="test-button" onclick="goToMySpace()">前往我的空间实际测试</button>
+        
+        <div id="test-results" style="margin-top: 1rem; padding: 1rem; background: var(--gray-50); border-radius: var(--radius-md); display: none;">
+            <h4>测试结果</h4>
+            <div id="test-output"></div>
+        </div>
+    </div>
+
+    <script>
+        function showTestResults(title, results) {
+            const resultsDiv = document.getElementById('test-results');
+            const outputDiv = document.getElementById('test-output');
+            
+            outputDiv.innerHTML = `<h5>${title}</h5><ul>${results.map(r => `<li>${r}</li>`).join('')}</ul>`;
+            resultsDiv.style.display = 'block';
+        }
+
+        function testButtonAlignment() {
+            console.log('=== 测试按钮对齐 ===');
+            
+            const buttons = document.querySelectorAll('.my-space-btn');
+            const results = [];
+            
+            if (buttons.length === 0) {
+                results.push('❌ 找不到my-space-btn按钮');
+                showTestResults('按钮对齐测试', results);
+                return;
+            }
+            
+            const positions = Array.from(buttons).map(btn => {
+                const rect = btn.getBoundingClientRect();
+                return {
+                    element: btn,
+                    top: rect.top,
+                    bottom: rect.bottom,
+                    height: rect.height
+                };
+            });
+            
+            const firstTop = positions[0].top;
+            const tolerance = 2; // 允许2px误差
+            
+            let allAligned = true;
+            positions.forEach((pos, index) => {
+                const aligned = Math.abs(pos.top - firstTop) <= tolerance;
+                const result = `按钮${index + 1}: top=${pos.top.toFixed(1)}, height=${pos.height} ${aligned ? '✅' : '❌'}`;
+                results.push(result);
+                if (!aligned) allAligned = false;
+            });
+            
+            results.push(allAligned ? '✅ 所有按钮对齐正确' : '❌ 按钮对齐有问题');
+            showTestResults('按钮对齐测试', results);
+        }
+
+        function testButtonColors() {
+            console.log('=== 测试按钮颜色 ===');
+            
+            const buttons = document.querySelectorAll('.my-space-btn');
+            const results = [];
+            
+            if (buttons.length === 0) {
+                results.push('❌ 找不到my-space-btn按钮');
+                showTestResults('按钮颜色测试', results);
+                return;
+            }
+            
+            buttons.forEach((btn, index) => {
+                const styles = getComputedStyle(btn);
+                const background = styles.background;
+                const color = styles.color;
+                
+                const isPurple = background.includes('linear-gradient') && 
+                    (background.includes('147, 51, 234') || background.includes('primary'));
+                const isRed = btn.classList.contains('btn-danger') && 
+                    (background.includes('239, 68, 68') || background.includes('error'));
+                const isWhiteText = color.includes('255, 255, 255') || color.includes('white');
+                
+                let status = '❌';
+                if (btn.classList.contains('btn-danger')) {
+                    status = isRed && isWhiteText ? '✅' : '❌';
+                    results.push(`删除按钮${index + 1}: ${status} ${isRed ? '红色背景' : '非红色背景'}, ${isWhiteText ? '白色文字' : '非白色文字'}`);
+                } else {
+                    status = isPurple && isWhiteText ? '✅' : '❌';
+                    results.push(`按钮${index + 1}: ${status} ${isPurple ? '紫色背景' : '非紫色背景'}, ${isWhiteText ? '白色文字' : '非白色文字'}`);
+                }
+            });
+            
+            showTestResults('按钮颜色测试', results);
+        }
+
+        function testButtonSizes() {
+            console.log('=== 测试按钮尺寸 ===');
+            
+            const buttons = document.querySelectorAll('.my-space-btn');
+            const results = [];
+            
+            if (buttons.length === 0) {
+                results.push('❌ 找不到my-space-btn按钮');
+                showTestResults('按钮尺寸测试', results);
+                return;
+            }
+            
+            const expectedHeight = 32;
+            let allCorrectHeight = true;
+            
+            buttons.forEach((btn, index) => {
+                const rect = btn.getBoundingClientRect();
+                const height = Math.round(rect.height);
+                const correct = height === expectedHeight;
+                
+                results.push(`按钮${index + 1}: 高度${height}px ${correct ? '✅' : '❌'}`);
+                if (!correct) allCorrectHeight = false;
+            });
+            
+            results.push(allCorrectHeight ? '✅ 所有按钮高度正确' : '❌ 按钮高度有问题');
+            showTestResults('按钮尺寸测试', results);
+        }
+
+        function goToMySpace() {
+            console.log('跳转到我的空间页面进行实际测试...');
+            alert('即将跳转到我的空间页面\n\n请验证：\n1. 所有按钮是否在同一水平线上\n2. 查看、编辑、取消收藏按钮是否为紫色\n3. 删除按钮是否为红色\n4. 按钮高度是否一致');
+            window.location.href = 'index.html#my-space';
+        }
+
+        // 页面加载完成后自动测试
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('按钮对齐和颜色修复验证页面加载完成');
+            
+            setTimeout(() => {
+                console.log('开始自动测试...');
+                testButtonAlignment();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

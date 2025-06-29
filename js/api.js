@@ -449,6 +449,188 @@ class APIManager {
         }
     }
 
+    // 获取我收藏的提示词列表
+    async getMyFavorites(params = {}) {
+        const userId = authManager.getCurrentUser()?.id;
+        if (!userId) {
+            return { success: false, error: '请先登录' };
+        }
+
+        const {
+            page = 1,
+            pageSize = APP_CONFIG.pagination.defaultPageSize,
+            search = '',
+            category = '',
+            sortBy = 'created_at',
+            sortOrder = 'desc'
+        } = params;
+
+        const cacheKey = this.getCacheKey('my-favorites', params);
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+
+        try {
+            // 构建查询：通过user_favorites表关联prompts表
+            let query = supabase
+                .from('user_favorites')
+                .select(`
+                    favorite_id,
+                    created_at,
+                    prompts (
+                        prompt_id,
+                        title,
+                        description,
+                        content,
+                        tags,
+                        status,
+                        is_public,
+                        created_at,
+                        updated_at,
+                        view_count,
+                        use_count,
+                        like_count,
+                        category_id,
+                        user_id
+                    )
+                `, { count: 'exact' })
+                .eq('user_id', userId)
+                .not('prompts', 'is', null); // 确保关联的提示词存在
+
+            // 排序（基于收藏时间或提示词属性）
+            if (sortBy === 'favorited_at' || sortBy === 'created_at') {
+                query = query.order('created_at', { ascending: sortOrder === 'asc' });
+            } else {
+                // 对于其他排序字段，需要在后处理中排序
+                query = query.order('created_at', { ascending: false });
+            }
+
+            // 分页
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+            query = query.range(from, to);
+
+            const { data, error, count } = await query;
+
+            if (error) throw error;
+
+            // 处理数据格式
+            let processedData = [];
+            if (data && data.length > 0) {
+                // 提取提示词数据
+                let prompts = data.map(item => ({
+                    ...item.prompts,
+                    favorited_at: item.created_at, // 收藏时间
+                    favorite_id: item.favorite_id
+                })).filter(prompt => prompt.prompt_id); // 过滤掉空的提示词
+
+                // 搜索过滤
+                if (search) {
+                    const searchLower = search.toLowerCase();
+                    prompts = prompts.filter(prompt =>
+                        prompt.title?.toLowerCase().includes(searchLower) ||
+                        prompt.description?.toLowerCase().includes(searchLower) ||
+                        prompt.content?.toLowerCase().includes(searchLower)
+                    );
+                }
+
+                // 分类过滤
+                if (category) {
+                    prompts = prompts.filter(prompt => prompt.category_id == category);
+                }
+
+                // 排序处理
+                if (sortBy !== 'favorited_at' && sortBy !== 'created_at') {
+                    prompts.sort((a, b) => {
+                        const aVal = a[sortBy] || 0;
+                        const bVal = b[sortBy] || 0;
+                        return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+                    });
+                }
+
+                // 获取分类信息
+                const categoryIds = [...new Set(prompts.map(p => p.category_id).filter(id => id))];
+                let categoryMap = {};
+
+                if (categoryIds.length > 0) {
+                    try {
+                        const { data: categories } = await supabase
+                            .from('categories')
+                            .select('category_id, name, slug, icon, color')
+                            .in('category_id', categoryIds);
+
+                        if (categories) {
+                            categories.forEach(cat => {
+                                categoryMap[cat.category_id] = cat;
+                            });
+                        }
+                    } catch (catError) {
+                        console.warn('获取分类信息失败:', catError);
+                    }
+                }
+
+                // 获取作者信息
+                const userIds = [...new Set(prompts.map(p => p.user_id).filter(id => id))];
+                let userMap = {};
+
+                if (userIds.length > 0) {
+                    try {
+                        const { data: users } = await supabase
+                            .from('users')
+                            .select('user_id, username, avatar_url')
+                            .in('user_id', userIds);
+
+                        if (users) {
+                            users.forEach(user => {
+                                userMap[user.user_id] = user;
+                            });
+                        }
+                    } catch (userError) {
+                        console.warn('获取作者信息失败:', userError);
+                    }
+                }
+
+                // 处理最终数据格式
+                processedData = prompts.map(item => {
+                    // 处理分类信息
+                    const category = categoryMap[item.category_id];
+                    if (category) {
+                        item.category_name = category.name;
+                        item.categories = category;
+                    }
+
+                    // 处理作者信息
+                    const author = userMap[item.user_id];
+                    if (author) {
+                        item.author_name = author.username;
+                        item.author_avatar = author.avatar_url;
+                    } else {
+                        item.author_name = '未知用户';
+                        item.author_avatar = APP_CONFIG.defaultAvatar;
+                    }
+
+                    return item;
+                });
+            }
+
+            const result = {
+                success: true,
+                data: processedData,
+                pagination: {
+                    page,
+                    pageSize,
+                    total: count,
+                    totalPages: Math.ceil(count / pageSize)
+                }
+            };
+
+            this.setCache(cacheKey, result);
+            return result;
+        } catch (error) {
+            console.error('获取我的收藏失败:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // 创建提示词
     async createPrompt(promptData) {
         try {
