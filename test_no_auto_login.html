@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>首页无自动登录测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--info-200);
+            font-family: monospace;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+        .warning {
+            color: var(--warning-600);
+            font-weight: bold;
+        }
+        .test-scenario {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🚫 首页无自动登录测试</h1>
+        <p>验证首页加载时不会自动登录用户</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>修改说明</h3>
+            <div class="test-scenario">
+                <h4>问题：</h4>
+                <p>首页加载时会自动检查并恢复用户会话，导致自动登录</p>
+                
+                <h4>修改：</h4>
+                <p>1. ✅ 禁用了页面加载时的自动会话检查</p>
+                <p>2. ✅ 添加了手动会话恢复方法</p>
+                <p>3. ✅ 保持requireAuth方法为同步</p>
+                
+                <h4>预期效果：</h4>
+                <p>首页加载时始终显示未登录状态，用户需要手动点击登录</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前认证状态</h3>
+            <div id="auth-status" class="status-display">
+                检查中...
+            </div>
+            <button class="test-button" onclick="checkAuthStatus()">刷新状态</button>
+            <button class="test-button" onclick="checkSupabaseSession()">检查Supabase会话</button>
+        </div>
+
+        <div class="test-section">
+            <h3>测试场景</h3>
+            
+            <div class="test-scenario">
+                <h4>场景1：首次访问</h4>
+                <p>清空所有数据后首次访问网站</p>
+                <button class="test-button" onclick="testFirstVisit()">模拟首次访问</button>
+            </div>
+
+            <div class="test-scenario">
+                <h4>场景2：有历史会话</h4>
+                <p>浏览器中有历史登录会话的情况</p>
+                <button class="test-button" onclick="testWithHistorySession()">模拟有历史会话</button>
+            </div>
+
+            <div class="test-scenario">
+                <h4>场景3：手动会话恢复</h4>
+                <p>测试手动恢复会话功能</p>
+                <button class="test-button" onclick="testManualSessionRestore()">测试手动恢复</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>认证管理器测试</h3>
+            <button class="test-button" onclick="testAuthManagerInit()">测试认证管理器初始化</button>
+            <button class="test-button" onclick="testSessionCheck()">测试会话检查逻辑</button>
+            <button class="test-button" onclick="goToMainPage()">前往首页验证</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkAuthStatus() {
+            log('=== 检查当前认证状态 ===');
+            
+            const statusDiv = document.getElementById('auth-status');
+            let status = '';
+
+            try {
+                // 检查认证管理器
+                if (typeof authManager !== 'undefined') {
+                    const isAuth = authManager.isAuthenticated();
+                    const user = authManager.getCurrentUser();
+                    const sessionChecked = authManager.sessionChecked;
+
+                    status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+                    status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+                    status += `会话已检查: ${sessionChecked ? '是' : '否'}\n`;
+                    status += `初始化状态: ${authManager.isInitialized ? '已初始化' : '未初始化'}\n`;
+
+                    log(`认证状态: ${isAuth ? '已登录' : '未登录'}`, isAuth ? 'warning' : 'success');
+                    log(`用户信息: ${user ? user.email || user.username : '无'}`);
+
+                } else {
+                    status += `认证管理器: ❌ 不可用\n`;
+                    log('❌ 认证管理器不可用', 'error');
+                }
+
+                // 检查localStorage
+                const localStorageKeys = Object.keys(localStorage);
+                const authKeys = localStorageKeys.filter(key => 
+                    key.includes('supabase') || key.includes('auth') || key.includes('session')
+                );
+                
+                status += `\nLocalStorage认证相关键:\n`;
+                if (authKeys.length > 0) {
+                    authKeys.forEach(key => {
+                        status += `  ${key}\n`;
+                    });
+                } else {
+                    status += `  无认证相关数据\n`;
+                }
+
+            } catch (error) {
+                status += `检查失败: ${error.message}\n`;
+                log(`❌ 状态检查失败: ${error.message}`, 'error');
+            }
+
+            statusDiv.textContent = status;
+        }
+
+        async function checkSupabaseSession() {
+            log('=== 检查Supabase会话 ===');
+            
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    log(`❌ 获取会话失败: ${error.message}`, 'error');
+                    return;
+                }
+
+                if (session) {
+                    log(`⚠️ 发现Supabase会话:`, 'warning');
+                    log(`  用户: ${session.user.email}`);
+                    log(`  过期时间: ${new Date(session.expires_at * 1000).toLocaleString()}`);
+                    log(`  访问令牌: ${session.access_token.substring(0, 20)}...`);
+                } else {
+                    log(`✅ 没有Supabase会话`, 'success');
+                }
+
+            } catch (error) {
+                log(`❌ 检查Supabase会话失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFirstVisit() {
+            log('=== 模拟首次访问测试 ===');
+            
+            try {
+                // 清空所有本地数据
+                localStorage.clear();
+                sessionStorage.clear();
+                log('✅ 已清空所有本地数据');
+
+                // 等待一下
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // 检查认证状态
+                checkAuthStatus();
+
+                // 验证是否为未登录状态
+                if (typeof authManager !== 'undefined') {
+                    const isAuth = authManager.isAuthenticated();
+                    if (!isAuth) {
+                        log('✅ 首次访问测试通过：显示未登录状态', 'success');
+                    } else {
+                        log('❌ 首次访问测试失败：仍显示已登录状态', 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ 首次访问测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWithHistorySession() {
+            log('=== 模拟有历史会话测试 ===');
+            
+            try {
+                // 模拟创建一个假的会话数据
+                const fakeSession = {
+                    access_token: 'fake_access_token_for_testing',
+                    refresh_token: 'fake_refresh_token_for_testing',
+                    expires_at: Math.floor(Date.now() / 1000) + 3600,
+                    user: {
+                        id: 'fake-user-id',
+                        email: 'test@example.com'
+                    }
+                };
+
+                // 注意：这只是模拟，实际的Supabase会话结构更复杂
+                localStorage.setItem('sb-test-auth-token', JSON.stringify(fakeSession));
+                log('✅ 已模拟历史会话数据');
+
+                // 重新检查状态
+                checkAuthStatus();
+
+                // 验证是否仍为未登录状态（因为我们禁用了自动恢复）
+                if (typeof authManager !== 'undefined') {
+                    const isAuth = authManager.isAuthenticated();
+                    if (!isAuth) {
+                        log('✅ 有历史会话测试通过：不会自动登录', 'success');
+                    } else {
+                        log('❌ 有历史会话测试失败：自动登录了', 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`❌ 历史会话测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function testManualSessionRestore() {
+            log('=== 测试手动会话恢复 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined' && typeof authManager.checkAndRestoreSession === 'function') {
+                    log('调用手动会话恢复方法...');
+                    const restored = await authManager.checkAndRestoreSession();
+                    
+                    if (restored) {
+                        log('✅ 会话恢复成功', 'success');
+                    } else {
+                        log('ℹ️ 没有可恢复的会话');
+                    }
+
+                    checkAuthStatus();
+                } else {
+                    log('❌ 手动会话恢复方法不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 手动会话恢复测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testAuthManagerInit() {
+            log('=== 测试认证管理器初始化 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    log('✅ 认证管理器可用');
+                    log(`初始化状态: ${authManager.isInitialized ? '已初始化' : '未初始化'}`);
+                    log(`会话检查状态: ${authManager.sessionChecked ? '已检查' : '未检查'}`);
+                    
+                    // 检查方法可用性
+                    const methods = [
+                        'isAuthenticated',
+                        'getCurrentUser',
+                        'checkAndRestoreSession',
+                        'requireAuth'
+                    ];
+
+                    methods.forEach(method => {
+                        const available = typeof authManager[method] === 'function';
+                        log(`  ${method}: ${available ? '✅' : '❌'}`);
+                    });
+
+                } else {
+                    log('❌ 认证管理器不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 认证管理器测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testSessionCheck() {
+            log('=== 测试会话检查逻辑 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    const sessionChecked = authManager.sessionChecked;
+                    const isAuth = authManager.isAuthenticated();
+
+                    log(`会话检查标志: ${sessionChecked}`);
+                    log(`当前认证状态: ${isAuth}`);
+
+                    if (sessionChecked && !isAuth) {
+                        log('✅ 会话检查逻辑正确：已检查但未自动登录', 'success');
+                    } else if (!sessionChecked) {
+                        log('⚠️ 会话尚未检查', 'warning');
+                    } else if (isAuth) {
+                        log('❌ 会话检查逻辑可能有问题：自动登录了', 'error');
+                    }
+
+                } else {
+                    log('❌ 认证管理器不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 会话检查测试失败: ${error.message}`, 'error');
+            }
+        }
+
+        function goToMainPage() {
+            log('跳转到首页进行实际验证...');
+            window.location.href = 'index.html';
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('首页无自动登录测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                log('修改内容：禁用首页自动登录功能');
+                checkAuthStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

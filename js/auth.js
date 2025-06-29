@@ -79,20 +79,82 @@ class AuthManager {
             }
         });
 
-        // 检查当前会话（页面加载时不显示通知）
+        // 不自动检查会话，让用户手动登录
+        // 首页加载时不需要自动登录
         if (!this.sessionChecked) {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                this.handleUserSignIn(session.user, false);
-            } else {
-                // 页面加载时如果没有会话，不显示"已登出"通知
-                this.handleUserSignOut(false);
-            }
+            // 只标记为已检查，但不自动恢复会话
             this.sessionChecked = true;
+            // 确保初始状态为未登录
+            this.handleUserSignOut(false);
         }
 
         this.isInitialized = true;
         console.log('认证管理器初始化完成');
+
+        // 添加页面关闭时的会话清理
+        this.setupPageUnloadHandler();
+    }
+
+    // 手动检查并恢复会话（在需要时调用）
+    async checkAndRestoreSession() {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                console.log('恢复用户会话:', session.user.email);
+                this.handleUserSignIn(session.user, false);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('检查会话失败:', error);
+            return false;
+        }
+    }
+
+    // 设置页面关闭时的会话清理
+    setupPageUnloadHandler() {
+        // 只监听页面真正关闭的事件（beforeunload）
+        // 不监听页面隐藏或失焦事件，以保持最小化和切换标签页时的登录状态
+        window.addEventListener('beforeunload', () => {
+            console.log('页面即将关闭，清除会话信息');
+            this.clearSessionOnPageClose();
+        });
+
+        // 可选：监听页面卸载事件作为备用
+        window.addEventListener('unload', () => {
+            console.log('页面卸载，清除会话信息');
+            this.clearSessionOnPageClose();
+        });
+    }
+
+    // 页面关闭时清除会话
+    clearSessionOnPageClose() {
+        try {
+            console.log('页面关闭，清除会话信息');
+
+            // 清除Supabase会话
+            supabase.auth.signOut({ scope: 'local' });
+
+            // 清除所有认证相关的localStorage数据
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('supabase') || key.includes('auth') || key.includes('session'))) {
+                    keysToRemove.push(key);
+                }
+            }
+
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+            });
+
+            // 重置内部状态
+            this.currentUser = null;
+            this.sessionChecked = false;
+
+        } catch (error) {
+            console.error('清除会话失败:', error);
+        }
     }
 
     // 处理用户登录

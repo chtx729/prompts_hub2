@@ -485,6 +485,18 @@ class MySpaceManager {
             return;
         }
 
+        // 检查认证状态
+        if (!authManager.isAuthenticated()) {
+            this.clearMyPrompts();
+            return;
+        }
+
+        // 检查提示词数量显示是否需要更新
+        const countElement = document.getElementById('my-prompt-count');
+        const needsCountUpdate = countElement &&
+                               (countElement.textContent.includes('加载中') ||
+                                countElement.textContent.includes('请先登录'));
+
         // 检查是否已经有数据
         const container = document.getElementById('my-prompts-container');
         const isEmpty = !container ||
@@ -493,11 +505,11 @@ class MySpaceManager {
                        container.innerHTML.includes('请先登录') ||
                        container.innerHTML.includes('您还没有创建任何提示词');
 
-        if (isEmpty) {
-            console.log('检测到数据为空，开始加载我的提示词');
+        if (isEmpty || needsCountUpdate) {
+            console.log('检测到数据为空或数量显示需要更新，开始加载我的提示词');
             this.loadMyPrompts();
         } else {
-            console.log('数据已存在，无需重复加载');
+            console.log('数据已存在且数量显示正常，无需重复加载');
         }
     }
 
@@ -506,6 +518,39 @@ class MySpaceManager {
         const countElement = document.getElementById('my-prompt-count');
         if (countElement) {
             countElement.innerHTML = `我创建的提示词数量：<span class="count-number">${count}</span>`;
+        }
+    }
+
+    // 刷新提示词数量（从服务器获取最新数据）
+    async refreshPromptCount() {
+        if (!authManager.isAuthenticated()) {
+            this.initPromptCount();
+            return;
+        }
+
+        try {
+            console.log('刷新提示词数量...');
+            const countElement = document.getElementById('my-prompt-count');
+            if (countElement) {
+                countElement.textContent = '我创建的提示词数量：加载中...';
+            }
+
+            // 获取最新的提示词数量
+            const result = await apiManager.getMyPrompts({
+                page: 1,
+                search: ''
+            });
+
+            if (result.success && result.pagination) {
+                this.updatePromptCount(result.pagination.total);
+                console.log('提示词数量刷新成功:', result.pagination.total);
+            } else {
+                console.error('获取提示词数量失败:', result.error);
+                this.updatePromptCount(0);
+            }
+        } catch (error) {
+            console.error('刷新提示词数量失败:', error);
+            this.updatePromptCount(0);
         }
     }
 

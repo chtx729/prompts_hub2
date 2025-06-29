@@ -323,6 +323,35 @@ class App {
             console.log('页面恢复显示');
             // 页面恢复时不重新检查认证状态，避免显示不必要的通知
             // 认证状态由Supabase的onAuthStateChange自动处理
+
+            // 如果当前在"我的空间"页面且用户已登录，刷新数据
+            this.refreshCurrentPageData();
+        }
+    }
+
+    // 刷新当前页面数据
+    refreshCurrentPageData() {
+        try {
+            const currentPage = this.currentPage;
+            console.log('刷新当前页面数据:', currentPage);
+
+            if (currentPage === 'my-space' && authManager.isAuthenticated()) {
+                console.log('刷新我的空间数据');
+
+                // 刷新提示词数量显示（从服务器获取最新数据）
+                if (window.mySpaceManager && typeof window.mySpaceManager.refreshPromptCount === 'function') {
+                    window.mySpaceManager.refreshPromptCount();
+                }
+
+                // 延迟加载数据，确保页面完全恢复
+                setTimeout(() => {
+                    if (window.mySpaceManager && typeof window.mySpaceManager.loadMyPromptsIfNeeded === 'function') {
+                        window.mySpaceManager.loadMyPromptsIfNeeded();
+                    }
+                }, 100);
+            }
+        } catch (error) {
+            console.error('刷新页面数据失败:', error);
         }
     }
 

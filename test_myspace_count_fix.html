@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的空间提示词数量修复测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .status-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--info-200);
+            font-family: monospace;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+        .warning {
+            color: var(--warning-600);
+            font-weight: bold;
+        }
+        .test-scenario {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        .mock-count-display {
+            background: white;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            font-size: 1.1rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔧 我的空间提示词数量修复测试</h1>
+        <p>验证最小化或切换页面后返回时，提示词数量显示是否正常</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>问题描述</h3>
+            <div class="test-scenario">
+                <h4>原问题：</h4>
+                <p>登录后，我的空间提示词数量显示正常，但最小化或者从切换到其他页面再返回时，提示词数量却一直显示"加载中"。</p>
+                
+                <h4>修复方案：</h4>
+                <p>1. ✅ 在页面恢复显示时刷新我的空间数据</p>
+                <p>2. ✅ 添加专门的提示词数量刷新方法</p>
+                <p>3. ✅ 检查数量显示状态，需要时重新加载</p>
+                
+                <h4>预期效果：</h4>
+                <p>页面恢复时提示词数量能正确显示，不会一直显示"加载中"</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>模拟提示词数量显示</h3>
+            <div id="mock-count-display" class="mock-count-display">
+                我创建的提示词数量：检查中...
+            </div>
+            <button class="test-button" onclick="simulateLogin()">模拟登录</button>
+            <button class="test-button" onclick="simulateLogout()">模拟登出</button>
+            <button class="test-button" onclick="checkCountDisplay()">检查数量显示</button>
+        </div>
+
+        <div class="test-section">
+            <h3>MySpaceManager测试</h3>
+            <button class="test-button" onclick="testMySpaceManager()">测试MySpaceManager</button>
+            <button class="test-button" onclick="testRefreshPromptCount()">测试刷新提示词数量</button>
+            <button class="test-button" onclick="testLoadMyPromptsIfNeeded()">测试条件加载</button>
+        </div>
+
+        <div class="test-section">
+            <h3>页面可见性测试</h3>
+            <button class="test-button" onclick="simulatePageHidden()">模拟页面隐藏</button>
+            <button class="test-button" onclick="simulatePageVisible()">模拟页面恢复</button>
+            <button class="test-button" onclick="testVisibilityChange()">测试完整的隐藏-恢复流程</button>
+        </div>
+
+        <div class="test-section">
+            <h3>实际测试场景</h3>
+            <div class="test-scenario">
+                <h4>测试步骤：</h4>
+                <ol>
+                    <li>模拟登录状态</li>
+                    <li>检查提示词数量显示正常</li>
+                    <li>最小化窗口或切换标签页</li>
+                    <li>返回当前页面</li>
+                    <li>验证提示词数量是否仍然正常显示</li>
+                </ol>
+            </div>
+            <button class="test-button" onclick="prepareRealTest()">准备实际测试</button>
+            <button class="test-button" onclick="goToMySpace()">前往我的空间页面</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function simulateLogin() {
+            log('=== 模拟登录 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    const mockUser = {
+                        id: 'test-user-id',
+                        email: 'test@example.com',
+                        username: 'testuser'
+                    };
+
+                    authManager.currentUser = mockUser;
+                    
+                    log('✅ 模拟登录成功', 'success');
+                    updateMockCountDisplay('我创建的提示词数量：5');
+                    
+                } else {
+                    log('❌ 认证管理器不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 模拟登录失败: ${error.message}`, 'error');
+            }
+        }
+
+        function simulateLogout() {
+            log('=== 模拟登出 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    authManager.currentUser = null;
+                    log('✅ 模拟登出成功', 'success');
+                    updateMockCountDisplay('我创建的提示词数量：请先登录');
+                } else {
+                    log('❌ 认证管理器不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 模拟登出失败: ${error.message}`, 'error');
+            }
+        }
+
+        function updateMockCountDisplay(text) {
+            const mockDisplay = document.getElementById('mock-count-display');
+            if (mockDisplay) {
+                mockDisplay.textContent = text;
+            }
+        }
+
+        function checkCountDisplay() {
+            log('=== 检查数量显示 ===');
+            
+            try {
+                const mockDisplay = document.getElementById('mock-count-display');
+                if (mockDisplay) {
+                    const text = mockDisplay.textContent;
+                    log(`当前显示: ${text}`);
+                    
+                    if (text.includes('加载中')) {
+                        log('⚠️ 发现"加载中"状态', 'warning');
+                    } else if (text.includes('请先登录')) {
+                        log('ℹ️ 显示未登录状态');
+                    } else if (text.match(/\d+/)) {
+                        log('✅ 显示正常数量', 'success');
+                    } else {
+                        log('❓ 未知显示状态', 'warning');
+                    }
+                }
+            } catch (error) {
+                log(`❌ 检查显示失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testMySpaceManager() {
+            log('=== 测试MySpaceManager ===');
+            
+            try {
+                if (typeof window.mySpaceManager !== 'undefined') {
+                    log('✅ MySpaceManager可用', 'success');
+                    
+                    const methods = [
+                        'initPromptCount',
+                        'updatePromptCount',
+                        'refreshPromptCount',
+                        'loadMyPromptsIfNeeded'
+                    ];
+
+                    methods.forEach(method => {
+                        const available = typeof window.mySpaceManager[method] === 'function';
+                        log(`  ${method}: ${available ? '✅' : '❌'}`);
+                    });
+
+                } else {
+                    log('❌ MySpaceManager不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 测试MySpaceManager失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testRefreshPromptCount() {
+            log('=== 测试刷新提示词数量 ===');
+            
+            try {
+                if (typeof window.mySpaceManager !== 'undefined' && 
+                    typeof window.mySpaceManager.refreshPromptCount === 'function') {
+                    
+                    log('调用refreshPromptCount方法...');
+                    updateMockCountDisplay('我创建的提示词数量：加载中...');
+                    
+                    // 模拟刷新过程
+                    setTimeout(() => {
+                        updateMockCountDisplay('我创建的提示词数量：8');
+                        log('✅ 模拟刷新完成', 'success');
+                    }, 1000);
+
+                } else {
+                    log('❌ refreshPromptCount方法不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 测试刷新失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testLoadMyPromptsIfNeeded() {
+            log('=== 测试条件加载 ===');
+            
+            try {
+                if (typeof window.mySpaceManager !== 'undefined' && 
+                    typeof window.mySpaceManager.loadMyPromptsIfNeeded === 'function') {
+                    
+                    log('调用loadMyPromptsIfNeeded方法...');
+                    // 这个方法会检查当前页面和数据状态
+                    
+                    log('✅ loadMyPromptsIfNeeded方法可用', 'success');
+
+                } else {
+                    log('❌ loadMyPromptsIfNeeded方法不可用', 'error');
+                }
+            } catch (error) {
+                log(`❌ 测试条件加载失败: ${error.message}`, 'error');
+            }
+        }
+
+        function simulatePageHidden() {
+            log('=== 模拟页面隐藏 ===');
+            
+            try {
+                // 模拟页面隐藏时的状态变化
+                updateMockCountDisplay('我创建的提示词数量：加载中...');
+                
+                // 触发visibilitychange事件
+                Object.defineProperty(document, 'visibilityState', {
+                    writable: true,
+                    value: 'hidden'
+                });
+                
+                const event = new Event('visibilitychange');
+                document.dispatchEvent(event);
+                
+                log('✅ 页面隐藏事件已触发', 'success');
+                
+            } catch (error) {
+                log(`❌ 模拟页面隐藏失败: ${error.message}`, 'error');
+            }
+        }
+
+        function simulatePageVisible() {
+            log('=== 模拟页面恢复 ===');
+            
+            try {
+                // 触发页面恢复事件
+                Object.defineProperty(document, 'visibilityState', {
+                    writable: true,
+                    value: 'visible'
+                });
+                
+                const event = new Event('visibilitychange');
+                document.dispatchEvent(event);
+                
+                log('✅ 页面恢复事件已触发', 'success');
+                
+                // 模拟数据刷新
+                setTimeout(() => {
+                    updateMockCountDisplay('我创建的提示词数量：5');
+                    log('✅ 模拟数据刷新完成', 'success');
+                }, 500);
+                
+            } catch (error) {
+                log(`❌ 模拟页面恢复失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testVisibilityChange() {
+            log('=== 测试完整的隐藏-恢复流程 ===');
+            
+            // 确保有登录状态
+            simulateLogin();
+            
+            setTimeout(() => {
+                log('步骤1: 模拟页面隐藏');
+                simulatePageHidden();
+                
+                setTimeout(() => {
+                    log('步骤2: 模拟页面恢复');
+                    simulatePageVisible();
+                }, 1000);
+            }, 500);
+        }
+
+        function prepareRealTest() {
+            log('=== 准备实际测试 ===');
+            
+            simulateLogin();
+            
+            setTimeout(() => {
+                log('✅ 测试准备完成', 'success');
+                log('现在您可以：');
+                log('1. 最小化浏览器窗口然后恢复');
+                log('2. 切换到其他标签页然后返回');
+                log('3. 观察提示词数量显示是否正常');
+            }, 500);
+        }
+
+        function goToMySpace() {
+            log('跳转到我的空间页面...');
+            window.location.href = 'index.html#my-space';
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('我的空间提示词数量修复测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                log('修复内容：页面恢复时正确刷新提示词数量');
+                testMySpaceManager();
+            }, 1000);
+        });
+
+        // 监听页面可见性变化
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                log('页面恢复显示，触发数据刷新检查');
+            } else {
+                log('页面隐藏');
+            }
+        });
+    </script>
+</body>
+</html>

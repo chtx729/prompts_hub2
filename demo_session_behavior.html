@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会话行为演示</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .demo-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .status-card {
+            background: var(--info-50);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            margin: 1rem 0;
+            border: 2px solid var(--info-200);
+        }
+        .status-card.logged-in {
+            background: var(--success-50);
+            border-color: var(--success-200);
+        }
+        .status-card.logged-out {
+            background: var(--error-50);
+            border-color: var(--error-200);
+        }
+        .demo-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+            font-size: 1rem;
+        }
+        .demo-button:hover {
+            background: var(--primary-hover);
+        }
+        .demo-button.success {
+            background: var(--success-color);
+        }
+        .demo-button.success:hover {
+            background: var(--success-600);
+        }
+        .scenario-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .scenario-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+        .scenario-card h4 {
+            margin: 0 0 1rem 0;
+            color: var(--primary-color);
+        }
+        .scenario-card .result {
+            font-weight: bold;
+            padding: 0.5rem;
+            border-radius: var(--radius-md);
+            margin-top: 1rem;
+        }
+        .scenario-card .result.keep {
+            background: var(--success-50);
+            color: var(--success-700);
+        }
+        .scenario-card .result.clear {
+            background: var(--error-50);
+            color: var(--error-700);
+        }
+        .instruction {
+            background: var(--warning-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--warning-200);
+            margin: 1rem 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🔐 会话行为演示</h1>
+        <p>演示不同操作对登录状态的影响</p>
+    </div>
+
+    <div class="demo-container">
+        <h2>当前登录状态</h2>
+        <div id="login-status" class="status-card">
+            检查中...
+        </div>
+        
+        <button class="demo-button" onclick="simulateLogin()">模拟登录</button>
+        <button class="demo-button" onclick="simulateLogout()">模拟登出</button>
+        <button class="demo-button" onclick="checkStatus()">刷新状态</button>
+    </div>
+
+    <div class="demo-container">
+        <h2>操作场景说明</h2>
+        
+        <div class="scenario-grid">
+            <div class="scenario-card">
+                <h4><i class="fas fa-window-minimize"></i> 最小化窗口</h4>
+                <p>用户最小化浏览器窗口，然后重新打开</p>
+                <div class="result keep">
+                    ✅ 保持登录状态
+                </div>
+            </div>
+
+            <div class="scenario-card">
+                <h4><i class="fas fa-exchange-alt"></i> 切换标签页</h4>
+                <p>用户切换到其他标签页，然后返回当前页面</p>
+                <div class="result keep">
+                    ✅ 保持登录状态
+                </div>
+            </div>
+
+            <div class="scenario-card">
+                <h4><i class="fas fa-external-link-alt"></i> 切换应用</h4>
+                <p>用户使用Alt+Tab切换到其他应用程序</p>
+                <div class="result keep">
+                    ✅ 保持登录状态
+                </div>
+            </div>
+
+            <div class="scenario-card">
+                <h4><i class="fas fa-times"></i> 关闭标签页</h4>
+                <p>用户点击X按钮关闭当前标签页</p>
+                <div class="result clear">
+                    ❌ 清除登录状态
+                </div>
+            </div>
+
+            <div class="scenario-card">
+                <h4><i class="fas fa-power-off"></i> 关闭浏览器</h4>
+                <p>用户关闭整个浏览器窗口</p>
+                <div class="result clear">
+                    ❌ 清除登录状态
+                </div>
+            </div>
+
+            <div class="scenario-card">
+                <h4><i class="fas fa-redo"></i> 刷新页面</h4>
+                <p>用户按F5或点击刷新按钮</p>
+                <div class="result keep">
+                    ✅ 保持登录状态
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <h2>实际测试</h2>
+        
+        <div class="instruction">
+            <strong>测试步骤：</strong>
+            <ol>
+                <li>点击"模拟登录"按钮</li>
+                <li>尝试以下操作之一：</li>
+                <ul>
+                    <li>最小化窗口然后恢复</li>
+                    <li>切换到其他标签页然后返回</li>
+                    <li>关闭标签页然后重新打开此页面</li>
+                </ul>
+                <li>观察登录状态的变化</li>
+            </ol>
+        </div>
+
+        <button class="demo-button success" onclick="prepareTest()">开始测试</button>
+        <button class="demo-button" onclick="openInNewTab()">在新标签页打开</button>
+    </div>
+
+    <div class="demo-container">
+        <h2>技术说明</h2>
+        <div style="text-align: left;">
+            <h4>实现原理：</h4>
+            <ul>
+                <li><strong>beforeunload事件</strong>：监听页面真正关闭</li>
+                <li><strong>unload事件</strong>：备用的页面卸载监听</li>
+                <li><strong>不监听visibilitychange</strong>：保持切换标签页时的登录状态</li>
+                <li><strong>不监听blur事件</strong>：保持最小化时的登录状态</li>
+            </ul>
+            
+            <h4>会话清理时机：</h4>
+            <ul>
+                <li>用户关闭标签页</li>
+                <li>用户关闭浏览器窗口</li>
+                <li>用户导航到其他网站</li>
+            </ul>
+            
+            <h4>会话保持时机：</h4>
+            <ul>
+                <li>最小化和恢复窗口</li>
+                <li>切换标签页</li>
+                <li>切换应用程序</li>
+                <li>页面刷新</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function checkStatus() {
+            const statusDiv = document.getElementById('login-status');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    const isAuth = authManager.isAuthenticated();
+                    const user = authManager.getCurrentUser();
+                    
+                    if (isAuth && user) {
+                        statusDiv.className = 'status-card logged-in';
+                        statusDiv.innerHTML = `
+                            <h3><i class="fas fa-check-circle"></i> 已登录</h3>
+                            <p>用户：${user.email || user.username || '测试用户'}</p>
+                            <p>状态：会话活跃</p>
+                        `;
+                    } else {
+                        statusDiv.className = 'status-card logged-out';
+                        statusDiv.innerHTML = `
+                            <h3><i class="fas fa-times-circle"></i> 未登录</h3>
+                            <p>请点击"模拟登录"按钮</p>
+                        `;
+                    }
+                } else {
+                    statusDiv.className = 'status-card';
+                    statusDiv.innerHTML = `
+                        <h3><i class="fas fa-exclamation-triangle"></i> 认证管理器不可用</h3>
+                        <p>请检查页面加载是否完成</p>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.className = 'status-card';
+                statusDiv.innerHTML = `
+                    <h3><i class="fas fa-exclamation-triangle"></i> 检查失败</h3>
+                    <p>错误：${error.message}</p>
+                `;
+            }
+        }
+
+        function simulateLogin() {
+            try {
+                if (typeof authManager !== 'undefined') {
+                    // 模拟用户对象
+                    const mockUser = {
+                        id: 'demo-user-id',
+                        email: 'demo@example.com',
+                        username: 'demouser'
+                    };
+
+                    // 设置登录状态
+                    authManager.currentUser = mockUser;
+                    
+                    // 模拟localStorage数据
+                    const mockSession = {
+                        access_token: 'demo_access_token',
+                        refresh_token: 'demo_refresh_token',
+                        expires_at: Math.floor(Date.now() / 1000) + 3600,
+                        user: mockUser
+                    };
+                    
+                    localStorage.setItem('sb-demo-auth-token', JSON.stringify(mockSession));
+                    
+                    checkStatus();
+                    console.log('模拟登录成功');
+                } else {
+                    alert('认证管理器不可用');
+                }
+            } catch (error) {
+                alert('模拟登录失败：' + error.message);
+            }
+        }
+
+        function simulateLogout() {
+            try {
+                if (typeof authManager !== 'undefined') {
+                    authManager.currentUser = null;
+                    localStorage.removeItem('sb-demo-auth-token');
+                    checkStatus();
+                    console.log('模拟登出成功');
+                } else {
+                    alert('认证管理器不可用');
+                }
+            } catch (error) {
+                alert('模拟登出失败：' + error.message);
+            }
+        }
+
+        function prepareTest() {
+            simulateLogin();
+            setTimeout(() => {
+                alert('测试准备完成！\n\n现在您可以：\n1. 最小化窗口然后恢复（应保持登录）\n2. 切换标签页然后返回（应保持登录）\n3. 关闭标签页然后重新打开（应清除登录）');
+            }, 500);
+        }
+
+        function openInNewTab() {
+            window.open(window.location.href, '_blank');
+        }
+
+        // 页面加载完成后检查状态
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                checkStatus();
+            }, 1000);
+        });
+
+        // 页面显示时检查状态（从其他标签页返回时）
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                setTimeout(() => {
+                    checkStatus();
+                }, 100);
+            }
+        });
+    </script>
+</body>
+</html>

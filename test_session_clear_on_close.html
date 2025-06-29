@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>页面关闭会话清理测试</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: var(--background-color);
+        }
+        .test-container {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: var(--radius-xl);
+            margin-bottom: 2rem;
+        }
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+        }
+        .test-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            margin: 0.5rem;
+        }
+        .test-button:hover {
+            background: var(--primary-hover);
+        }
+        .test-button.danger {
+            background: var(--error-color);
+        }
+        .test-button.danger:hover {
+            background: var(--error-600);
+        }
+        .status-display {
+            background: var(--info-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--info-200);
+            font-family: monospace;
+        }
+        .log-output {
+            background: var(--gray-900);
+            color: var(--gray-100);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin: 1rem 0;
+        }
+        .success {
+            color: var(--success-600);
+            font-weight: bold;
+        }
+        .error {
+            color: var(--error-600);
+            font-weight: bold;
+        }
+        .warning {
+            color: var(--warning-600);
+            font-weight: bold;
+        }
+        .test-scenario {
+            background: var(--gray-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        .instruction {
+            background: var(--warning-50);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin: 1rem 0;
+            border: 1px solid var(--warning-200);
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/prompts.js"></script>
+    <script src="js/myspace.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔒 页面关闭会话清理测试</h1>
+        <p>验证页面关闭时是否正确清除登录会话</p>
+    </div>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3>功能说明</h3>
+            <div class="test-scenario">
+                <h4>需求：</h4>
+                <p>首页关闭前如果为登录状态，关闭后再重新打开时不要自动登录</p>
+                
+                <h4>实现：</h4>
+                <p>1. ✅ 只监听页面真正关闭事件（beforeunload/unload）</p>
+                <p>2. ❌ 不监听页面隐藏事件（保持最小化时的登录状态）</p>
+                <p>3. ❌ 不监听页面失焦事件（保持切换标签页时的登录状态）</p>
+                <p>4. ✅ 只在彻底关闭时清除会话数据</p>
+                
+                <h4>预期效果：</h4>
+                <p>✅ 最小化窗口：保持登录状态，返回时无需重新登录</p>
+                <p>✅ 切换标签页：保持登录状态，返回时无需重新登录</p>
+                <p>✅ 彻底关闭页面：清除登录状态，重新打开时需要手动登录</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>当前状态</h3>
+            <div id="current-status" class="status-display">
+                检查中...
+            </div>
+            <button class="test-button" onclick="checkCurrentStatus()">刷新状态</button>
+            <button class="test-button" onclick="checkLocalStorage()">检查本地存储</button>
+        </div>
+
+        <div class="test-section">
+            <h3>模拟登录测试</h3>
+            <div class="instruction">
+                <strong>⚠️ 注意：</strong>这里只是模拟登录状态，不是真实登录
+            </div>
+            <button class="test-button" onclick="simulateLogin()">模拟登录状态</button>
+            <button class="test-button" onclick="simulateLogout()">模拟登出</button>
+        </div>
+
+        <div class="test-section">
+            <h3>会话清理测试</h3>
+            <button class="test-button" onclick="testClearSession()">测试手动清理会话</button>
+            <button class="test-button" onclick="testPageUnloadHandler()">测试页面关闭处理器</button>
+            <button class="test-button" onclick="testVisibilityChange()">测试页面隐藏事件</button>
+        </div>
+
+        <div class="test-section">
+            <h3>实际测试场景</h3>
+
+            <div class="test-scenario">
+                <h4>场景1：最小化窗口测试</h4>
+                <ol>
+                    <li>模拟登录状态</li>
+                    <li>最小化浏览器窗口</li>
+                    <li>重新打开窗口</li>
+                    <li>验证是否仍保持登录状态</li>
+                </ol>
+                <button class="test-button" onclick="testMinimizeWindow()">测试最小化保持登录</button>
+            </div>
+
+            <div class="test-scenario">
+                <h4>场景2：切换标签页测试</h4>
+                <ol>
+                    <li>模拟登录状态</li>
+                    <li>切换到其他标签页</li>
+                    <li>返回当前标签页</li>
+                    <li>验证是否仍保持登录状态</li>
+                </ol>
+                <button class="test-button" onclick="testTabSwitch()">测试切换标签页保持登录</button>
+            </div>
+
+            <div class="test-scenario">
+                <h4>场景3：彻底关闭页面测试</h4>
+                <ol>
+                    <li>模拟登录状态</li>
+                    <li>彻底关闭当前标签页</li>
+                    <li>重新打开首页</li>
+                    <li>验证是否显示未登录状态</li>
+                </ol>
+                <button class="test-button" onclick="prepareForCloseTest()">准备关闭测试</button>
+                <button class="test-button danger" onclick="simulatePageClose()">模拟页面关闭</button>
+            </div>
+
+            <button class="test-button" onclick="openNewTab()">在新标签页打开首页</button>
+        </div>
+
+        <div class="test-section">
+            <h3>事件监听器测试</h3>
+            <button class="test-button" onclick="testEventListeners()">检查事件监听器</button>
+            <button class="test-button" onclick="triggerBeforeUnload()">触发beforeunload</button>
+            <button class="test-button" onclick="triggerVisibilityChange()">触发visibilitychange</button>
+        </div>
+
+        <div class="test-section">
+            <h3>操作日志</h3>
+            <button class="test-button" onclick="clearLog()">清空日志</button>
+            <div id="operation-log" class="log-output">等待操作...</div>
+        </div>
+    </div>
+
+    <script>
+        let logElement;
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            const logMessage = `[${timestamp}] ${message}\n`;
+            
+            if (logElement) {
+                logElement.innerHTML += `<span class="${className}">${logMessage}</span>`;
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            console.log(logMessage);
+        }
+
+        function checkCurrentStatus() {
+            log('=== 检查当前状态 ===');
+            
+            const statusDiv = document.getElementById('current-status');
+            let status = '';
+
+            try {
+                // 检查认证状态
+                if (typeof authManager !== 'undefined') {
+                    const isAuth = authManager.isAuthenticated();
+                    const user = authManager.getCurrentUser();
+                    const sessionChecked = authManager.sessionChecked;
+
+                    status += `认证状态: ${isAuth ? '✅ 已登录' : '❌ 未登录'}\n`;
+                    status += `当前用户: ${user ? user.email || user.username : '无'}\n`;
+                    status += `会话已检查: ${sessionChecked ? '是' : '否'}\n`;
+                    status += `初始化状态: ${authManager.isInitialized ? '已初始化' : '未初始化'}\n`;
+
+                    log(`认证状态: ${isAuth ? '已登录' : '未登录'}`, isAuth ? 'warning' : 'success');
+
+                    // 检查是否有页面关闭处理器
+                    if (typeof authManager.setupPageUnloadHandler === 'function') {
+                        status += `页面关闭处理器: ✅ 已设置\n`;
+                        log('✅ 页面关闭处理器已设置', 'success');
+                    } else {
+                        status += `页面关闭处理器: ❌ 未设置\n`;
+                        log('❌ 页面关闭处理器未设置', 'error');
+                    }
+
+                } else {
+                    status += `认证管理器: ❌ 不可用\n`;
+                    log('❌ 认证管理器不可用', 'error');
+                }
+
+            } catch (error) {
+                status += `检查失败: ${error.message}\n`;
+                log(`❌ 状态检查失败: ${error.message}`, 'error');
+            }
+
+            statusDiv.textContent = status;
+        }
+
+        function checkLocalStorage() {
+            log('=== 检查本地存储 ===');
+            
+            try {
+                const allKeys = Object.keys(localStorage);
+                const authKeys = allKeys.filter(key => 
+                    key.includes('supabase') || key.includes('auth') || key.includes('session')
+                );
+
+                log(`本地存储总键数: ${allKeys.length}`);
+                log(`认证相关键数: ${authKeys.length}`);
+
+                if (authKeys.length > 0) {
+                    log('认证相关的localStorage键:');
+                    authKeys.forEach(key => {
+                        const value = localStorage.getItem(key);
+                        const preview = value ? value.substring(0, 50) + '...' : 'null';
+                        log(`  ${key}: ${preview}`);
+                    });
+                } else {
+                    log('✅ 没有认证相关的localStorage数据', 'success');
+                }
+
+            } catch (error) {
+                log(`❌ 检查本地存储失败: ${error.message}`, 'error');
+            }
+        }
+
+        function simulateLogin() {
+            log('=== 模拟登录状态 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    // 模拟用户对象
+                    const mockUser = {
+                        id: 'mock-user-id',
+                        email: 'test@example.com',
+                        username: 'testuser'
+                    };
+
+                    // 设置模拟登录状态
+                    authManager.currentUser = mockUser;
+                    
+                    // 模拟localStorage数据
+                    const mockSession = {
+                        access_token: 'mock_access_token',
+                        refresh_token: 'mock_refresh_token',
+                        expires_at: Math.floor(Date.now() / 1000) + 3600,
+                        user: mockUser
+                    };
+                    
+                    localStorage.setItem('sb-test-auth-token', JSON.stringify(mockSession));
+                    
+                    log('✅ 模拟登录状态设置成功', 'success');
+                    checkCurrentStatus();
+
+                } else {
+                    log('❌ 认证管理器不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 模拟登录失败: ${error.message}`, 'error');
+            }
+        }
+
+        function simulateLogout() {
+            log('=== 模拟登出 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined') {
+                    authManager.currentUser = null;
+                    localStorage.removeItem('sb-test-auth-token');
+                    
+                    log('✅ 模拟登出成功', 'success');
+                    checkCurrentStatus();
+
+                } else {
+                    log('❌ 认证管理器不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 模拟登出失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testClearSession() {
+            log('=== 测试手动清理会话 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined' && typeof authManager.clearSessionOnPageClose === 'function') {
+                    log('调用clearSessionOnPageClose方法...');
+                    authManager.clearSessionOnPageClose();
+                    
+                    log('✅ 会话清理方法调用成功', 'success');
+                    
+                    // 检查清理结果
+                    setTimeout(() => {
+                        checkCurrentStatus();
+                        checkLocalStorage();
+                    }, 500);
+
+                } else {
+                    log('❌ 会话清理方法不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 测试会话清理失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testPageUnloadHandler() {
+            log('=== 测试页面关闭处理器 ===');
+            
+            try {
+                if (typeof authManager !== 'undefined' && typeof authManager.setupPageUnloadHandler === 'function') {
+                    log('✅ setupPageUnloadHandler方法可用', 'success');
+                    
+                    // 检查是否已经设置了事件监听器
+                    log('检查事件监听器设置...');
+                    
+                    // 这里无法直接检查事件监听器，但可以通过调用来验证
+                    log('页面关闭处理器应该已在初始化时设置');
+
+                } else {
+                    log('❌ setupPageUnloadHandler方法不可用', 'error');
+                }
+
+            } catch (error) {
+                log(`❌ 测试页面关闭处理器失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testVisibilityChange() {
+            log('=== 测试页面隐藏事件（现在应该不清除会话）===');
+
+            try {
+                // 先检查当前登录状态
+                const beforeAuth = authManager.isAuthenticated();
+                log(`隐藏前登录状态: ${beforeAuth}`);
+
+                // 模拟页面隐藏
+                Object.defineProperty(document, 'visibilityState', {
+                    writable: true,
+                    value: 'hidden'
+                });
+
+                // 触发visibilitychange事件
+                const event = new Event('visibilitychange');
+                document.dispatchEvent(event);
+
+                log('✅ 触发visibilitychange事件', 'success');
+
+                // 检查登录状态是否保持
+                setTimeout(() => {
+                    const afterAuth = authManager.isAuthenticated();
+                    log(`隐藏后登录状态: ${afterAuth}`);
+
+                    if (beforeAuth === afterAuth) {
+                        log('✅ 页面隐藏时正确保持登录状态', 'success');
+                    } else {
+                        log('❌ 页面隐藏时错误地改变了登录状态', 'error');
+                    }
+
+                    // 恢复可见状态
+                    Object.defineProperty(document, 'visibilityState', {
+                        writable: true,
+                        value: 'visible'
+                    });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                    log('恢复页面可见状态');
+                }, 500);
+
+            } catch (error) {
+                log(`❌ 测试页面隐藏事件失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testMinimizeWindow() {
+            log('=== 测试最小化窗口保持登录 ===');
+
+            try {
+                // 确保有登录状态
+                simulateLogin();
+
+                setTimeout(() => {
+                    const beforeAuth = authManager.isAuthenticated();
+                    log(`最小化前登录状态: ${beforeAuth}`);
+
+                    // 模拟最小化（通过visibilitychange事件）
+                    Object.defineProperty(document, 'visibilityState', {
+                        writable: true,
+                        value: 'hidden'
+                    });
+                    document.dispatchEvent(new Event('visibilitychange'));
+
+                    // 模拟窗口失焦
+                    window.dispatchEvent(new Event('blur'));
+
+                    log('模拟最小化窗口...');
+
+                    // 检查登录状态
+                    setTimeout(() => {
+                        const afterAuth = authManager.isAuthenticated();
+                        log(`最小化后登录状态: ${afterAuth}`);
+
+                        if (beforeAuth && afterAuth) {
+                            log('✅ 最小化时正确保持登录状态', 'success');
+                        } else {
+                            log('❌ 最小化时错误地清除了登录状态', 'error');
+                        }
+
+                        // 恢复窗口
+                        Object.defineProperty(document, 'visibilityState', {
+                            writable: true,
+                            value: 'visible'
+                        });
+                        document.dispatchEvent(new Event('visibilitychange'));
+                        window.dispatchEvent(new Event('focus'));
+                        log('恢复窗口状态');
+
+                    }, 500);
+                }, 500);
+
+            } catch (error) {
+                log(`❌ 测试最小化窗口失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testTabSwitch() {
+            log('=== 测试切换标签页保持登录 ===');
+
+            try {
+                // 确保有登录状态
+                simulateLogin();
+
+                setTimeout(() => {
+                    const beforeAuth = authManager.isAuthenticated();
+                    log(`切换前登录状态: ${beforeAuth}`);
+
+                    // 模拟切换到其他标签页
+                    Object.defineProperty(document, 'visibilityState', {
+                        writable: true,
+                        value: 'hidden'
+                    });
+                    document.dispatchEvent(new Event('visibilitychange'));
+                    window.dispatchEvent(new Event('blur'));
+
+                    log('模拟切换到其他标签页...');
+
+                    // 检查登录状态
+                    setTimeout(() => {
+                        const duringAuth = authManager.isAuthenticated();
+                        log(`切换期间登录状态: ${duringAuth}`);
+
+                        // 模拟返回当前标签页
+                        Object.defineProperty(document, 'visibilityState', {
+                            writable: true,
+                            value: 'visible'
+                        });
+                        document.dispatchEvent(new Event('visibilitychange'));
+                        window.dispatchEvent(new Event('focus'));
+
+                        log('模拟返回当前标签页...');
+
+                        setTimeout(() => {
+                            const afterAuth = authManager.isAuthenticated();
+                            log(`返回后登录状态: ${afterAuth}`);
+
+                            if (beforeAuth && duringAuth && afterAuth) {
+                                log('✅ 切换标签页时正确保持登录状态', 'success');
+                            } else {
+                                log('❌ 切换标签页时错误地清除了登录状态', 'error');
+                            }
+                        }, 500);
+
+                    }, 500);
+                }, 500);
+
+            } catch (error) {
+                log(`❌ 测试切换标签页失败: ${error.message}`, 'error');
+            }
+        }
+
+        function prepareForCloseTest() {
+            log('=== 准备关闭测试 ===');
+            
+            // 先设置模拟登录状态
+            simulateLogin();
+            
+            setTimeout(() => {
+                log('✅ 测试准备完成', 'success');
+                log('现在可以关闭页面进行测试');
+                log('关闭后重新打开首页，检查是否显示未登录状态');
+            }, 500);
+        }
+
+        function simulatePageClose() {
+            log('=== 模拟页面关闭 ===');
+            
+            try {
+                // 触发beforeunload事件
+                const beforeUnloadEvent = new Event('beforeunload');
+                window.dispatchEvent(beforeUnloadEvent);
+                
+                log('✅ 触发beforeunload事件', 'success');
+                
+                // 检查清理结果
+                setTimeout(() => {
+                    checkCurrentStatus();
+                    checkLocalStorage();
+                }, 500);
+
+            } catch (error) {
+                log(`❌ 模拟页面关闭失败: ${error.message}`, 'error');
+            }
+        }
+
+        function openNewTab() {
+            log('在新标签页打开首页...');
+            window.open('index.html', '_blank');
+        }
+
+        function testEventListeners() {
+            log('=== 检查事件监听器 ===');
+            
+            try {
+                // 检查是否有相关的事件监听器
+                log('检查页面关闭相关的事件监听器...');
+                
+                // 无法直接检查事件监听器，但可以验证方法存在
+                if (typeof authManager !== 'undefined') {
+                    const methods = [
+                        'setupPageUnloadHandler',
+                        'clearSessionOnPageClose'
+                    ];
+
+                    methods.forEach(method => {
+                        const available = typeof authManager[method] === 'function';
+                        log(`  ${method}: ${available ? '✅' : '❌'}`);
+                    });
+                }
+
+            } catch (error) {
+                log(`❌ 检查事件监听器失败: ${error.message}`, 'error');
+            }
+        }
+
+        function triggerBeforeUnload() {
+            log('=== 手动触发beforeunload事件 ===');
+            
+            try {
+                const event = new Event('beforeunload');
+                window.dispatchEvent(event);
+                log('✅ beforeunload事件已触发', 'success');
+
+            } catch (error) {
+                log(`❌ 触发beforeunload事件失败: ${error.message}`, 'error');
+            }
+        }
+
+        function triggerVisibilityChange() {
+            log('=== 手动触发visibilitychange事件 ===');
+            
+            try {
+                const event = new Event('visibilitychange');
+                document.dispatchEvent(event);
+                log('✅ visibilitychange事件已触发', 'success');
+
+            } catch (error) {
+                log(`❌ 触发visibilitychange事件失败: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            if (logElement) {
+                logElement.innerHTML = '';
+            }
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('页面关闭会话清理测试页面加载完成');
+            
+            logElement = document.getElementById('operation-log');
+            
+            setTimeout(() => {
+                log('测试页面初始化完成');
+                log('功能：页面关闭时自动清除登录会话');
+                checkCurrentStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
