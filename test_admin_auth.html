@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台身份验证测试</title>
+    
+    <!-- 引用主站样式 -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background: #f9fafb;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        
+        .test-section h3 {
+            margin: 0 0 1rem 0;
+            color: #374151;
+        }
+        
+        .test-button {
+            background: #7c3aed;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .test-button:hover {
+            background: #6d28d9;
+        }
+        
+        .test-result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+        
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+        }
+        
+        .info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+        }
+        
+        .admin-link {
+            display: inline-block;
+            background: #059669;
+            color: white;
+            padding: 1rem 2rem;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            margin-top: 1rem;
+        }
+        
+        .admin-link:hover {
+            background: #047857;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-success {
+            background: #10b981;
+        }
+        
+        .status-error {
+            background: #ef4444;
+        }
+        
+        .status-warning {
+            background: #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🔐 管理后台身份验证测试</h1>
+        <p>测试管理员登录、角色验证和访问控制功能</p>
+        
+        <!-- 配置检查 -->
+        <div class="test-section">
+            <h3>1. 配置检查</h3>
+            <button class="test-button" onclick="checkConfig()">检查配置</button>
+            <div id="config-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <!-- 数据库连接测试 -->
+        <div class="test-section">
+            <h3>2. 数据库连接测试</h3>
+            <button class="test-button" onclick="testDatabase()">测试数据库连接</button>
+            <button class="test-button" onclick="checkAdminFunction()">检查管理员函数</button>
+            <button class="test-button" onclick="testTableStructure()">测试表结构关系</button>
+            <button class="test-button" onclick="checkUserSync()">检查用户同步状态</button>
+            <div id="database-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <!-- 身份验证测试 -->
+        <div class="test-section">
+            <h3>3. 身份验证测试</h3>
+            <div style="margin-bottom: 1rem;">
+                <input type="email" id="test-email" placeholder="测试邮箱" style="padding: 0.5rem; margin-right: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px;">
+                <input type="password" id="test-password" placeholder="测试密码" style="padding: 0.5rem; margin-right: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px;">
+            </div>
+            <button class="test-button" onclick="testLogin()">测试登录</button>
+            <button class="test-button" onclick="testRoleCheck()">测试角色验证</button>
+            <button class="test-button" onclick="testLogout()">测试登出</button>
+            <div id="auth-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <!-- 权限测试 -->
+        <div class="test-section">
+            <h3>4. 权限测试</h3>
+            <button class="test-button" onclick="testPermissions()">测试权限检查</button>
+            <button class="test-button" onclick="testAdminAccess()">测试管理员访问</button>
+            <div id="permission-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <!-- 会话管理测试 -->
+        <div class="test-section">
+            <h3>5. 会话管理测试</h3>
+            <button class="test-button" onclick="testSession()">测试会话状态</button>
+            <button class="test-button" onclick="testSessionTimeout()">测试会话超时</button>
+            <div id="session-result" class="test-result" style="display: none;"></div>
+        </div>
+        
+        <!-- 系统状态 -->
+        <div class="test-section">
+            <h3>6. 系统状态</h3>
+            <div id="system-status">
+                <p><span class="status-indicator status-warning"></span>等待测试...</p>
+            </div>
+            <button class="test-button" onclick="runAllTests()">运行所有测试</button>
+        </div>
+        
+        <!-- 管理后台链接 -->
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="admin/" class="admin-link">
+                <i class="fas fa-shield-alt"></i>
+                进入管理后台
+            </a>
+        </div>
+    </div>
+    
+    <!-- 引用配置和认证脚本 -->
+    <script src="js/config.js"></script>
+    
+    <script>
+        // 测试结果显示函数
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `test-result ${type}`;
+            element.textContent = message;
+        }
+        
+        // 1. 检查配置
+        function checkConfig() {
+            try {
+                const result = {
+                    supabaseUrl: SUPABASE_CONFIG?.url ? '✅ 已配置' : '❌ 未配置',
+                    supabaseKey: SUPABASE_CONFIG?.anonKey ? '✅ 已配置' : '❌ 未配置',
+                    supabaseClient: typeof supabase !== 'undefined' ? '✅ 已初始化' : '❌ 未初始化',
+                    appConfig: typeof APP_CONFIG !== 'undefined' ? '✅ 已加载' : '❌ 未加载'
+                };
+                
+                const message = `配置检查结果:
+Supabase URL: ${result.supabaseUrl}
+Supabase Key: ${result.supabaseKey}
+Supabase Client: ${result.supabaseClient}
+App Config: ${result.appConfig}`;
+                
+                const hasErrors = Object.values(result).some(v => v.includes('❌'));
+                showResult('config-result', message, hasErrors ? 'error' : 'success');
+                
+            } catch (error) {
+                showResult('config-result', `配置检查失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 2. 测试数据库连接
+        async function testDatabase() {
+            try {
+                showResult('database-result', '正在测试数据库连接...', 'info');
+                
+                // 测试基本连接
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('count')
+                    .limit(1);
+                
+                if (error) {
+                    throw error;
+                }
+                
+                showResult('database-result', '✅ 数据库连接成功', 'success');
+                
+            } catch (error) {
+                showResult('database-result', `❌ 数据库连接失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 检查管理员函数
+        async function checkAdminFunction() {
+            try {
+                showResult('database-result', '正在检查管理员函数...', 'info');
+
+                // 测试 is_admin 函数
+                const { data, error } = await supabase
+                    .rpc('is_admin', { user_id: '00000000-0000-0000-0000-000000000000' });
+
+                if (error) {
+                    throw error;
+                }
+
+                showResult('database-result', '✅ 管理员函数检查成功', 'success');
+
+            } catch (error) {
+                showResult('database-result', `❌ 管理员函数检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 测试表结构关系
+        async function testTableStructure() {
+            try {
+                showResult('database-result', '正在测试表结构关系...', 'info');
+
+                // 测试关联查询：获取用户的完整信息
+                const { data, error } = await supabase
+                    .from('users')
+                    .select(`
+                        user_id,
+                        username,
+                        role,
+                        status
+                    `)
+                    .limit(3);
+
+                if (error) {
+                    throw error;
+                }
+
+                if (data.length === 0) {
+                    showResult('database-result', '⚠️ public.users 表中没有数据', 'warning');
+                    return;
+                }
+
+                // 获取对应的认证信息
+                let message = '表结构关系测试结果:\n\n';
+
+                for (const user of data) {
+                    // 获取对应的 auth.users 信息
+                    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(user.user_id);
+
+                    if (authError) {
+                        message += `用户 ${user.username}:\n`;
+                        message += `  public.users: ✅ 存在\n`;
+                        message += `  auth.users: ❌ 无法获取 (${authError.message})\n\n`;
+                    } else {
+                        message += `用户 ${user.username}:\n`;
+                        message += `  public.users: ✅ 存在 (role: ${user.role})\n`;
+                        message += `  auth.users: ✅ 存在 (email: ${authUser.user.email})\n`;
+                        message += `  关联正确: ✅ user_id 匹配\n\n`;
+                    }
+                }
+
+                showResult('database-result', message, 'success');
+
+            } catch (error) {
+                showResult('database-result', `❌ 表结构关系测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 3. 测试登录
+        async function testLogin() {
+            const email = document.getElementById('test-email').value;
+            const password = document.getElementById('test-password').value;
+            
+            if (!email || !password) {
+                showResult('auth-result', '请输入测试邮箱和密码', 'error');
+                return;
+            }
+            
+            try {
+                showResult('auth-result', '正在测试登录...', 'info');
+                
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                showResult('auth-result', `✅ 登录成功: ${data.user.email}`, 'success');
+                
+            } catch (error) {
+                showResult('auth-result', `❌ 登录失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 测试角色验证
+        async function testRoleCheck() {
+            try {
+                showResult('auth-result', '正在测试角色验证...', 'info');
+
+                const { data: { user } } = await supabase.auth.getUser();
+
+                if (!user) {
+                    throw new Error('用户未登录');
+                }
+
+                // 检查用户角色（从 public.users 表获取）
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('username, role, status')
+                    .eq('user_id', user.id)
+                    .single();
+
+                if (error) {
+                    throw error;
+                }
+
+                const isAdmin = data.role === 'admin';
+                const message = `认证信息（auth.users）:
+邮箱: ${user.email}
+注册时间: ${new Date(user.created_at).toLocaleString()}
+
+用户资料（public.users）:
+用户名: ${data.username}
+角色: ${data.role}
+状态: ${data.status}
+
+管理员权限: ${isAdmin ? '✅ 是' : '❌ 否'}`;
+
+                showResult('auth-result', message, isAdmin ? 'success' : 'error');
+
+            } catch (error) {
+                showResult('auth-result', `❌ 角色验证失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 测试登出
+        async function testLogout() {
+            try {
+                showResult('auth-result', '正在测试登出...', 'info');
+                
+                const { error } = await supabase.auth.signOut();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                showResult('auth-result', '✅ 登出成功', 'success');
+                
+            } catch (error) {
+                showResult('auth-result', `❌ 登出失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 4. 测试权限
+        async function testPermissions() {
+            try {
+                showResult('permission-result', '正在测试权限检查...', 'info');
+                
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (!user) {
+                    throw new Error('用户未登录，无法测试权限');
+                }
+                
+                // 使用 RPC 调用测试管理员权限
+                const { data, error } = await supabase
+                    .rpc('is_admin', { user_id: user.id });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                const message = `用户ID: ${user.id}\n管理员权限: ${data ? '✅ 是' : '❌ 否'}`;
+                showResult('permission-result', message, data ? 'success' : 'error');
+                
+            } catch (error) {
+                showResult('permission-result', `❌ 权限测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 测试管理员访问
+        async function testAdminAccess() {
+            try {
+                showResult('permission-result', '正在测试管理员访问...', 'info');
+                
+                // 尝试访问管理员日志表
+                const { data, error } = await supabase
+                    .from('admin_logs')
+                    .select('count')
+                    .limit(1);
+                
+                if (error) {
+                    throw error;
+                }
+                
+                showResult('permission-result', '✅ 管理员访问测试成功', 'success');
+                
+            } catch (error) {
+                showResult('permission-result', `❌ 管理员访问测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 5. 测试会话
+        async function testSession() {
+            try {
+                showResult('session-result', '正在测试会话状态...', 'info');
+                
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    throw error;
+                }
+                
+                const message = session 
+                    ? `✅ 会话有效\n用户: ${session.user.email}\n过期时间: ${new Date(session.expires_at * 1000).toLocaleString()}`
+                    : '❌ 无有效会话';
+                
+                showResult('session-result', message, session ? 'success' : 'error');
+                
+            } catch (error) {
+                showResult('session-result', `❌ 会话测试失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 测试会话超时
+        function testSessionTimeout() {
+            const timeout = 30 * 60 * 1000; // 30分钟
+            const message = `会话超时设置: ${timeout / 1000 / 60} 分钟\n当前时间: ${new Date().toLocaleString()}`;
+            showResult('session-result', message, 'info');
+        }
+        
+        // 检查用户同步状态
+        async function checkUserSync() {
+            try {
+                showResult('database-result', '正在检查用户同步状态...', 'info');
+
+                // 检查当前登录用户状态
+                const { data: { user } } = await supabase.auth.getUser();
+                let currentUserStatus = '未登录';
+                let authUserExists = false;
+
+                if (user) {
+                    authUserExists = true;
+                    const { data: userProfile, error: profileError } = await supabase
+                        .from('users')
+                        .select('username, role, status')
+                        .eq('user_id', user.id)
+                        .single();
+
+                    if (profileError) {
+                        if (profileError.code === 'PGRST116') {
+                            currentUserStatus = `❌ 当前用户 (${user.email}) 在 public.users 中不存在`;
+                        } else {
+                            currentUserStatus = `❌ 查询用户资料失败: ${profileError.message}`;
+                        }
+                    } else {
+                        currentUserStatus = `✅ 当前用户 (${user.email}) 已同步
+  用户名: ${userProfile.username}
+  角色: ${userProfile.role}
+  状态: ${userProfile.status}`;
+                    }
+                }
+
+                // 检查 public.users 数量 - 使用不同的方法避免 RLS 问题
+                const { data: publicUsers, error: publicError } = await supabase
+                    .from('users')
+                    .select('user_id');
+
+                const publicCount = publicUsers ? publicUsers.length : 0;
+
+                if (publicError) {
+                    console.warn('查询 public.users 时遇到权限问题:', publicError.message);
+                }
+
+                // 尝试通过 RPC 函数获取统计信息（如果可用）
+                let authCount = '无法获取';
+                try {
+                    const { data: stats, error: statsError } = await supabase
+                        .from('admin_dashboard_stats')
+                        .select('total_users')
+                        .single();
+
+                    if (!statsError && stats) {
+                        // 这个数字来自 auth.users 的统计
+                        authCount = '通过统计视图获取';
+                    }
+                } catch (e) {
+                    // 统计视图可能不存在
+                }
+
+                // 检查是否有用户数据
+                const { data: sampleUsers, error: sampleError } = await supabase
+                    .from('users')
+                    .select('user_id, username, role')
+                    .limit(5);
+
+                let userSample = '';
+                if (!sampleError && sampleUsers && sampleUsers.length > 0) {
+                    userSample = '\n\n用户样本:';
+                    sampleUsers.forEach(u => {
+                        userSample += `\n- ${u.username} (${u.role})`;
+                    });
+                }
+
+                const message = `用户同步状态检查:
+
+当前登录状态: ${authUserExists ? '✅ 已登录' : '❌ 未登录'}
+public.users 表用户数: ${publicCount || 0}${publicError ? ' (查询受限，可能因为RLS策略)' : ''}
+当前用户同步状态: ${currentUserStatus}
+
+${userSample}
+
+${!authUserExists ? '\n⚠️ 请先登录以进行完整的同步检查' : ''}
+${authUserExists && publicCount === 0 && !publicError ? '\n⚠️ 检测到用户同步问题！建议运行 fix_user_sync_issue.sql 脚本修复。' : ''}
+${publicError ? '\n💡 提示：如果SQL诊断脚本显示数据正常，则同步功能正常工作。' : ''}`;
+
+                // 如果当前用户已登录且能查询到自己的资料，就认为是成功的
+                const resultType = authUserExists && currentUserStatus.includes('✅') ? 'success' : 'warning';
+                showResult('database-result', message, resultType);
+
+            } catch (error) {
+                showResult('database-result', `❌ 用户同步检查失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 运行所有测试
+        async function runAllTests() {
+            const statusElement = document.getElementById('system-status');
+            statusElement.innerHTML = '<p><span class="status-indicator status-warning"></span>正在运行测试...</p>';
+
+            try {
+                checkConfig();
+                await testDatabase();
+                await checkAdminFunction();
+                await checkUserSync();
+
+                statusElement.innerHTML = '<p><span class="status-indicator status-success"></span>所有测试完成</p>';
+
+            } catch (error) {
+                statusElement.innerHTML = '<p><span class="status-indicator status-error"></span>测试过程中出现错误</p>';
+            }
+        }
+        
+        // 页面加载时自动检查配置
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(checkConfig, 500);
+        });
+    </script>
+</body>
+</html>

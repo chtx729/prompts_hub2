@@ -89,18 +89,36 @@ const APP_CONFIG = {
 // 初始化 Supabase 客户端
 let supabase;
 
-try {
-    if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
-        supabase = window.supabase.createClient(
-            SUPABASE_CONFIG.url,
-            SUPABASE_CONFIG.anonKey
-        );
-        console.log('Supabase 客户端初始化成功');
-    } else {
-        console.warn('请配置 Supabase URL 和 API Key');
+function initSupabase() {
+    try {
+        if (SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey) {
+            if (typeof window.supabase !== 'undefined') {
+                supabase = window.supabase.createClient(
+                    SUPABASE_CONFIG.url,
+                    SUPABASE_CONFIG.anonKey
+                );
+                console.log('✅ Supabase 客户端初始化成功');
+                return true;
+            } else {
+                console.warn('⚠️ Supabase CDN 尚未加载');
+                return false;
+            }
+        } else {
+            console.warn('⚠️ 请配置 Supabase URL 和 API Key');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Supabase 客户端初始化失败:', error);
+        return false;
     }
-} catch (error) {
-    console.error('Supabase 客户端初始化失败:', error);
+}
+
+// 尝试立即初始化
+if (!initSupabase()) {
+    // 如果初始化失败，等待 DOM 加载完成后重试
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initSupabase, 100);
+    });
 }
 
 // 导出配置（如果使用模块系统）

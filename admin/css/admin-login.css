@@ -1,0 +1,312 @@
+/* 管理后台登录界面样式 */
+
+/* 登录遮罩层 */
+.admin-login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* 登录容器 */
+.admin-login-container {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    padding: 0;
+    overflow: hidden;
+    animation: slideUp 0.4s ease-out;
+}
+
+/* 登录头部 */
+.admin-login-header {
+    background: linear-gradient(135deg, var(--primary-600, #7c3aed) 0%, var(--primary-700, #6d28d9) 100%);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+}
+
+.admin-login-header h1 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.admin-login-header p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 0.875rem;
+}
+
+/* 登录表单 */
+.admin-login-form {
+    padding: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--gray-700, #374151);
+    font-size: 0.875rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--gray-200, #e5e7eb);
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-500, #8b5cf6);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.form-group input::placeholder {
+    color: var(--gray-400, #9ca3af);
+}
+
+/* 错误和锁定消息 */
+.error-message,
+.lockout-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.error-message::before {
+    content: "⚠️";
+}
+
+.lockout-message {
+    background: #fffbeb;
+    border-color: #fed7aa;
+    color: #d97706;
+}
+
+.lockout-message::before {
+    content: "🔒";
+}
+
+/* 登录按钮 */
+.admin-login-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary-600, #7c3aed) 0%, var(--primary-700, #6d28d9) 100%);
+    color: white;
+    border: none;
+    padding: 0.875rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.admin-login-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--primary-700, #6d28d9) 0%, var(--primary-800, #5b21b6) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.admin-login-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.admin-login-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* 登录底部 */
+.admin-login-footer {
+    background: var(--gray-50, #f9fafb);
+    padding: 1rem 2rem;
+    text-align: center;
+    border-top: 1px solid var(--gray-200, #e5e7eb);
+}
+
+.admin-login-footer p {
+    margin: 0;
+    color: var(--gray-500, #6b7280);
+    font-size: 0.75rem;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    .admin-login-container {
+        margin: 1rem;
+        max-width: none;
+    }
+    
+    .admin-login-header {
+        padding: 1.5rem;
+    }
+    
+    .admin-login-form {
+        padding: 1.5rem;
+    }
+    
+    .admin-login-footer {
+        padding: 1rem 1.5rem;
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    .admin-login-container {
+        background: var(--gray-800, #1f2937);
+        color: var(--gray-100, #f3f4f6);
+    }
+    
+    .form-group label {
+        color: var(--gray-200, #e5e7eb);
+    }
+    
+    .form-group input {
+        background: var(--gray-700, #374151);
+        border-color: var(--gray-600, #4b5563);
+        color: var(--gray-100, #f3f4f6);
+    }
+    
+    .form-group input::placeholder {
+        color: var(--gray-400, #9ca3af);
+    }
+    
+    .admin-login-footer {
+        background: var(--gray-700, #374151);
+        border-color: var(--gray-600, #4b5563);
+    }
+}
+
+/* 加载状态动画 */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 输入框验证状态 */
+.form-group input.error {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.form-group input.success {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* 安全提示 */
+.security-notice {
+    background: var(--blue-50, #eff6ff);
+    border: 1px solid var(--blue-200, #bfdbfe);
+    color: var(--blue-700, #1d4ed8);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+.security-notice::before {
+    content: "🛡️";
+    margin-right: 0.5rem;
+}
+
+/* 记住我选项（如果需要） */
+.remember-me {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.remember-me input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.remember-me label {
+    margin: 0;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+/* 忘记密码链接（如果需要） */
+.forgot-password {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.forgot-password a {
+    color: var(--primary-600, #7c3aed);
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+
+.forgot-password a:hover {
+    text-decoration: underline;
+}

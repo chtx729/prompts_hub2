@@ -6,6 +6,10 @@ RLS开启、RLS策略、默认权限、全文搜素4项未执行！！！
 
 需要重新整理，特别是 评分
 -- ==========================================
+--Supabase数据库配置信息：
+  url: 'https://qnqzoxkejxshsxvmprhs.supabase.co',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucXpveGtlanhzaHN4dm1wcmhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwMDQ0NzMsImV4cCI6MjA2NDU4MDQ3M30.ZPBSdEAz-ncPOfAEwwYEJyd3cpF05U-hIQKyOZKCMaw'
+
 --网站广告语表
 CREATE TABLE web_title (
     id bigint primary key generated always as identity,

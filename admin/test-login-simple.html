@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台登录测试 - 简化版</title>
+    
+    <!-- 管理后台样式 -->
+    <link rel="stylesheet" href="css/admin-login.css">
+    
+    <!-- Supabase 客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 0.875rem;
+            max-width: 400px;
+            z-index: 10000;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .debug-section {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        
+        .debug-section h5 {
+            margin: 0 0 0.5rem 0;
+            color: #333;
+        }
+        
+        .debug-section pre {
+            margin: 0;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <!-- 调试面板 -->
+    <div class="debug-panel">
+        <h4>调试信息</h4>
+        <div id="debug-content">等待操作...</div>
+    </div>
+    
+    <!-- 登录界面 -->
+    <div id="admin-login-form" class="admin-login-overlay">
+        <div class="admin-login-container">
+            <div class="admin-login-header">
+                <h1>管理后台登录</h1>
+                <p>简化测试版本</p>
+            </div>
+            
+            <form id="admin-login-form-element" class="admin-login-form">
+                <div class="form-group">
+                    <label for="admin-email">邮箱地址</label>
+                    <input type="email" id="admin-email" name="email" required 
+                           placeholder="请输入管理员邮箱" value="chtx365@163.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="admin-password">密码</label>
+                    <input type="password" id="admin-password" name="password" required 
+                           placeholder="请输入密码">
+                </div>
+                
+                <div id="admin-login-error" class="error-message" style="display: none;"></div>
+                
+                <button type="submit" id="admin-login-btn" class="admin-login-btn">
+                    登录测试
+                </button>
+            </form>
+            
+            <div class="admin-login-footer">
+                <p>UUID 查询测试版本</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 调试输出函数
+        function debugLog(title, data) {
+            const debugContent = document.getElementById('debug-content');
+            const section = document.createElement('div');
+            section.className = 'debug-section';
+            section.innerHTML = `
+                <h5>${title}</h5>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            debugContent.appendChild(section);
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+        
+        // 初始化 Supabase
+        const supabase = window.supabase.createClient(
+            'https://qnqzoxkejxshsxvmprhs.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucXpveGtlanhzaHN4dm1wcmhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwMDQ0NzMsImV4cCI6MjA2NDU4MDQ3M30.ZPBSdEAz-ncPOfAEwwYEJyd3cpF05U-hIQKyOZKCMaw'
+        );
+        
+        debugLog('Supabase 初始化', { status: '成功', client: !!supabase });
+        
+        // 登录处理
+        document.getElementById('admin-login-form-element').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+            
+            debugLog('开始登录', { email, passwordLength: password.length });
+            
+            try {
+                // 1. 身份验证
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                debugLog('身份验证结果', { 
+                    success: !authError,
+                    userId: authData?.user?.id,
+                    email: authData?.user?.email,
+                    error: authError?.message 
+                });
+                
+                if (authError) {
+                    throw new Error(authError.message);
+                }
+                
+                const userId = authData.user.id;
+                
+                // 2. 测试多种查询方式
+                debugLog('用户ID信息', {
+                    userId: userId,
+                    type: typeof userId,
+                    length: userId.length,
+                    isString: typeof userId === 'string'
+                });
+                
+                // 方式1: 标准查询
+                debugLog('方式1: 标准 eq 查询', '开始...');
+                const result1 = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('user_id', userId);
+                
+                debugLog('方式1结果', result1);
+                
+                // 方式2: filter 查询
+                debugLog('方式2: filter 查询', '开始...');
+                const result2 = await supabase
+                    .from('users')
+                    .select('*')
+                    .filter('user_id', 'eq', userId);
+                
+                debugLog('方式2结果', result2);
+                
+                // 方式3: 字符串转换
+                debugLog('方式3: 字符串转换查询', '开始...');
+                const userIdStr = String(userId);
+                const result3 = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('user_id', userIdStr);
+                
+                debugLog('方式3结果', result3);
+                
+                // 方式4: 原始SQL（如果有RPC函数）
+                try {
+                    debugLog('方式4: RPC查询', '开始...');
+                    const result4 = await supabase.rpc('get_user_by_id', { 
+                        target_user_id: userId 
+                    });
+                    debugLog('方式4结果', result4);
+                } catch (rpcError) {
+                    debugLog('方式4错误', { message: 'RPC函数不存在或出错', error: rpcError.message });
+                }
+                
+                // 方式5: 查询所有用户进行对比
+                debugLog('方式5: 查询所有用户样本', '开始...');
+                const result5 = await supabase
+                    .from('users')
+                    .select('user_id, username, role')
+                    .limit(5);
+                
+                debugLog('方式5结果', result5);
+                
+                // 检查哪种方式成功了
+                const successfulResults = [result1, result2, result3].filter(r => 
+                    r.data && r.data.length > 0
+                );
+                
+                debugLog('成功的查询方式', {
+                    count: successfulResults.length,
+                    results: successfulResults.map((r, i) => ({
+                        method: `方式${i+1}`,
+                        dataLength: r.data.length,
+                        firstRecord: r.data[0]
+                    }))
+                });
+                
+                if (successfulResults.length > 0) {
+                    const userData = successfulResults[0].data[0];
+                    debugLog('最终用户数据', userData);
+                    
+                    if (userData.role === 'admin') {
+                        alert(`登录成功！管理员: ${userData.username}`);
+                    } else {
+                        alert(`登录成功，但您不是管理员。当前角色: ${userData.role}`);
+                    }
+                } else {
+                    debugLog('所有查询都失败', '用户在 public.users 表中不存在');
+                    alert('用户在 public.users 表中不存在，请检查数据同步');
+                }
+                
+            } catch (error) {
+                debugLog('登录错误', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                alert('登录失败: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

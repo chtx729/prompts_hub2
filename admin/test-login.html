@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台登录测试</title>
+    
+    <!-- 管理后台样式 -->
+    <link rel="stylesheet" href="css/admin-login.css">
+    
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase 客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .test-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 0.875rem;
+            max-width: 300px;
+            z-index: 10000;
+        }
+        
+        .status {
+            margin: 0.25rem 0;
+        }
+        
+        .status.success { color: #10b981; }
+        .status.error { color: #ef4444; }
+        .status.warning { color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <!-- 测试信息面板 -->
+    <div class="test-info">
+        <h4>加载状态</h4>
+        <div id="supabase-status" class="status">Supabase: 加载中...</div>
+        <div id="config-status" class="status">配置: 等待中...</div>
+        <div id="auth-status" class="status">认证: 等待中...</div>
+    </div>
+    
+    <!-- 登录界面 -->
+    <div id="admin-login-form" class="admin-login-overlay">
+        <div class="admin-login-container">
+            <div class="admin-login-header">
+                <h1>管理后台登录</h1>
+                <p>请使用管理员账户登录</p>
+            </div>
+            
+            <form id="admin-login-form-element" class="admin-login-form">
+                <div class="form-group">
+                    <label for="admin-email">邮箱地址</label>
+                    <input type="email" id="admin-email" name="email" required 
+                           placeholder="请输入管理员邮箱" value="chtx365@163.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="admin-password">密码</label>
+                    <input type="password" id="admin-password" name="password" required 
+                           placeholder="请输入密码">
+                </div>
+                
+                <div id="admin-login-error" class="error-message" style="display: none;"></div>
+                
+                <button type="submit" id="admin-login-btn" class="admin-login-btn">
+                    <span class="btn-text">登录</span>
+                    <span class="btn-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> 验证中...
+                    </span>
+                </button>
+            </form>
+            
+            <div class="admin-login-footer">
+                <p>仅限系统管理员访问</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 状态更新函数
+        function updateStatus(elementId, message, type = 'warning') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = message;
+                element.className = `status ${type}`;
+            }
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            const errorDiv = document.getElementById('admin-login-error');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        // 隐藏错误信息
+        function hideError() {
+            const errorDiv = document.getElementById('admin-login-error');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+            }
+        }
+        
+        // 设置登录加载状态
+        function setLoginLoading(loading) {
+            const btn = document.getElementById('admin-login-btn');
+            const btnText = btn?.querySelector('.btn-text');
+            const btnLoading = btn?.querySelector('.btn-loading');
+            
+            if (btn && btnText && btnLoading) {
+                btn.disabled = loading;
+                btnText.style.display = loading ? 'none' : 'inline';
+                btnLoading.style.display = loading ? 'inline' : 'none';
+            }
+        }
+        
+        // 初始化
+        let supabase;
+        let configLoaded = false;
+        
+        // 检查 Supabase 加载
+        function checkSupabase() {
+            if (typeof window.supabase !== 'undefined') {
+                updateStatus('supabase-status', 'Supabase: ✅ 已加载', 'success');
+                loadConfig();
+                return true;
+            } else {
+                updateStatus('supabase-status', 'Supabase: ❌ 加载失败', 'error');
+                return false;
+            }
+        }
+        
+        // 加载配置
+        function loadConfig() {
+            updateStatus('config-status', '配置: 加载中...', 'warning');
+            
+            // Supabase 配置
+            const SUPABASE_CONFIG = {
+                url: 'https://qnqzoxkejxshsxvmprhs.supabase.co',
+                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucXpveGtlanhzaHN4dm1wcmhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwMDQ0NzMsImV4cCI6MjA2NDU4MDQ3M30.ZPBSdEAz-ncPOfAEwwYEJyd3cpF05U-hIQKyOZKCMaw'
+            };
+            
+            try {
+                // 初始化 Supabase 客户端
+                supabase = window.supabase.createClient(
+                    SUPABASE_CONFIG.url,
+                    SUPABASE_CONFIG.anonKey
+                );
+                
+                updateStatus('config-status', '配置: ✅ 已加载', 'success');
+                configLoaded = true;
+                initAuth();
+                
+            } catch (error) {
+                updateStatus('config-status', '配置: ❌ 加载失败', 'error');
+                console.error('配置加载失败:', error);
+            }
+        }
+        
+        // 初始化认证
+        function initAuth() {
+            updateStatus('auth-status', '认证: ✅ 已初始化', 'success');
+            
+            // 绑定登录表单事件
+            const form = document.getElementById('admin-login-form-element');
+            if (form) {
+                form.addEventListener('submit', handleLogin);
+            }
+        }
+        
+        // 处理登录
+        async function handleLogin(e) {
+            e.preventDefault();
+            
+            if (!configLoaded) {
+                showError('系统尚未初始化完成，请稍后重试');
+                return;
+            }
+            
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+            
+            if (!email || !password) {
+                showError('请输入邮箱和密码');
+                return;
+            }
+            
+            setLoginLoading(true);
+            hideError();
+            
+            try {
+                console.log('🔐 开始登录流程...');
+                console.log('📧 邮箱:', email);
+
+                // 1. Supabase 身份验证
+                console.log('1️⃣ 开始 Supabase 身份验证...');
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                console.log('🔍 身份验证结果:', { authData, authError });
+
+                if (authError) {
+                    console.error('❌ 身份验证失败:', authError);
+                    throw new Error(authError.message);
+                }
+
+                console.log('✅ 身份验证成功');
+                console.log('👤 用户ID:', authData.user.id);
+                console.log('📧 用户邮箱:', authData.user.email);
+
+                // 2. 角色验证 - 先检查用户是否存在
+                console.log('2️⃣ 开始查询用户角色...');
+                console.log('🔍 查询条件 user_id =', authData.user.id);
+                console.log('🔍 用户ID类型:', typeof authData.user.id);
+                console.log('🔍 用户ID长度:', authData.user.id.length);
+
+                // 尝试多种查询方式
+                console.log('🔍 尝试方式1: 直接查询...');
+                let { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('role, username, status, id')
+                    .eq('user_id', authData.user.id);
+
+                console.log('🔍 方式1结果:', { userData, userError });
+
+                // 如果第一种方式失败，尝试字符串转换
+                if (!userData || userData.length === 0) {
+                    console.log('🔍 尝试方式2: 字符串转换...');
+                    const userIdString = String(authData.user.id);
+                    const result2 = await supabase
+                        .from('users')
+                        .select('role, username, status, id')
+                        .eq('user_id', userIdString);
+
+                    console.log('🔍 方式2结果:', result2);
+                    userData = result2.data;
+                    userError = result2.error;
+                }
+
+                // 如果还是失败，尝试原始SQL查询
+                if (!userData || userData.length === 0) {
+                    console.log('🔍 尝试方式3: RPC查询...');
+                    const result3 = await supabase.rpc('get_user_by_id', {
+                        target_user_id: authData.user.id
+                    });
+
+                    console.log('🔍 方式3结果:', result3);
+
+                    // 如果RPC也失败，手动构造查询
+                    if (!result3.data || result3.data.length === 0) {
+                        console.log('🔍 尝试方式4: 手动SQL查询...');
+                        const result4 = await supabase
+                            .from('users')
+                            .select('role, username, status, id, user_id')
+                            .filter('user_id', 'eq', authData.user.id);
+
+                        console.log('🔍 方式4结果:', result4);
+                        userData = result4.data;
+                        userError = result4.error;
+                    } else {
+                        userData = result3.data;
+                        userError = result3.error;
+                    }
+                }
+
+                console.log('🔍 用户查询结果:', { userData, userError });
+                console.log('📊 查询返回数据类型:', typeof userData);
+                console.log('📊 查询返回数据长度:', userData ? userData.length : 'null');
+
+                if (userError) {
+                    console.error('❌ 查询用户信息失败:', userError);
+                    throw new Error('查询用户信息失败: ' + userError.message);
+                }
+
+                if (!userData || userData.length === 0) {
+                    console.error('❌ 用户在 public.users 表中不存在');
+                    console.log('🔍 尝试直接查询所有用户记录...');
+
+                    // 调试：查询所有用户记录
+                    const { data: allUsers, error: allUsersError } = await supabase
+                        .from('users')
+                        .select('user_id, username, role')
+                        .limit(10);
+
+                    console.log('📋 所有用户记录样本:', { allUsers, allUsersError });
+
+                    throw new Error('用户在 public.users 表中不存在，请运行用户同步脚本');
+                }
+
+                if (userData.length > 1) {
+                    console.error('❌ 用户在 public.users 表中有重复记录:', userData);
+                    throw new Error('用户在 public.users 表中有重复记录，请检查数据一致性');
+                }
+
+                const userInfo = userData[0];
+                console.log('✅ 找到用户信息:', userInfo);
+
+                if (userInfo.role !== 'admin') {
+                    console.error('❌ 用户不是管理员:', userInfo.role);
+                    // 登出非管理员用户
+                    await supabase.auth.signOut();
+                    throw new Error('您没有管理员权限');
+                }
+
+                console.log('🎉 管理员权限验证通过');
+
+                // 登录成功
+                alert(`登录成功！欢迎 ${userInfo.username || email}`);
+
+                // 跳转到完整的管理后台
+                window.location.href = 'index.html';
+
+            } catch (error) {
+                console.error('💥 登录过程出错:', error);
+                console.error('📋 错误详情:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                showError(error.message);
+            } finally {
+                setLoginLoading(false);
+            }
+        }
+        
+        // 页面加载完成后开始检查
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (!checkSupabase()) {
+                    // 如果 Supabase 没有加载，继续等待
+                    setTimeout(checkSupabase, 1000);
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>

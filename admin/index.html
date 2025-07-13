@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI提示词宝库 - 管理后台</title>
+    
+    <!-- 引用主站的基础样式 -->
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components.css">
+    
+    <!-- 管理后台专用样式 -->
+    <link rel="stylesheet" href="css/admin-login.css">
+    <link rel="stylesheet" href="css/admin.css">
+    
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Supabase 客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Chart.js 用于数据可视化 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- 管理后台主要内容（初始隐藏，登录后显示） -->
+    <div id="admin-main-content" style="display: none;">
+        <!-- 顶部导航栏 -->
+        <header class="admin-header">
+            <div class="admin-header-left">
+                <button id="sidebar-toggle" class="sidebar-toggle-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="admin-title">
+                    <i class="fas fa-shield-alt"></i>
+                    管理后台
+                </h1>
+            </div>
+            
+            <div class="admin-header-right">
+                <!-- 快捷操作 -->
+                <div class="admin-quick-actions">
+                    <button class="quick-action-btn" title="刷新数据">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="quick-action-btn" title="系统设置">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+                
+                <!-- 管理员信息 -->
+                <div class="admin-user-info">
+                    <div class="admin-avatar">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div class="admin-user-details">
+                        <span id="admin-username" class="admin-username">管理员</span>
+                        <span class="admin-role">系统管理员</span>
+                    </div>
+                    <div class="admin-user-menu">
+                        <button id="admin-logout-btn" class="logout-btn" title="退出登录">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- 侧边栏导航 -->
+        <aside id="admin-sidebar" class="admin-sidebar">
+            <nav class="admin-nav">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <a href="#dashboard" class="nav-link active" data-page="dashboard">
+                            <i class="fas fa-tachometer-alt"></i>
+                            <span>数据看板</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#users" class="nav-link" data-page="users">
+                            <i class="fas fa-users"></i>
+                            <span>用户管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#prompts" class="nav-link" data-page="prompts">
+                            <i class="fas fa-file-text"></i>
+                            <span>提示词管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#categories" class="nav-link" data-page="categories">
+                            <i class="fas fa-tags"></i>
+                            <span>分类管理</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#system" class="nav-link" data-page="system">
+                            <i class="fas fa-cogs"></i>
+                            <span>系统配置</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#logs" class="nav-link" data-page="logs">
+                            <i class="fas fa-history"></i>
+                            <span>操作日志</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+        
+        <!-- 主要内容区域 -->
+        <main class="admin-main">
+            <!-- 数据看板页面 -->
+            <div id="dashboard-page" class="admin-page active">
+                <div class="page-header">
+                    <h2>数据看板</h2>
+                    <p>系统概览和实时数据统计</p>
+                </div>
+                
+                <!-- 统计卡片 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="total-users">-</div>
+                            <div class="stat-label">总用户数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-file-text"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="total-prompts">-</div>
+                            <div class="stat-label">总提示词数</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-eye"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="today-active-users">-</div>
+                            <div class="stat-label">今日活跃用户</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="pending-review">-</div>
+                            <div class="stat-label">待审核内容</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 -->
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>用户增长趋势</h3>
+                        <canvas id="user-growth-chart"></canvas>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3>提示词增长趋势</h3>
+                        <canvas id="prompt-growth-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 其他页面占位符 -->
+            <div id="users-page" class="admin-page">
+                <div class="page-header">
+                    <h2>用户管理</h2>
+                    <p>管理系统用户和权限</p>
+                </div>
+                <div class="page-content">
+                    <p>用户管理功能开发中...</p>
+                </div>
+            </div>
+            
+            <div id="prompts-page" class="admin-page">
+                <div class="page-header">
+                    <h2>提示词管理</h2>
+                    <p>管理提示词内容和状态</p>
+                </div>
+                <div class="page-content">
+                    <p>提示词管理功能开发中...</p>
+                </div>
+            </div>
+            
+            <div id="categories-page" class="admin-page">
+                <div class="page-header">
+                    <h2>分类管理</h2>
+                    <p>管理提示词分类和标签</p>
+                </div>
+                <div class="page-content">
+                    <p>分类管理功能开发中...</p>
+                </div>
+            </div>
+            
+            <div id="system-page" class="admin-page">
+                <div class="page-header">
+                    <h2>系统配置</h2>
+                    <p>系统设置和配置管理</p>
+                </div>
+                <div class="page-content">
+                    <p>系统配置功能开发中...</p>
+                </div>
+            </div>
+            
+            <div id="logs-page" class="admin-page">
+                <div class="page-header">
+                    <h2>操作日志</h2>
+                    <p>查看系统操作记录</p>
+                </div>
+                <div class="page-content">
+                    <p>操作日志功能开发中...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- 加载指示器 -->
+    <div id="admin-loading" class="admin-loading">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <div class="loading-text">正在加载管理后台...</div>
+    </div>
+    
+    <!-- JavaScript 文件 -->
+    <script>
+        // 等待 Supabase CDN 加载完成后再加载配置
+        window.addEventListener('load', function() {
+            // 检查 Supabase 是否加载
+            if (typeof window.supabase === 'undefined') {
+                console.error('❌ Supabase CDN 加载失败');
+                document.body.innerHTML = '<div style="text-align: center; padding: 2rem; color: red;">Supabase 加载失败，请检查网络连接</div>';
+                return;
+            }
+
+            // 动态加载配置文件
+            const scripts = [
+                '../js/config.js',
+                'js/admin-config.js',
+                'js/admin-auth.js',
+                'js/admin-main.js'
+            ];
+
+            let loadedCount = 0;
+
+            function loadScript(src) {
+                return new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            }
+
+            // 按顺序加载脚本
+            async function loadScripts() {
+                try {
+                    for (const src of scripts) {
+                        await loadScript(src);
+                        console.log(`✅ 已加载: ${src}`);
+                    }
+                    console.log('🎉 所有脚本加载完成');
+                } catch (error) {
+                    console.error('❌ 脚本加载失败:', error);
+                }
+            }
+
+            loadScripts();
+        });
+    </script>
+    
+    <script>
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 管理后台页面加载完成');
+            
+            // 隐藏加载指示器
+            const loading = document.getElementById('admin-loading');
+            if (loading) {
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                }, 1000);
+            }
+        });
+        
+        // 监听认证成功事件
+        window.addEventListener('adminAuthSuccess', function(event) {
+            console.log('✅ 管理员认证成功，初始化管理后台');
+            
+            // 更新管理员信息显示
+            const adminUsername = document.getElementById('admin-username');
+            if (adminUsername && event.detail.user) {
+                adminUsername.textContent = event.detail.user.email.split('@')[0];
+            }
+            
+            // 初始化管理后台功能
+            if (window.adminMain) {
+                window.adminMain.init();
+            }
+        });
+        
+        // 监听配置加载完成事件
+        window.addEventListener('adminConfigReady', function(event) {
+            console.log('⚙️ 管理后台配置加载完成');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkpoint回退演示</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .content {
+            flex: 2;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 300px;
+            background-color: #f9f9f9;
+        }
+        .history {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .checkpoint {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .checkpoint:hover {
+            background-color: #f0f0f0;
+        }
+        .checkpoint.active {
+            background-color: #e6f7ff;
+            border-left: 3px solid #1890ff;
+        }
+        .checkpoint-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        .revert-info {
+            font-size: 12px;
+            color: #888;
+            margin-left: 24px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #40a9ff;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .explanation {
+            background-color: #fffbe6;
+            border: 1px solid #ffe58f;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .content-text {
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Checkpoint回退演示</h1>
+    
+    <div class="explanation">
+        <h3>演示说明</h3>
+        <p>这个页面模拟了Augment的checkpoint系统工作方式。每次你修改内容或回退到之前的checkpoint，系统都会创建一个新的checkpoint，而不是直接覆盖当前状态。</p>
+        <p>左侧是内容区域，右侧是checkpoint历史记录。尝试修改内容并创建新的checkpoint，然后尝试回退到之前的版本，观察系统的行为。</p>
+    </div>
+    
+    <div class="controls">
+        <button id="saveBtn">保存当前内容为新Checkpoint</button>
+        <button id="resetBtn">重置演示</button>
+    </div>
+    
+    <div class="container">
+        <div class="content">
+            <h3>当前内容 (Checkpoint <span id="currentCheckpoint">1</span>)</h3>
+            <div class="content-text" id="contentText">
+                这是初始内容。
+                <br><br>
+                你可以编辑这段文字，然后点击"保存当前内容为新Checkpoint"按钮创建一个新的检查点。
+                <br><br>
+                之后，你可以点击右侧的任何检查点来回退到那个版本，系统会创建一个新的检查点而不是直接跳回去。
+            </div>
+            <button id="editBtn">编辑内容</button>
+        </div>
+        
+        <div class="history">
+            <h3>Checkpoint历史</h3>
+            <div id="checkpointList">
+                <div class="checkpoint active" data-id="1">
+                    <span class="checkpoint-icon">📌</span> Checkpoint 1
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 存储所有checkpoint的内容
+        const checkpoints = [
+            {
+                id: 1,
+                content: document.getElementById('contentText').innerHTML,
+                revertedFrom: null
+            }
+        ];
+        
+        let currentCheckpointId = 1;
+        
+        // 保存按钮点击事件
+        document.getElementById('saveBtn').addEventListener('click', function() {
+            const newId = checkpoints.length + 1;
+            const newContent = document.getElementById('contentText').innerHTML;
+            
+            // 创建新的checkpoint
+            checkpoints.push({
+                id: newId,
+                content: newContent,
+                revertedFrom: null
+            });
+            
+            // 更新当前checkpoint
+            currentCheckpointId = newId;
+            document.getElementById('currentCheckpoint').textContent = newId;
+            
+            // 更新历史记录
+            updateCheckpointList();
+        });
+        
+        // 编辑按钮点击事件
+        document.getElementById('editBtn').addEventListener('click', function() {
+            const contentElement = document.getElementById('contentText');
+            const currentContent = contentElement.innerHTML;
+            
+            // 创建一个简单的编辑界面
+            const textarea = document.createElement('textarea');
+            textarea.style.width = '100%';
+            textarea.style.height = '200px';
+            textarea.style.marginBottom = '10px';
+            textarea.value = currentContent.replace(/<br>/g, '\n');
+            
+            const saveEditBtn = document.createElement('button');
+            saveEditBtn.textContent = '保存编辑';
+            saveEditBtn.addEventListener('click', function() {
+                contentElement.innerHTML = textarea.value.replace(/\n/g, '<br>');
+                contentElement.style.display = 'block';
+                document.getElementById('editBtn').style.display = 'inline-block';
+                textarea.remove();
+                saveEditBtn.remove();
+                cancelEditBtn.remove();
+            });
+            
+            const cancelEditBtn = document.createElement('button');
+            cancelEditBtn.textContent = '取消';
+            cancelEditBtn.addEventListener('click', function() {
+                contentElement.style.display = 'block';
+                document.getElementById('editBtn').style.display = 'inline-block';
+                textarea.remove();
+                saveEditBtn.remove();
+                cancelEditBtn.remove();
+            });
+            
+            contentElement.style.display = 'none';
+            document.getElementById('editBtn').style.display = 'none';
+            contentElement.parentNode.insertBefore(textarea, contentElement);
+            contentElement.parentNode.insertBefore(saveEditBtn, contentElement);
+            contentElement.parentNode.insertBefore(cancelEditBtn, contentElement);
+        });
+        
+        // 重置按钮点击事件
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            if (confirm('确定要重置演示吗？所有checkpoint将被清除。')) {
+                // 保留第一个checkpoint
+                checkpoints.splice(1);
+                currentCheckpointId = 1;
+                document.getElementById('currentCheckpoint').textContent = '1';
+                document.getElementById('contentText').innerHTML = checkpoints[0].content;
+                updateCheckpointList();
+            }
+        });
+        
+        // 更新checkpoint列表
+        function updateCheckpointList() {
+            const listElement = document.getElementById('checkpointList');
+            listElement.innerHTML = '';
+            
+            checkpoints.forEach(checkpoint => {
+                const checkpointElement = document.createElement('div');
+                checkpointElement.className = 'checkpoint' + (checkpoint.id === currentCheckpointId ? ' active' : '');
+                checkpointElement.dataset.id = checkpoint.id;
+                
+                let html = `<span class="checkpoint-icon">📌</span> Checkpoint ${checkpoint.id}`;
+                
+                if (checkpoint.revertedFrom !== null) {
+                    html += `<div class="revert-info">Reverted to Checkpoint ${checkpoint.revertedFrom}</div>`;
+                }
+                
+                checkpointElement.innerHTML = html;
+                
+                // 添加点击事件
+                checkpointElement.addEventListener('click', function() {
+                    revertToCheckpoint(checkpoint.id);
+                });
+                
+                listElement.appendChild(checkpointElement);
+            });
+        }
+        
+        // 回退到指定checkpoint
+        function revertToCheckpoint(checkpointId) {
+            // 如果点击的是当前checkpoint，不做任何操作
+            if (checkpointId === currentCheckpointId) return;
+            
+            const targetCheckpoint = checkpoints.find(cp => cp.id === checkpointId);
+            if (!targetCheckpoint) return;
+            
+            // 创建一个新的checkpoint，内容是目标checkpoint的内容
+            const newId = checkpoints.length + 1;
+            checkpoints.push({
+                id: newId,
+                content: targetCheckpoint.content,
+                revertedFrom: checkpointId
+            });
+            
+            // 更新当前checkpoint
+            currentCheckpointId = newId;
+            document.getElementById('currentCheckpoint').textContent = newId;
+            document.getElementById('contentText').innerHTML = targetCheckpoint.content;
+            
+            // 更新历史记录
+            updateCheckpointList();
+        }
+    </script>
+</body>
+</html>

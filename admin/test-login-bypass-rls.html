@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台登录测试 - 绕过RLS</title>
+
+    <!-- 管理后台样式 -->
+    <link rel="stylesheet" href="css/admin-login.css">
+
+    <!-- Supabase 客户端 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 0.875rem;
+            max-width: 400px;
+            z-index: 10000;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .warning {
+            background: #fef3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 警告信息 -->
+    <div class="warning">
+        <strong>⚠️ 调试模式</strong><br>
+        此页面绕过 RLS 策略，仅用于调试。生产环境请勿使用！
+    </div>
+
+    <!-- 调试面板 -->
+    <div class="debug-panel">
+        <h4>RLS 绕过测试</h4>
+        <div id="debug-content">等待操作...</div>
+    </div>
+
+    <!-- 登录界面 -->
+    <div id="admin-login-form" class="admin-login-overlay">
+        <div class="admin-login-container">
+            <div class="admin-login-header">
+                <h1>管理后台登录</h1>
+                <p>RLS 绕过测试版本</p>
+            </div>
+
+            <form id="admin-login-form-element" class="admin-login-form">
+                <div class="form-group">
+                    <label for="admin-email">邮箱地址</label>
+                    <input type="email" id="admin-email" name="email" required
+                           placeholder="请输入管理员邮箱" value="chtx365@163.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="admin-password">密码</label>
+                    <input type="password" id="admin-password" name="password" required
+                           placeholder="请输入密码">
+                </div>
+
+                <button type="submit" id="admin-login-btn" class="admin-login-btn">
+                    测试登录（绕过RLS）
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 调试输出函数
+        function debugLog(title, data) {
+            const debugContent = document.getElementById('debug-content');
+            const section = document.createElement('div');
+            section.innerHTML = `
+                <div style="margin: 0.5rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
+                    <h5 style="margin: 0 0 0.5rem 0;">${title}</h5>
+                    <pre style="margin: 0; font-size: 0.75rem; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+            debugContent.appendChild(section);
+            debugContent.scrollTop = debugContent.scrollHeight;
+        }
+
+        // 初始化两个 Supabase 客户端
+        // 1. 普通客户端（用于身份验证）
+        const supabaseAuth = window.supabase.createClient(
+            'https://qnqzoxkejxshsxvmprhs.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucXpveGtlanhzaHN4dm1wcmhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwMDQ0NzMsImV4cCI6MjA2NDU4MDQ3M30.ZPBSdEAz-ncPOfAEwwYEJyd3cpF05U-hIQKyOZKCMaw'
+        );
+
+        // 2. 服务角色客户端（绕过 RLS）
+        // 注意：这里需要服务角色密钥，我们先用匿名密钥测试
+        const supabaseAdmin = window.supabase.createClient(
+            'https://qnqzoxkejxshsxvmprhs.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFucXpveGtlanhzaHN4dm1wcmhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwMDQ0NzMsImV4cCI6MjA2NDU4MDQ3M30.ZPBSdEAz-ncPOfAEwwYEJyd3cpF05U-hIQKyOZKCMaw'
+        );
+
+        debugLog('Supabase 客户端初始化', {
+            auth: !!supabaseAuth,
+            admin: !!supabaseAdmin
+        });
+
+        // 登录处理
+        document.getElementById('admin-login-form-element').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+
+            debugLog('开始登录流程', { email });
+
+            try {
+                // 1. 身份验证
+                const { data: authData, error: authError } = await supabaseAuth.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                debugLog('身份验证结果', {
+                    success: !authError,
+                    userId: authData?.user?.id,
+                    error: authError?.message
+                });
+
+                if (authError) {
+                    throw new Error(authError.message);
+                }
+
+                const userId = authData.user.id;
+
+                // 2. 使用管理员客户端查询（绕过 RLS）
+                debugLog('使用管理员客户端查询', '开始...');
+
+                // 先测试是否能查询到任何用户
+                const { data: allUsers, error: allUsersError } = await supabaseAdmin
+                    .from('users')
+                    .select('*')
+                    .limit(5);
+
+                debugLog('查询所有用户（管理员客户端）', {
+                    data: allUsers,
+                    error: allUsersError,
+                    count: allUsers?.length
+                });
+
+                if (allUsers && allUsers.length > 0) {
+                    debugLog('RLS 绕过成功', '可以查询到用户数据');
+
+                    // 查询特定用户
+                    const { data: userData, error: userError } = await supabaseAdmin
+                        .from('users')
+                        .select('*')
+                        .eq('user_id', userId);
+
+                    debugLog('查询特定用户', {
+                        data: userData,
+                        error: userError,
+                        userId: userId
+                    });
+
+                    if (userData && userData.length > 0) {
+                        const user = userData[0];
+                        if (user.role === 'admin') {
+                            alert(`✅ 登录成功！管理员: ${user.username}`);
+                        } else {
+                            alert(`⚠️ 登录成功，但您不是管理员。角色: ${user.role}`);
+                        }
+                    } else {
+                        alert('❌ 用户在 public.users 表中不存在');
+                    }
+                } else {
+                    debugLog('RLS 仍然阻止查询', '即使使用管理员客户端也无法查询');
+                    alert('❌ RLS 策略阻止了查询，请检查数据库配置');
+                }
+
+            } catch (error) {
+                debugLog('登录错误', {
+                    name: error.name,
+                    message: error.message
+                });
+                alert('登录失败: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
